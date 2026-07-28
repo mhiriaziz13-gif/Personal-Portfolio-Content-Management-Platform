@@ -21,7 +21,7 @@ NEXT_PUBLIC_SITE_URL=https://your-production-domain.vercel.app
 APP_URL=https://your-production-domain.vercel.app
 ALLOWED_ORIGINS=https://your-production-domain.vercel.app
 REQUIRE_ADMIN_MFA=true
-ADMIN_MFA_REMEMBER_DAYS=14
+ADMIN_MFA_REMEMBER_DAYS=10
 ```
 
 Optional:
@@ -37,10 +37,21 @@ GITHUB_TOKEN=
 - `NEXT_PUBLIC_CAPTCHA_PROVIDER` and `NEXT_PUBLIC_CAPTCHA_SITE_KEY` are browser-visible widget configuration.
 - `SUPABASE_SERVICE_ROLE_KEY`, `HCAPTCHA_SECRET_KEY`, the HMAC secrets, and
   `RESEND_API_KEY` are server-only.
+- Generate the three HMAC secrets independently with at least 32 non-whitespace
+  UTF-8 bytes of randomly generated material each. `ADMIN_DEVICE_HMAC_SECRET`
+  has no fallback and must not reuse an application secret or Supabase key.
 - Never expose the service role key as `NEXT_PUBLIC_*`.
 - Configure the same hCaptcha secret in Supabase Auth for login/recovery and as
   Vercel's server-only `HCAPTCHA_SECRET_KEY` for `/api/contact`.
 - Do not paste secrets into source files.
+
+## Contact Notification Delivery
+
+After `/api/contact` durably persists an accepted message, the request makes one
+immediate notification-delivery attempt. A failed attempt remains visible and
+can be retried manually from the admin CMS. `next_delivery_attempt_at` supports
+reconciliation and possible future queue automation; the current deployment has
+no background worker or automatic retry scheduler.
 
 ## Production Domain
 

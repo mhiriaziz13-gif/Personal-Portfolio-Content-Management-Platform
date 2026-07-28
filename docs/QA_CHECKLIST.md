@@ -40,6 +40,12 @@
 - [ ] Admin can upload image.
 - [ ] Admin can upload CV.
 - [ ] Admin can view contact messages.
+- [ ] An accepted contact message is durably persisted before its immediate
+  notification-delivery attempt.
+- [ ] A failed contact notification remains visible and can be retried manually
+  from the admin CMS without duplicating the persisted message.
+- [ ] `next_delivery_attempt_at` is treated as reconciliation/future-automation
+  state; no background worker or automatic retry scheduler is present.
 - [ ] Admin can logout.
 - [ ] A second tab with a stale `updated_at` receives a 409 conflict.
 - [ ] Each successful create/update/archive/delete has an atomic revision row.
@@ -56,7 +62,7 @@
 - [ ] MFA enrollment works.
 - [ ] TOTP verification works.
 - [ ] Wrong TOTP is rejected.
-- [ ] Remember device works for the configured duration (14 days by default).
+- [ ] Remember device works for the configured duration (10 days by default).
 - [ ] Revoke remembered device works.
 - [ ] Forgot password sends recovery.
 - [ ] Reset password works.

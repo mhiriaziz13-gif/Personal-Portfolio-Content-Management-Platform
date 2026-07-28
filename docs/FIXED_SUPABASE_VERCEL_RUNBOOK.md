@@ -33,7 +33,7 @@ APP_URL=https://ahmedaziz-portfolio.vercel.app
 ALLOWED_ORIGINS=https://ahmedaziz-portfolio.vercel.app,http://localhost:3000,http://127.0.0.1:3000
 
 REQUIRE_ADMIN_MFA=false
-ADMIN_MFA_REMEMBER_DAYS=14
+ADMIN_MFA_REMEMBER_DAYS=10
 
 NEXT_PUBLIC_GITHUB_USERNAME=mhiriaziz13-gif
 GITHUB_TOKEN=
@@ -51,10 +51,21 @@ NEXT_PUBLIC_GA_MEASUREMENT_ID=G-W7WJF6YR9X
 
 Keep `REQUIRE_ADMIN_MFA=false` until `/admin/security` enrollment works.
 
+Generate `RATE_LIMIT_HMAC_SECRET`, `PRIVACY_HMAC_SECRET`, and
+`ADMIN_DEVICE_HMAC_SECRET` as three independent values of at least 32 random
+bytes each. The admin secret has no fallback and must not reuse a Supabase key
+or any other application credential.
+
 The CAPTCHA site key is public. Store the matching secret in Supabase
 **Authentication > Bot and Abuse Protection** for auth and in Vercel as the
 server-only `HCAPTCHA_SECRET_KEY` for contact-form verification. Never expose it
 through `NEXT_PUBLIC_*` or commit it. Redeploy after changing CAPTCHA values.
+
+An accepted contact message is durably persisted before the request makes one
+immediate notification-delivery attempt. A failed attempt remains visible and
+must currently be retried manually from the admin CMS.
+`next_delivery_attempt_at` supports reconciliation and possible future queue
+automation; no background worker or automatic retry scheduler is deployed.
 
 ## 3. Supabase SQL
 

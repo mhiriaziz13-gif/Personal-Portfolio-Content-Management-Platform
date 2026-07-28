@@ -75,9 +75,11 @@ Before scheduling the database window, confirm the candidate application build:
    message content, credentials, or stack traces.
 5. The synchronous delivery path increments `delivery_attempts`, records
    attempt times, and claims work atomically so concurrent requests cannot send
-   the same message. Failed notifications are retried explicitly from the admin
-   inbox; `next_delivery_attempt_at` is advisory state for a future scheduled
-   worker, not a claim that one is currently deployed.
+   the same message. It runs immediately only after durable message persistence.
+   Failed notifications remain visible and are retried manually from the admin
+   inbox. `next_delivery_attempt_at` supports reconciliation and possible future
+   queue automation; no background worker or automatic retry scheduler is
+   deployed.
 6. CMS mutations append sanitized `previous_values`/`next_values` revisions.
    Revision snapshots
    must omit tokens, credentials, raw IP addresses, private headers, and other
@@ -115,9 +117,12 @@ rotate intentionally, not during an incident investigation.
 Configure a separate high-entropy `PRIVACY_HMAC_SECRET` for persisted
 `ip_hash`/`user_agent_hash` values so those digests are not linkable to limiter
 keys. Configure a third independent `ADMIN_DEVICE_HMAC_SECRET` for remembered
-device context binding. Rotating that secret invalidates existing context hashes;
-plan a fresh administrator MFA challenge and token reissue as part of any
-rotation.
+device context binding, password-recovery state signing, and admin audit hashes.
+Each secret must contain at least 32 random bytes. The admin secret has no
+fallback and must never reuse either other HMAC secret, a Supabase key, or any
+other application credential. Rotating that secret invalidates existing context
+hashes; plan a fresh administrator MFA challenge and token reissue as part of
+any rotation.
 
 Configure contact delivery only in trusted server environments:
 
@@ -393,7 +398,7 @@ and service-only RPCs are compatible with the previous server-mediated app and
 should normally remain in place.
 
 If contact delivery must be paused while the old app is active, change only new
-row defaults; retain all queued state:
+row defaults; retain all persisted delivery state:
 
 ```sql
 begin;
@@ -405,9 +410,10 @@ alter table public.contact_messages
 commit;
 ```
 
-Pause notification retries before that change. Do not rewrite existing
-`pending`, `sending`, `failed`, or `sent` rows. After the fix, restore the
-reviewed defaults and resume from persisted state.
+Pause new contact submissions and do not initiate manual notification retries
+before that change. Do not rewrite existing `pending`, `sending`, `failed`, or
+`sent` rows. After the fix, restore the reviewed defaults and resume from
+persisted state.
 
 If an unexpected legacy browser mutation depended on a removed grant/policy,
 restore only the exact preflight ACL/policy snapshot for the affected table as a
@@ -454,4 +460,4 @@ Archive:
 - both verification runs and final migration-list output;
 - Security Advisor/Auth-setting evidence;
 - smoke/regression results;
-- any rollback, paused worker, or residual-risk decision.
+- any rollback, paused contact delivery, or residual-risk decision.

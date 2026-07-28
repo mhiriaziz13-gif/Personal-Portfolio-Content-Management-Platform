@@ -1,28 +1,14 @@
 import { createClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
 
+import { canRunRlsIntegrationTests } from "./supabase-test-guard";
+
 const url = process.env.TEST_SUPABASE_URL ?? "";
 const anonKey = process.env.TEST_SUPABASE_ANON_KEY ?? "";
 const serviceRoleKey = process.env.TEST_SUPABASE_SERVICE_ROLE_KEY ?? "";
-const allowMutations = process.env.ALLOW_TEST_DATABASE_MUTATIONS === "true";
-const projectRef = (() => {
-  try {
-    return new URL(url).hostname.split(".")[0];
-  } catch {
-    return "";
-  }
-})();
-const productionRef = process.env.PRODUCTION_SUPABASE_PROJECT_REF ?? "";
 const aal1Token = process.env.TEST_SUPABASE_AAL1_ACCESS_TOKEN ?? "";
 const publishedProjectId = process.env.TEST_PUBLISHED_PROJECT_ID ?? "";
-const isolated = Boolean(
-  url
-  && anonKey
-  && allowMutations
-  && projectRef
-  && productionRef
-  && projectRef !== productionRef,
-);
+const isolated = canRunRlsIntegrationTests(process.env);
 
 describe.skipIf(!isolated)("isolated Supabase RLS", () => {
   it("denies direct anonymous CMS writes", async () => {
@@ -38,7 +24,7 @@ describe.skipIf(!isolated)("isolated Supabase RLS", () => {
       published: false,
     }).select("id").maybeSingle();
 
-    if (result.data?.id && serviceRoleKey) {
+    if (result.data?.id) {
       const service = createClient(url, serviceRoleKey, {
         auth: { persistSession: false, autoRefreshToken: false },
       });

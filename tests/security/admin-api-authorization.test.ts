@@ -9,9 +9,11 @@ const state = vi.hoisted(() => ({
 
 vi.mock("@/lib/supabase/config", () => ({
   adminDeviceHmacSecret: () => "admin-api-authorization-test-secret",
-  adminMfaRememberDays: () => 14,
+  adminMfaRememberDays: () => 10,
   getAllowedOrigins: () => ["https://portfolio.test"],
   isSupabaseAdminConfigured: () => state.configured,
+  requireAdminDeviceHmacSecret: () =>
+    "admin-api-authorization-test-secret",
   requireAdminMfa: () => true,
 }));
 

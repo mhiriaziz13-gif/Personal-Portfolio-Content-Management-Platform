@@ -16,16 +16,32 @@ APP_URL=https://ahmedaziz-portfolio.vercel.app
 ALLOWED_ORIGINS=https://ahmedaziz-portfolio.vercel.app,http://localhost:3000,http://127.0.0.1:3000
 
 REQUIRE_ADMIN_MFA=true
-ADMIN_MFA_REMEMBER_DAYS=14
+ADMIN_MFA_REMEMBER_DAYS=10
+
+RATE_LIMIT_HMAC_SECRET=
+PRIVACY_HMAC_SECRET=
+ADMIN_DEVICE_HMAC_SECRET=
 
 NEXT_PUBLIC_GITHUB_USERNAME=mhiriaziz13-gif
 NEXT_PUBLIC_GA_MEASUREMENT_ID=G-W7WJF6YR9X
 ```
 
+Generate the three HMAC values independently. Each must contain at least 32
+non-whitespace UTF-8 bytes of randomly generated secret material.
+`ADMIN_DEVICE_HMAC_SECRET` has no fallback to another application or Supabase
+credential; missing or invalid production configuration fails closed for
+operations that require it.
+
 Redeploy the Vercel project after changing environment variables. A controlled
 bootstrap may temporarily use `REQUIRE_ADMIN_MFA=false` until the full MFA
 enrollment and recovery flow has been verified. Set it back to `true`, redeploy,
 and retest before production acceptance.
+
+Contact notification delivery is attempted immediately only after the accepted
+message has been durably persisted. Failed attempts remain visible and are
+retried manually from the admin CMS. `next_delivery_attempt_at` supports
+reconciliation and possible future queue automation; no background worker or
+automatic retry scheduler is deployed.
 
 ## 2. Supabase URL configuration
 

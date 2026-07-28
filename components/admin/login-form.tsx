@@ -230,7 +230,7 @@ export const LoginForm = ({ nextPath, initialMfaRequired = false, initialError, 
           </label>
           <label className="flex items-center gap-3 text-sm text-gray-300">
             <input type="checkbox" checked={rememberDevice} onChange={(event) => setRememberDevice(event.target.checked)} />
-            Remember this device for 14 days
+            Remember this device for 10 days
           </label>
           <button type="submit" disabled={pending || !factorId} className="button-primary rounded-lg px-5 py-3 font-bold text-white disabled:opacity-60">{pending ? "Verifying..." : "Verify code"}</button>
         </form>

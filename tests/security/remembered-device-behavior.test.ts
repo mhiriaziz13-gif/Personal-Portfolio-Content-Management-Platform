@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 type DeviceRow = {
   id: string;
@@ -20,6 +20,7 @@ const state = vi.hoisted(() => ({
   row: null as DeviceRow | null,
   updates: [] as Record<string, unknown>[],
   audits: [] as Record<string, unknown>[],
+  createdDevices: [] as Record<string, unknown>[],
   updateError: false,
 }));
 
@@ -36,9 +37,11 @@ const matches = (
 });
 
 vi.mock("@/lib/supabase/config", () => ({
-  adminDeviceHmacSecret: () => "remembered-device-test-secret",
-  adminMfaRememberDays: () => 14,
+  adminDeviceHmacSecret: () => "remembered-device-test-secret-material",
+  adminMfaRememberDays: () => 10,
   isSupabaseAdminConfigured: () => true,
+  requireAdminDeviceHmacSecret: () =>
+    "remembered-device-test-secret-material",
   requireAdminMfa: () => true,
 }));
 
@@ -54,6 +57,24 @@ vi.mock("@/lib/supabase/admin", () => ({
           insert: async (values: Record<string, unknown>) => {
             state.audits.push(values);
             return { error: null };
+          },
+        };
+      }
+
+      if (table === "admin_security_preferences") {
+        return {
+          select: () => {
+            const query = {
+              eq: () => query,
+              maybeSingle: async () => ({
+                data: {
+                  mfa_required: true,
+                  remember_device_enabled: true,
+                },
+                error: null,
+              }),
+            };
+            return query;
           },
         };
       }
@@ -105,12 +126,23 @@ vi.mock("@/lib/supabase/admin", () => ({
           };
           return query;
         },
+        insert: (values: Record<string, unknown>) => {
+          state.createdDevices.push(values);
+          return {
+            select: () => ({
+              single: async () => ({
+                data: { id: "created-device-id" },
+                error: null,
+              }),
+            }),
+          };
+        },
       };
     },
   }),
 }));
 
-const secret = "remembered-device-test-secret";
+const secret = "remembered-device-test-secret-material";
 const hmac = (label: "user-agent" | "network", value: string) =>
   createHmac("sha256", secret)
     .update(`${label}\0${value}`)
@@ -131,6 +163,7 @@ describe("remembered-device verification behavior", () => {
     vi.clearAllMocks();
     state.updates.length = 0;
     state.audits.length = 0;
+    state.createdDevices.length = 0;
     state.updateError = false;
     const { sha256Hex } = await import("@/lib/security/crypto");
     state.row = {
@@ -151,6 +184,34 @@ describe("remembered-device verification behavior", () => {
       revoked_at: null,
       revocation_reason: null,
     };
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("stores the default 10-day expiration in the database", async () => {
+    vi.useFakeTimers();
+    const now = new Date("2026-07-28T12:00:00.000Z");
+    vi.setSystemTime(now);
+    const { createRememberedDevice } = await import(
+      "@/lib/security/admin-auth"
+    );
+
+    const created = await createRememberedDevice(
+      "admin-user",
+      requestFor(),
+    );
+    const expectedExpiry = new Date(
+      now.getTime() + 10 * 24 * 60 * 60 * 1000,
+    );
+
+    expect(state.createdDevices).toHaveLength(1);
+    expect(state.createdDevices[0]).toMatchObject({
+      user_id: "admin-user",
+      expires_at: expectedExpiry.toISOString(),
+    });
+    expect(created?.expiresAt).toEqual(expectedExpiry);
   });
 
   it("accepts a valid token and records device usage", async () => {

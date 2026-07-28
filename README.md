@@ -234,7 +234,7 @@ ALLOWED_ORIGINS=https://ahmedaziz-portfolio.vercel.app
 
 # Admin MFA policy
 REQUIRE_ADMIN_MFA=true
-ADMIN_MFA_REMEMBER_DAYS=14
+ADMIN_MFA_REMEMBER_DAYS=10
 
 # Public integrations
 NEXT_PUBLIC_GITHUB_USERNAME=mhiriaziz13-gif
@@ -250,8 +250,18 @@ Important security rules:
 - The hCaptcha secret belongs in Supabase Auth and the server-only
   `HCAPTCHA_SECRET_KEY` used by `/api/contact`, never a `NEXT_PUBLIC_*`
   variable.
+- Generate `RATE_LIMIT_HMAC_SECRET`, `PRIVACY_HMAC_SECRET`, and
+  `ADMIN_DEVICE_HMAC_SECRET` independently with at least 32 non-whitespace
+  UTF-8 bytes of randomly generated material each; the admin HMAC has no
+  fallback to another credential.
 - Preview deployments must remain non-indexable.
 - Production canonical URLs must never be generated from an untrusted request host.
+
+Contact notifications are attempted immediately after an accepted message is
+durably persisted. A failed attempt remains visible in the admin CMS and must
+currently be retried manually there. `next_delivery_attempt_at` supports
+reconciliation and possible future queue automation; this application does not
+currently deploy a background worker or automatic retry scheduler.
 
 ## Available commands
 

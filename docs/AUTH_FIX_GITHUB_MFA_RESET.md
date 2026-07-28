@@ -51,7 +51,12 @@ a six-digit code. Then enable the per-admin MFA requirement, set
 `REQUIRE_ADMIN_MFA=true`, redeploy, and repeat the login test. The global switch
 is mandatory before production acceptance.
 
-Remembered devices last `ADMIN_MFA_REMEMBER_DAYS` (14 days by default, configurable from 1–30 days). The raw random token exists only in an HttpOnly SameSite cookie; Supabase stores its hash. Password reset and security controls revoke devices.
+Remembered devices last `ADMIN_MFA_REMEMBER_DAYS` (10 days by default, configurable from 1–30 days). The raw random token exists only in an HttpOnly SameSite cookie; Supabase stores its hash. Password reset and security controls revoke devices.
+
+Generate `ADMIN_DEVICE_HMAC_SECRET` independently with at least 32 random bytes.
+It must not reuse the privacy, rate-limit, Supabase, OAuth, or other application
+secrets and has no fallback in the application.
+
 ## Troubleshooting the three common production errors
 
 ### `requested path is invalid` after a password-reset email

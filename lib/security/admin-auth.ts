@@ -10,6 +10,7 @@ import {
   adminDeviceHmacSecret,
   adminMfaRememberDays,
   isSupabaseAdminConfigured,
+  requireAdminDeviceHmacSecret,
   requireAdminMfa,
 } from "@/lib/supabase/config";
 import {
@@ -36,10 +37,7 @@ export const passwordRecoveryCookieName = () =>
     : "aam_admin_recovery";
 
 const recoveryStateSignature = (payload: string) => {
-  const secret = adminDeviceHmacSecret();
-  if (!secret) {
-    throw new Error("Admin auth HMAC secret is not configured.");
-  }
+  const secret = requireAdminDeviceHmacSecret();
 
   return createHmac("sha256", secret)
     .update(`password-recovery\0${payload}`)
@@ -325,10 +323,7 @@ const deviceContextHmac = (
   label: "user-agent" | "network",
   value: string,
 ) => {
-  const secret = adminDeviceHmacSecret();
-  if (!secret) {
-    throw new Error("Remembered-device HMAC secret is not configured.");
-  }
+  const secret = requireAdminDeviceHmacSecret();
 
   return createHmac("sha256", secret)
     .update(`${label}\0${value}`)

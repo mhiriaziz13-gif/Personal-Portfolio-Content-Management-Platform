@@ -2,6 +2,12 @@ const trimTrailingSlash = (value: string) => value.replace(/\/+$/, "");
 
 const readEnv = (key: string) => process.env[key]?.trim() ?? "";
 
+const meaningfulUtf8ByteLength = (value: string) =>
+  new TextEncoder().encode(value.replace(/\s/gu, "")).byteLength;
+
+const ADMIN_SECURITY_HMAC_CONFIGURATION_ERROR =
+  "Admin security HMAC configuration is missing or invalid.";
+
 const isLocalHostname = (hostname: string) => {
   const normalized = hostname
     .toLowerCase()
@@ -103,16 +109,23 @@ export const getAllowedOrigins = () => {
 export const requireAdminMfa = () => readEnv("REQUIRE_ADMIN_MFA").toLowerCase() === "true";
 
 export const adminMfaRememberDays = () => {
-  const days = Number(readEnv("ADMIN_MFA_REMEMBER_DAYS") || "14");
-  if (!Number.isFinite(days)) return 14;
+  const days = Number(readEnv("ADMIN_MFA_REMEMBER_DAYS") || "10");
+  if (!Number.isFinite(days)) return 10;
   return Math.min(30, Math.max(1, Math.trunc(days)));
 };
 
-export const adminDeviceHmacSecret = () =>
-  readEnv("ADMIN_DEVICE_HMAC_SECRET")
-  || readEnv("PRIVACY_HMAC_SECRET")
-  || readEnv("RATE_LIMIT_HMAC_SECRET")
-  || (process.env.NODE_ENV === "production" ? "" : supabaseEnv.serviceRoleKey);
+export const adminDeviceHmacSecret = () => {
+  const secret = readEnv("ADMIN_DEVICE_HMAC_SECRET");
+  return meaningfulUtf8ByteLength(secret) >= 32 ? secret : "";
+};
+
+export const requireAdminDeviceHmacSecret = () => {
+  const secret = adminDeviceHmacSecret();
+  if (!secret) {
+    throw new Error(ADMIN_SECURITY_HMAC_CONFIGURATION_ERROR);
+  }
+  return secret;
+};
 
 export const assertSupabasePublicEnv = () => {
   if (!isSupabaseConfigured()) {
