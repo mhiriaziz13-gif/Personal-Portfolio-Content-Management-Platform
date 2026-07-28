@@ -1,30 +1,52 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseAdminConfigured } from "@/lib/supabase/config";
 import { getMfaContext, requireAdminApi } from "@/lib/security/admin-auth";
-import { jsonOk } from "@/lib/security/http";
+import { clientIp, jsonError, jsonOk } from "@/lib/security/http";
+import {
+  consumeRateLimit,
+  rateLimitResponse,
+} from "@/lib/security/rate-limit";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  const admin = await requireAdminApi(request, { sameOrigin: false });
+  const admin = await requireAdminApi(request);
   if (!admin.ok) return admin.response;
+
+  const limited = await consumeRateLimit({
+    scope: "admin-mfa-status",
+    identifiers: [admin.user.id, clientIp(request)],
+    limit: 60,
+    windowMs: 15 * 60 * 1000,
+  });
+  if (!limited.allowed) {
+    return rateLimitResponse(limited);
+  }
 
   const mfa = await getMfaContext(
     admin.supabase,
     admin.user.id,
     request,
-    admin.accessToken,
     admin.user,
   );
   let devices: unknown[] = [];
 
   if (isSupabaseAdminConfigured()) {
     const supabase = createSupabaseAdminClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("admin_remembered_devices")
-      .select("id, user_agent_hash, ip_hash, created_at, last_used_at, expires_at, revoked_at")
+      .select(
+        "id, created_at, last_used_at, expires_at, revoked_at, rotated_at, rotation_counter, revocation_reason",
+      )
       .eq("user_id", admin.user.id)
       .order("created_at", { ascending: false });
+    if (error) {
+      return jsonError(
+        "Remembered devices could not be loaded.",
+        500,
+        "server_error",
+      );
+    }
     devices = data ?? [];
   }
 

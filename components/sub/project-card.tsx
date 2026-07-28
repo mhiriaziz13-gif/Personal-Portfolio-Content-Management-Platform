@@ -31,10 +31,10 @@ export const ProjectCard = ({
         <TrackedLink
           href={href}
           analyticsEvent={{
-            event: "project_view",
+            event: "project_explore_click",
             project_slug: projectSlug || href.split("/").pop() || "unknown",
             project_title: title,
-            card_location: cardLocation,
+            cta_location: cardLocation,
           }}
           aria-label={`View project: ${title}`}
           className="absolute inset-0 z-10 rounded-lg focus:outline-none"

@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { isSafeInternalPath } from "@/lib/security/redirects";
+
 export const emailSchema = z.string().trim().email().max(254);
 
 export const passwordSchema = z
@@ -32,8 +34,10 @@ export const contactSchema = z.object({
   name: z.string().trim().min(2).max(120),
   email: emailSchema,
   message: z.string().trim().min(10).max(5000),
-  company: z.string().max(0).optional().or(z.literal("")),
-});
+  company: z.string().max(200).optional().default(""),
+  captchaToken: captchaTokenSchema,
+  submissionId: z.string().uuid(),
+}).strict();
 
 export const mfaVerifySchema = z.object({
   factorId: z.string().uuid(),
@@ -56,7 +60,8 @@ export const contentMutationSchema = z.object({
   values: z.record(z.string(), z.unknown()).optional(),
   rows: z.array(z.record(z.string(), z.unknown())).optional(),
   id: z.string().optional(),
-});
+  expectedUpdatedAt: z.string().datetime({ offset: true }).optional(),
+}).strict();
 
 export const messageStatusSchema = z.enum(["new", "read", "archived"]);
 
@@ -66,6 +71,7 @@ export const messageActionSchema = z.enum([
   "archive",
   "restore_read",
   "restore_unread",
+  "resend_notification",
 ]);
 
 export const messageUpdateSchema = z.object({
@@ -85,12 +91,28 @@ const isHttpsUrl = (value: string) => {
   }
 };
 
-const isInternalPath = (value: string) =>
-  value.startsWith("/") && !value.startsWith("//");
+const isInternalPath = isSafeInternalPath;
+
+const isConfiguredPublicAssetUrl = (value: string) => {
+  try {
+    const candidate = new URL(value);
+    const configured = new URL(
+      process.env.NEXT_PUBLIC_SUPABASE_URL
+      || process.env.SUPABASE_URL
+      || "",
+    );
+    return candidate.protocol === "https:"
+      && candidate.origin === configured.origin
+      && candidate.pathname.startsWith("/storage/v1/object/public/");
+  } catch {
+    return false;
+  }
+};
 
 export const assetUrlSchema = z.string().trim().max(2048).refine(
-  (value) => !value || isInternalPath(value) || isHttpsUrl(value),
-  "Enter an HTTPS URL or a site path beginning with /.",
+  (value) =>
+    !value || isInternalPath(value) || isConfiguredPublicAssetUrl(value),
+  "Enter a site path or a public asset URL from the configured Supabase project.",
 );
 
 export const externalUrlSchema = z.string().trim().max(2048).refine(

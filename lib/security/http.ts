@@ -6,9 +6,13 @@ export { jsonHeaders } from "@/lib/security/headers";
 
 const normalizeOrigin = (value: string) => {
   try {
-    return new URL(value).origin.toLowerCase();
+    const url = new URL(value);
+    if (url.username || url.password || url.origin === "null") {
+      return null;
+    }
+    return url.origin.toLowerCase();
   } catch {
-    return value.trim().replace(/\/+$/, "").toLowerCase();
+    return null;
   }
 };
 
@@ -19,28 +23,51 @@ export const clientIp = (request: Request) => {
 
 export const userAgent = (request: Request) => request.headers.get("user-agent") || "unknown";
 
+const trustedOrigins = () =>
+  new Set(
+    getAllowedOrigins()
+      .map(normalizeOrigin)
+      .filter((origin): origin is string => Boolean(origin)),
+  );
+
+export const getTrustedRequestOrigin = (request: Request) => {
+  const requestOrigin = normalizeOrigin(request.url);
+  return requestOrigin && trustedOrigins().has(requestOrigin)
+    ? requestOrigin
+    : null;
+};
+
+const fetchMetadataAllowsRequest = (request: Request) => {
+  const site = request.headers.get("sec-fetch-site")?.trim().toLowerCase();
+
+  // Older browsers may omit Fetch Metadata. When present, it must prove the
+  // request came from the exact origin, not merely a sibling subdomain.
+  return !site || site === "same-origin";
+};
+
 export const isSameOrigin = (request: Request) => {
-  const requestOrigin = normalizeOrigin(new URL(request.url).origin);
-  const allowedOrigins = new Set([
-    requestOrigin,
-    ...getAllowedOrigins().map(normalizeOrigin),
-  ]);
+  const requestOrigin = getTrustedRequestOrigin(request);
+  if (!requestOrigin || !fetchMetadataAllowsRequest(request)) {
+    return false;
+  }
+
   const origin = request.headers.get("origin");
 
   if (origin) {
-    return allowedOrigins.has(normalizeOrigin(origin));
+    return normalizeOrigin(origin) === requestOrigin;
   }
 
   const referer = request.headers.get("referer");
-  if (!referer) {
-    return process.env.NODE_ENV !== "production";
+  if (referer) {
+    return normalizeOrigin(referer) === requestOrigin;
   }
 
-  try {
-    return allowedOrigins.has(normalizeOrigin(new URL(referer).origin));
-  } catch {
-    return false;
+  const fetchSite = request.headers.get("sec-fetch-site")?.trim().toLowerCase();
+  if (fetchSite === "same-origin") {
+    return true;
   }
+
+  return process.env.NODE_ENV !== "production";
 };
 
 export const assertSameOrigin = (request: Request) => {

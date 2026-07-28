@@ -19,6 +19,7 @@ const bootstrap = read("components/analytics/consent-bootstrap.tsx");
 const provider = read("components/analytics/analytics-consent-provider.tsx");
 const clarity = read("components/analytics/clarity-loader.tsx");
 const events = read("lib/analytics/events.ts");
+const contactForm = read("components/main/contact-form.tsx");
 const logout = read("app/api/auth/logout/route.ts");
 const failures = [];
 const check = (condition, message) => { if (!condition) failures.push(message); };
@@ -37,6 +38,8 @@ check(clarity.includes('"consentv2"') && clarity.includes("analytics_Storage"), 
 check(!/\.consent\s*\(/.test(clarity), "Deprecated Clarity Consent V1 call found.");
 check(source.includes('["/admin", "/auth", "/api"]'), "Private analytics path exclusions are missing.");
 check(!/^\s*(?:email|message|name|token|user_id)\??\s*:/m.test(events), "Banned PII field found in analytics event definitions.");
+check((contactForm.match(/event:\s*"contact_submit_success"/g) || []).length === 1, "Expected one contact success event emission.");
+check(!/event:\s*"contact_submit"/.test(contactForm), "Legacy duplicate contact_submit event found.");
 check(/export\s+async\s+function\s+POST/.test(logout) && !/export\s+async\s+function\s+GET/.test(logout), "Logout must remain POST-only.");
 
 if (failures.length) {

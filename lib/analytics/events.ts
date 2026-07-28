@@ -9,10 +9,23 @@ export type AnalyticsEvent =
       event: "project_view";
       project_slug: string;
       project_title: string;
-      card_location: "homepage" | "projects_page" | "related_projects";
     }
   | {
-      event: "cv_download";
+      event: "project_explore_click";
+      project_slug?: string;
+      project_title?: string;
+      cta_location:
+        | "hero"
+        | "homepage"
+        | "projects_page"
+        | "related_projects";
+    }
+  | {
+      event: "resume_view_click";
+      cta_location: "hero" | "homepage" | "contact_section";
+    }
+  | {
+      event: "resume_download";
       cv_variant: "english" | "french" | "ats" | "canadian";
       file_format: "pdf" | "docx";
       cta_location: "resume_page" | "homepage" | "contact_section";
@@ -37,7 +50,7 @@ export type AnalyticsEvent =
   | {
       event: "profile_link_click";
       platform: "linkedin" | "github";
-      link_location: "navbar" | "footer" | "contact" | "about";
+      link_location: "navbar" | "footer" | "contact" | "about" | "hero";
     }
   | {
       event: "email_contact_click";
@@ -56,10 +69,6 @@ export type AnalyticsEvent =
   | {
       event: "outbound_linkedin_click" | "outbound_github_click";
       link_location: "project_card" | "project_page" | "navbar" | "footer" | "contact" | "about";
-    }
-  | {
-      event: "contact_submit";
-      form_name: "portfolio_contact";
     };
 
 export const pushAnalyticsEvent = (event: AnalyticsEvent) => {

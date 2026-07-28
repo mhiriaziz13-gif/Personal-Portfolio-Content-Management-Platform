@@ -17,7 +17,6 @@ import type {
   ContactMessage,
   MessageAction,
 } from "@/lib/cms-types";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 import {
   adminApiError,
@@ -28,6 +27,7 @@ import {
   parseUploads,
   readJsonObject,
 } from "./admin-api";
+import { getProjectCompleteness } from "@/lib/content-completeness";
 import {
   type CmsField,
   CmsFieldInput,
@@ -37,6 +37,7 @@ import {
 } from "./cms-field-input";
 import { ContactMessagesPanel } from "./contact-messages-panel";
 import { MediaLibrary } from "./media-library";
+import { RevisionHistory } from "./revision-history";
 import { SettingsPanel } from "./settings-panel";
 
 type Row = Record<string, unknown>;
@@ -195,6 +196,13 @@ const sections: Section[] = [
     description: "Text blocks displayed on each project page. Choose the project by name.",
     fields: [
       { key: "project_id", label: "Project", kind: "select", required: true },
+      {
+        key: "section_type",
+        label: "Section type",
+        kind: "select",
+        options: ["rich_text", "media_gallery", "media"],
+        required: true,
+      },
       { key: "title", label: "Title", required: true },
       { key: "body", label: "Body", kind: "textarea" },
       { key: "bullets", label: "Bullets", kind: "list" },
@@ -373,16 +381,22 @@ const sections: Section[] = [
   },
 ];
 
-const emptyRow = (section: Section): Row => Object.fromEntries(section.fields.map((field) => [
-  field.key,
-  field.kind === "checkbox"
-    ? field.key === "published"
-    : field.kind === "number"
-      ? 0
-      : field.kind === "list"
-        ? []
-        : "",
-]));
+const emptyRow = (section: Section): Row => {
+  const row = Object.fromEntries(section.fields.map((field) => [
+    field.key,
+    field.kind === "checkbox"
+      ? false
+      : field.kind === "number"
+        ? 0
+        : field.kind === "list"
+          ? []
+          : "",
+  ]));
+
+  if (section.table === "projects") row.status = "draft";
+  if (section.table === "project_sections") row.section_type = "rich_text";
+  return row;
+};
 
 const rowsFor = (snapshot: AdminContentSnapshot, table: CmsTableName): Row[] =>
   (Array.isArray(snapshot[table]) ? snapshot[table] : []).filter(isRecord);
@@ -398,6 +412,7 @@ const actionSuccessMessage: Record<MessageAction, string> = {
   archive: "Message archived.",
   restore_read: "Message restored to the Inbox as read.",
   restore_unread: "Message restored to the Inbox as unread.",
+  resend_notification: "Notification delivery retried.",
 };
 
 const inputCardTitle = (row: Row, index: number) => String(
@@ -410,14 +425,117 @@ const inputCardTitle = (row: Row, index: number) => String(
   ?? `Entry ${index + 1}`,
 );
 
+const archivableTables = new Set<EditableTable>([
+  "projects",
+  "project_sections",
+  "page_sections",
+  "volunteering",
+]);
+
+const projectSectionsFor = (
+  project: Row,
+  records: Record<string, Row[]>,
+) => {
+  const projectId = String(project.id ?? "");
+  return (records.project_sections ?? [])
+    .filter((section) => String(section.project_id ?? "") === projectId)
+    .map((section) => ({
+      ...section,
+      items: (records.project_section_items ?? []).filter(
+        (item) =>
+          String(item.project_section_id ?? "")
+          === String(section.id ?? "")
+          && item.is_visible !== false,
+      ),
+      media:
+        section.section_type === "media"
+        || section.section_type === "media_gallery"
+          ? (records.project_media ?? []).filter(
+            (item) =>
+              String(item.project_id ?? "") === projectId
+              && item.is_visible !== false,
+          )
+          : [],
+    }));
+};
+
+const orderConfiguration: Partial<Record<
+  EditableTable,
+  { orderKey: string; parentKeys: string[] }
+>> = {
+  projects: { orderKey: "projects_page_order", parentKeys: [] },
+  project_sections: { orderKey: "sort_order", parentKeys: ["project_id"] },
+  project_section_items: {
+    orderKey: "display_order",
+    parentKeys: ["project_section_id"],
+  },
+  project_media: { orderKey: "display_order", parentKeys: ["project_id"] },
+  page_sections: { orderKey: "display_order", parentKeys: ["page_id"] },
+  page_section_items: {
+    orderKey: "display_order",
+    parentKeys: ["page_section_id"],
+  },
+};
+
+const duplicateOrderIssue = (
+  table: EditableTable,
+  row: Row,
+  rows: Row[],
+) => {
+  const configuration = orderConfiguration[table];
+  if (!configuration) return null;
+  const order = row[configuration.orderKey];
+  if (typeof order !== "number" || !Number.isFinite(order)) return null;
+
+  const duplicate = rows.some((candidate) =>
+    candidate !== row
+    && (
+      typeof row.id !== "string"
+      || typeof candidate.id !== "string"
+      || candidate.id !== row.id
+    )
+    && candidate[configuration.orderKey] === order
+    && configuration.parentKeys.every(
+      (key) => candidate[key] === row[key],
+    ));
+
+  return duplicate
+    ? `Duplicate ${configuration.orderKey.replaceAll("_", " ")}.`
+    : null;
+};
+
+const linkedProjectIssue = (
+  table: EditableTable,
+  row: Row,
+  projects: Row[],
+) => {
+  if (table !== "page_section_items" || typeof row.link_url !== "string") {
+    return null;
+  }
+  const match = /^\/projects\/([^/?#]+)\/?$/.exec(row.link_url.trim());
+  if (!match) return null;
+  const linked = projects.find((project) => project.slug === match[1]);
+
+  return linked?.published === true && linked.status === "published"
+    ? null
+    : "Linked project is missing or unpublished.";
+};
+
+const recordIssues = (
+  table: EditableTable,
+  row: Row,
+  records: Record<string, Row[]>,
+) => [
+  duplicateOrderIssue(table, row, records[table] ?? []),
+  linkedProjectIssue(table, row, records.projects ?? []),
+].filter((issue): issue is string => Boolean(issue));
+
 export const AdminDashboard = ({
   content,
   email,
-  accessToken,
 }: {
   content: AdminContentSnapshot;
   email?: string;
-  accessToken?: string;
 }) => {
   const [view, setView] = useState<View>("overview");
   const [records, setRecords] = useState<Record<string, Row[]>>(() =>
@@ -431,12 +549,13 @@ export const AdminDashboard = ({
   const [contentStatus, setContentStatus] = useState("");
   const [messageStatus, setMessageStatus] = useState("");
   const [pendingMessageId, setPendingMessageId] = useState<string | null>(null);
+  const [logoutPending, setLogoutPending] = useState(false);
   const messageRefreshIdRef = useRef(0);
   const initialUploads = useMemo(() => parseUploads(content.uploads), [content.uploads]);
 
   const request = useCallback<AdminRequest>(
-    (url, init = {}) => adminFetch(url, init, accessToken),
-    [accessToken],
+    (url, init = {}) => adminFetch(url, init),
+    [],
   );
 
   const active = sections.find((section) => section.table === view);
@@ -480,6 +599,20 @@ export const AdminDashboard = ({
     resumes: records.resumes?.length ?? 0,
     unread: messages.filter((message) => message.status === "new").length,
   }), [messages, records]);
+  const projectChecklist = useMemo(() => {
+    if (active?.table !== "projects") return null;
+    const completeness = getProjectCompleteness(
+      draft,
+      projectSectionsFor(draft, records),
+    );
+    return {
+      ...completeness,
+      warnings: [
+        ...completeness.warnings,
+        ...recordIssues("projects", draft, records),
+      ],
+    };
+  }, [active?.table, draft, records]);
 
   const refreshMessages = useCallback(async (reportErrors = false) => {
     const refreshId = ++messageRefreshIdRef.current;
@@ -514,43 +647,37 @@ export const AdminDashboard = ({
     window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
-    let removeRealtime: (() => void) | undefined;
-    try {
-      const supabase = createSupabaseBrowserClient();
-      const channel = supabase
-        .channel("admin-contact-messages")
-        .on(
-          "postgres_changes",
-          { event: "INSERT", schema: "public", table: "contact_messages" },
-          refreshFromServer,
-        )
-        .on(
-          "postgres_changes",
-          { event: "UPDATE", schema: "public", table: "contact_messages" },
-          refreshFromServer,
-        )
-        .on(
-          "postgres_changes",
-          { event: "DELETE", schema: "public", table: "contact_messages" },
-          refreshFromServer,
-        )
-        .subscribe();
-      removeRealtime = () => {
-        void supabase.removeChannel(channel);
-      };
-    } catch {
-      // The 30-second and focus refreshes remain active if Realtime is unavailable.
-    }
-
     return () => {
       stopped = true;
       messageRefreshIdRef.current += 1;
       window.clearInterval(intervalId);
       window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      removeRealtime?.();
     };
   }, [refreshMessages]);
+
+  const logout = async () => {
+    if (logoutPending) return;
+    setLogoutPending(true);
+
+    try {
+      const response = await request("/api/auth/logout?next=/admin/login", {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        const data = await readJsonObject(response);
+        setContentStatus(adminApiError(data));
+        setLogoutPending(false);
+        return;
+      }
+
+      window.location.assign(response.url || "/admin/login");
+    } catch {
+      setContentStatus("Logout could not be completed.");
+      setLogoutPending(false);
+    }
+  };
 
   const beginEdit = (section: Section, index: number) => {
     setEditing(index);
@@ -585,7 +712,14 @@ export const AdminDashboard = ({
     const response = await request("/api/admin/content", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ table: active.table, values: draft }),
+      body: JSON.stringify({
+        table: active.table,
+        values: draft,
+        expectedUpdatedAt:
+          typeof draft.updated_at === "string"
+            ? draft.updated_at
+            : undefined,
+      }),
     });
     const data = await readJsonObject(response);
     const savedRow = isRecord(data.row) ? data.row : null;
@@ -619,12 +753,21 @@ export const AdminDashboard = ({
       }));
       return;
     }
-    if (!window.confirm(`Delete this ${section.label.toLowerCase()} entry?`)) return;
+    const archives = archivableTables.has(section.table);
+    if (!window.confirm(
+      archives
+        ? `Archive this ${section.label.toLowerCase()} entry?`
+        : `Permanently delete this ${section.label.toLowerCase()} entry?`,
+    )) return;
 
     const response = await request("/api/admin/content", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ table: section.table, id: row.id }),
+      body: JSON.stringify({
+        table: section.table,
+        id: row.id,
+        expectedUpdatedAt: String(row.updated_at ?? ""),
+      }),
     });
     const data = await readJsonObject(response);
     if (!response.ok || data.ok !== true) {
@@ -632,11 +775,14 @@ export const AdminDashboard = ({
       return;
     }
 
-    setRecords((current) => ({
-      ...current,
-      [section.table]: current[section.table].filter((_, itemIndex) => itemIndex !== index),
-    }));
-    setContentStatus("Deleted.");
+    const returnedRow = isRecord(data.row) ? data.row : null;
+    setRecords((current) => {
+      const next = [...current[section.table]];
+      if (returnedRow) next[index] = returnedRow;
+      else next.splice(index, 1);
+      return { ...current, [section.table]: next };
+    });
+    setContentStatus(returnedRow ? "Archived." : "Permanently deleted.");
   };
 
   const updateMessage = async (id: string, action: MessageAction) => {
@@ -721,9 +867,14 @@ export const AdminDashboard = ({
         </div>
         <div className="flex gap-3 text-sm">
           <Link href="/admin/security" className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 hover:bg-white/10">Security</Link>
-          <form action="/api/auth/logout" method="POST">
-            <button type="submit" className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 hover:bg-white/10">Logout</button>
-          </form>
+          <button
+            type="button"
+            onClick={() => void logout()}
+            disabled={logoutPending}
+            className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 hover:bg-white/10 disabled:opacity-60"
+          >
+            {logoutPending ? "Logging out..." : "Logout"}
+          </button>
         </div>
       </header>
 
@@ -796,6 +947,47 @@ export const AdminDashboard = ({
                       />
                     ))}
                   </div>
+                  {projectChecklist && (
+                    <section
+                      aria-labelledby="project-publishing-checklist"
+                      className={`mt-6 rounded-lg border p-4 ${
+                        projectChecklist.publishable
+                          ? "border-emerald-300/20 bg-emerald-500/10"
+                          : "border-amber-300/20 bg-amber-500/10"
+                      }`}
+                    >
+                      <h3
+                        id="project-publishing-checklist"
+                        className="font-semibold text-white"
+                      >
+                        Publication checklist
+                      </h3>
+                      <p className="mt-1 text-sm text-gray-300">
+                        {projectChecklist.publishable
+                          ? "Required public content is complete."
+                          : "Resolve these blockers before publishing."}
+                      </p>
+                      {projectChecklist.blockingIssues.length > 0 && (
+                        <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-amber-100">
+                          {projectChecklist.blockingIssues.map((issue) => (
+                            <li key={issue}>{issue}</li>
+                          ))}
+                        </ul>
+                      )}
+                      {projectChecklist.warnings.length > 0 && (
+                        <div className="mt-3">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-300">
+                            Recommended
+                          </p>
+                          <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-gray-300">
+                            {projectChecklist.warnings.map((warning) => (
+                              <li key={warning}>{warning}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </section>
+                  )}
                   <div className="mt-6 flex flex-wrap items-center gap-3">
                     <button type="submit" className="button-primary inline-flex items-center gap-2 rounded-lg px-5 py-3 font-semibold text-white">
                       <FiSave aria-hidden="true" />Save
@@ -803,25 +995,73 @@ export const AdminDashboard = ({
                     <button type="button" onClick={cancelEdit} className="rounded-lg border border-white/10 bg-white/5 px-5 py-3 text-sm hover:bg-white/10">Cancel</button>
                     <p className="text-sm text-cyan-100" aria-live="polite">{contentStatus}</p>
                   </div>
+                  {editing >= 0 && typeof draft.id === "string" && (
+                    <RevisionHistory
+                      table={active.table}
+                      recordId={draft.id}
+                      request={request}
+                    />
+                  )}
                 </form>
               ) : (
                 <div className="mt-6 grid gap-3">
-                  {(records[active.table] ?? []).map((row, index) => (
-                    <article key={String(row.id ?? `${active.table}-${index}`)} className="flex flex-col gap-4 rounded-lg border border-white/10 bg-white/5 p-4 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="min-w-0">
-                        <h3 className="truncate font-semibold text-white">{inputCardTitle(row, index)}</h3>
-                        <p className="mt-1 line-clamp-2 text-sm text-gray-400">{String(row.headline ?? row.summary ?? row.role ?? row.issuer ?? row.degree ?? row.url ?? row.body ?? "")}</p>
-                      </div>
-                      <div className="flex shrink-0 gap-2">
-                        <button type="button" aria-label={`Edit ${inputCardTitle(row, index)}`} onClick={() => beginEdit(active, index)} className="rounded-lg border border-white/10 bg-white/5 p-2.5 hover:bg-white/10">
-                          <FiEdit2 aria-hidden="true" />
-                        </button>
-                        <button type="button" aria-label={`Delete ${inputCardTitle(row, index)}`} onClick={() => void remove(active, index)} className="rounded-lg border border-red-300/20 bg-red-500/10 p-2.5 text-red-100 hover:bg-red-500/20">
-                          <FiTrash2 aria-hidden="true" />
-                        </button>
-                      </div>
-                    </article>
-                  ))}
+                  {(records[active.table] ?? []).map((row, index) => {
+                    const completeness = active.table === "projects"
+                      ? getProjectCompleteness(
+                        row,
+                        projectSectionsFor(row, records),
+                      )
+                      : null;
+                    const issues = recordIssues(active.table, row, records);
+                    const archiveAction = archivableTables.has(active.table);
+
+                    return (
+                      <article key={String(row.id ?? `${active.table}-${index}`)} className="flex flex-col gap-4 rounded-lg border border-white/10 bg-white/5 p-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="truncate font-semibold text-white">{inputCardTitle(row, index)}</h3>
+                            {completeness && (
+                              <span
+                                className={`rounded-full px-2 py-0.5 text-xs ${
+                                  completeness.publishable
+                                    ? "bg-emerald-500/15 text-emerald-100"
+                                    : "bg-amber-500/15 text-amber-100"
+                                }`}
+                              >
+                                {completeness.publishable
+                                  ? completeness.warnings.length > 0
+                                    ? `${completeness.warnings.length} recommendations`
+                                    : "Ready to publish"
+                                  : `${completeness.blockingIssues.length} blockers`}
+                              </span>
+                            )}
+                            {issues.map((issue) => (
+                              <span
+                                key={issue}
+                                className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-100"
+                              >
+                                {issue}
+                              </span>
+                            ))}
+                          </div>
+                          <p className="mt-1 line-clamp-2 text-sm text-gray-400">{String(row.headline ?? row.summary ?? row.role ?? row.issuer ?? row.degree ?? row.url ?? row.body ?? "")}</p>
+                        </div>
+                        <div className="flex shrink-0 gap-2">
+                          <button type="button" aria-label={`Edit ${inputCardTitle(row, index)}`} onClick={() => beginEdit(active, index)} className="rounded-lg border border-white/10 bg-white/5 p-2.5 hover:bg-white/10">
+                            <FiEdit2 aria-hidden="true" />
+                          </button>
+                          <button
+                            type="button"
+                            aria-label={`${archiveAction ? "Archive" : "Delete"} ${inputCardTitle(row, index)}`}
+                            onClick={() => void remove(active, index)}
+                            className="rounded-lg border border-red-300/20 bg-red-500/10 p-2.5 text-red-100 hover:bg-red-500/20"
+                          >
+                            <FiTrash2 aria-hidden="true" />
+                          </button>
+                        </div>
+                      </article>
+                    );
+                  })}
                   {!(records[active.table]?.length) && <p className="py-8 text-center text-sm text-gray-400">No entries yet.</p>}
                   <p className="text-sm text-cyan-100" aria-live="polite">{contentStatus}</p>
                 </div>

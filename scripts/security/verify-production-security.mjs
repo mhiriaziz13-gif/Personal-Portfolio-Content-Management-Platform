@@ -210,8 +210,9 @@ async function main(rawUrl) {
     const { response } = await request(path, { headers: { Origin: hostileOrigin } });
     const denied = response.status === 401 || response.status === 403;
     const unavailable = response.status === 404 || response.status === 405;
+    const authenticationUnavailable = response.status === 503;
 
-    if (denied || unavailable) {
+    if (denied || unavailable || authenticationUnavailable) {
       pass(`${path} is not public (${response.status}).`);
     } else {
       fail(`${path} returned unexpected unauthenticated status ${response.status}.`);
@@ -223,7 +224,7 @@ async function main(rawUrl) {
       ? fail(`${path} permits a wildcard or untrusted test origin through CORS.`)
       : pass(`${path} does not permit a wildcard or untrusted test origin through CORS.`);
 
-    if (denied) {
+    if (denied || authenticationUnavailable) {
       const cacheControl = response.headers.get("cache-control") ?? "";
       /private/i.test(cacheControl) && /no-store/i.test(cacheControl)
         ? pass(`${path} denies caching of its authentication response.`)

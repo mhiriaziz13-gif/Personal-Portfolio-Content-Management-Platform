@@ -28,7 +28,9 @@ The app requests recovery with `/auth/callback?next=/admin/reset-password`, vali
 
 ## CAPTCHA for password entry points
 
-The application uses hCaptcha. Before deployment, the owner must confirm that production project `qflchsmvszbesfnomdeo` selects hCaptcha and stores the matching provider secret in Supabase Auth. Vercel must provide:
+The application uses hCaptcha. Before deployment, the owner must confirm that
+the production Supabase project selects hCaptcha and stores the matching
+provider secret in Supabase Auth. Vercel must provide:
 
 ```text
 NEXT_PUBLIC_CAPTCHA_PROVIDER=hcaptcha
@@ -43,9 +45,13 @@ Allow the production hostname in the hCaptcha site configuration. Add a trusted 
 
 ## TOTP and remembered devices
 
-Keep `REQUIRE_ADMIN_MFA=false` during initial setup. Sign in, open `/admin/security`, enroll Google Authenticator, scan the QR code and verify a six-digit code. Then enable the per-admin MFA requirement. Only after this succeeds should the global environment switch be considered.
+Keep `REQUIRE_ADMIN_MFA=false` only during controlled initial setup. Sign in,
+open `/admin/security`, enroll Google Authenticator, scan the QR code and verify
+a six-digit code. Then enable the per-admin MFA requirement, set
+`REQUIRE_ADMIN_MFA=true`, redeploy, and repeat the login test. The global switch
+is mandatory before production acceptance.
 
-Remembered devices last `ADMIN_MFA_REMEMBER_DAYS` (10 by default). The raw random token exists only in an HttpOnly SameSite cookie; Supabase stores its SHA-256 hash. Password reset and security controls can revoke devices.
+Remembered devices last `ADMIN_MFA_REMEMBER_DAYS` (14 days by default, configurable from 1–30 days). The raw random token exists only in an HttpOnly SameSite cookie; Supabase stores its hash. Password reset and security controls revoke devices.
 ## Troubleshooting the three common production errors
 
 ### `requested path is invalid` after a password-reset email
@@ -68,7 +74,7 @@ The application now clears stale unverified TOTP factors before creating a new e
 
 In Supabase **Authentication > Sign In / Providers > GitHub**, enable GitHub and save the GitHub Client ID and Client Secret. The GitHub OAuth App callback must be:
 
-`https://qflchsmvszbesfnomdeo.supabase.co/auth/v1/callback`
+`https://<production-project-ref>.supabase.co/auth/v1/callback`
 
 Its homepage URL should be `https://ahmedaziz-portfolio.vercel.app`. The GitHub-created Supabase Auth user must also be present in `public.admins`.
 ## Required recovery email template

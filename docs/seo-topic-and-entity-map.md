@@ -11,6 +11,6 @@
 | `/education` | education | Business Intelligence; 2025–2027 Master's study |
 | `/certifications` | verified credentials | issuer, credential URL and covered topics |
 | `/resume` | Ahmed Aziz Mhiri CV | resume variants, education, credentials |
-| `/contact` | contact Ahmed Aziz Mhiri | analyst/automation opportunities; Europe from Summer 2027 |
+| `/contact` | contact Ahmed Aziz Mhiri | analytics/automation opportunities; international full-time from October 2027; selected freelance now |
 
 Branded, role, expertise and project/problem intent should converge on these pages rather than create near-duplicate variants. No country/city doorway pages should be created.

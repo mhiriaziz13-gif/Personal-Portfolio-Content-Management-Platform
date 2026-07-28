@@ -195,7 +195,7 @@ Operational routes under `/admin`, `/auth` and `/api` are excluded from public d
 ```bash
 git clone https://github.com/mhiriaziz13-gif/Personal-Portfolio.git
 cd Personal-Portfolio
-npm install
+npm ci
 cp .env.example .env.local
 npm run dev
 ```
@@ -218,6 +218,15 @@ SUPABASE_SERVICE_ROLE_KEY=
 NEXT_PUBLIC_CAPTCHA_PROVIDER=hcaptcha
 NEXT_PUBLIC_CAPTCHA_SITE_KEY=
 
+# Server-only CAPTCHA, privacy, device, limiter and notification secrets
+HCAPTCHA_SECRET_KEY=
+RATE_LIMIT_HMAC_SECRET=
+PRIVACY_HMAC_SECRET=
+ADMIN_DEVICE_HMAC_SECRET=
+RESEND_API_KEY=
+CONTACT_NOTIFICATION_TO=
+CONTACT_NOTIFICATION_FROM=
+
 # Canonical application URLs
 NEXT_PUBLIC_SITE_URL=https://ahmedaziz-portfolio.vercel.app
 APP_URL=https://ahmedaziz-portfolio.vercel.app
@@ -225,7 +234,7 @@ ALLOWED_ORIGINS=https://ahmedaziz-portfolio.vercel.app
 
 # Admin MFA policy
 REQUIRE_ADMIN_MFA=true
-ADMIN_MFA_REMEMBER_DAYS=10
+ADMIN_MFA_REMEMBER_DAYS=14
 
 # Public integrations
 NEXT_PUBLIC_GITHUB_USERNAME=mhiriaziz13-gif
@@ -238,7 +247,9 @@ NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION=
 Important security rules:
 
 - `SUPABASE_SERVICE_ROLE_KEY` is server-only and must never be exposed to browser code.
-- The hCaptcha secret belongs in Supabase Auth configuration, not in a `NEXT_PUBLIC_*` variable.
+- The hCaptcha secret belongs in Supabase Auth and the server-only
+  `HCAPTCHA_SECRET_KEY` used by `/api/contact`, never a `NEXT_PUBLIC_*`
+  variable.
 - Preview deployments must remain non-indexable.
 - Production canonical URLs must never be generated from an untrusted request host.
 
@@ -248,10 +259,15 @@ Important security rules:
 npm run dev
 npm run type-check
 npm run lint
+npm run test
+npm run test:coverage
+npm run test:integration
 npm run build
 npm run start
-npm run security:verify
-npm run seo:audit -- http://localhost:3000
+npm run test:e2e
+npm run audit:security
+npm run audit:seo
+npm run audit:lighthouse
 npm run content:audit
 ```
 
@@ -262,10 +278,15 @@ npm run content:audit
 | `npm run dev` | Start the local development server |
 | `npm run type-check` | Run TypeScript validation without emitting files |
 | `npm run lint` | Run ESLint across the repository |
+| `npm run test` | Run the deterministic Vitest suite |
+| `npm run test:coverage` | Run Vitest with enforced coverage thresholds |
+| `npm run test:integration` | Run credential-gated RLS checks against an isolated Supabase project |
 | `npm run build` | Create a production Next.js build |
 | `npm run start` | Start the production server locally |
-| `npm run security:verify` | Validate production security invariants |
-| `npm run seo:audit` | Audit metadata, canonicals, links, discovery files and indexability |
+| `npm run test:e2e` | Run public Chromium/mobile accessibility and browser flows; authenticated lifecycle tests require the isolated variables documented in `docs/QA_CHECKLIST.md` |
+| `npm run audit:security` | Validate runtime security invariants; set `SECURITY_TARGET_URL` |
+| `npm run audit:seo` | Audit metadata, canonicals, links, discovery files and indexability against the local production server |
+| `npm run audit:lighthouse` | Run performance, accessibility, best-practices and SEO budgets; set `LIGHTHOUSE_URL` |
 | `npm run content:audit` | Compare public CMS structure with repository content expectations |
 
 ## Search and discovery endpoints

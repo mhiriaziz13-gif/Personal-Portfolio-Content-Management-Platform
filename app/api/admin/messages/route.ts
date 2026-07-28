@@ -1,8 +1,10 @@
 import { z } from "zod";
 
 import type { MessageAction, MessageStatus } from "@/lib/cms-types";
+import { deliverContactNotification } from "@/lib/contact-delivery";
 import { requireAdminApi, writeAdminAudit } from "@/lib/security/admin-auth";
-import { jsonError, jsonOk } from "@/lib/security/http";
+import { clientIp, jsonError, jsonOk } from "@/lib/security/http";
+import { consumeRateLimit, rateLimitResponse } from "@/lib/security/rate-limit";
 import {
   messageDeleteSchema,
   messageStatusSchema,
@@ -15,9 +17,10 @@ export const dynamic = "force-dynamic";
 
 const messageViewSchema = z.enum(["inbox", "archived", "all"]);
 
-const messageFields = "id,name,email,message,source,status,created_at,updated_at,read_at,archived_at";
+const messageFields = "id,name,email,message,source,status,created_at,updated_at,read_at,archived_at,delivery_status,delivery_attempts,last_delivery_attempt_at,next_delivery_attempt_at,delivered_at,delivery_error_code,provider_message_id";
 const legacyMessageFields = "id,name,email,message,source,status,created_at";
-const migrationColumns = /\b(updated_at|read_at|archived_at)\b/i;
+const migrationColumns =
+  /\b(updated_at|read_at|archived_at|delivery_status|delivery_attempts|last_delivery_attempt_at|next_delivery_attempt_at|delivered_at|delivery_error_code|provider_message_id)\b/i;
 
 type SupabaseError = {
   code?: string;
@@ -46,6 +49,13 @@ const normalizeLegacyMessage = (message: LegacyMessage) => ({
   updated_at: message.created_at,
   read_at: null,
   archived_at: null,
+  delivery_status: "not_requested",
+  delivery_attempts: 0,
+  last_delivery_attempt_at: null,
+  next_delivery_attempt_at: null,
+  delivered_at: null,
+  delivery_error_code: null,
+  provider_message_id: null,
 });
 
 const logSupabaseError = (operation: string, error: SupabaseError) => {
@@ -69,7 +79,7 @@ const actionStatus = {
   archive: "archived",
   restore_read: "read",
   restore_unread: "new",
-} satisfies Record<MessageAction, MessageStatus>;
+} satisfies Record<Exclude<MessageAction, "resend_notification">, MessageStatus>;
 
 const auditAction = {
   mark_read: "contact_message_marked_read",
@@ -77,10 +87,11 @@ const auditAction = {
   archive: "contact_message_archived",
   restore_read: "contact_message_restored",
   restore_unread: "contact_message_restored",
+  resend_notification: "contact_message_notification_retried",
 } satisfies Record<MessageAction, string>;
 
 const updateForAction = (
-  action: MessageAction,
+  action: Exclude<MessageAction, "resend_notification">,
   currentReadAt: string | null,
 ) => {
   const now = new Date().toISOString();
@@ -176,7 +187,49 @@ export async function POST(request: Request) {
     return jsonError("Invalid message update.", 400, "validation_error");
   }
 
+  const limited = await consumeRateLimit({
+    scope: parsed.success && parsed.data.action === "resend_notification"
+      ? "admin_message_resend"
+      : "admin_message_update",
+    identifiers: [admin.user.id, clientIp(request)],
+    limit: parsed.success && parsed.data.action === "resend_notification" ? 10 : 100,
+    windowMs: 10 * 60 * 1_000,
+  });
+  if (!limited.allowed) return rateLimitResponse(limited);
+
   const supabase = createSupabaseAdminClient();
+
+  if (parsed.data.action === "resend_notification") {
+    const message = await supabase
+      .from("contact_messages")
+      .select("id,name,email,message")
+      .eq("id", parsed.data.id)
+      .maybeSingle();
+    if (message.error) {
+      return jsonError("Could not load the message.", 500, "server_error");
+    }
+    if (!message.data) return jsonError("Message not found.", 404, "not_found");
+
+    await deliverContactNotification(message.data);
+    const refreshed = await supabase
+      .from("contact_messages")
+      .select(messageFields)
+      .eq("id", parsed.data.id)
+      .single();
+    if (refreshed.error) {
+      return jsonError("Could not load delivery status.", 500, "server_error");
+    }
+
+    await writeAdminAudit({
+      actorUserId: admin.user.id,
+      action: auditAction.resend_notification,
+      entityType: "contact_messages",
+      entityId: parsed.data.id,
+      request,
+    });
+    return jsonOk({ message: refreshed.data });
+  }
+
   const existing = await supabase
     .from("contact_messages")
     .select("id, read_at")
@@ -260,11 +313,37 @@ export async function DELETE(request: Request) {
     return jsonError("Invalid message deletion.", 400, "validation_error");
   }
 
+  const limited = await consumeRateLimit({
+    scope: "admin_message_delete",
+    identifiers: [admin.user.id, clientIp(request)],
+    limit: 10,
+    windowMs: 60 * 60 * 1_000,
+  });
+  if (!limited.allowed) return rateLimitResponse(limited);
+
   const supabase = createSupabaseAdminClient();
+  const existing = await supabase
+    .from("contact_messages")
+    .select("id,status")
+    .eq("id", parsed.data.id)
+    .maybeSingle();
+  if (existing.error) {
+    return jsonError("Could not load the message.", 500, "server_error");
+  }
+  if (!existing.data) return jsonError("Message not found.", 404, "not_found");
+  if (existing.data.status !== "archived") {
+    return jsonError(
+      "Archive the message before permanently deleting it.",
+      409,
+      "archive_required",
+    );
+  }
+
   const { data, error } = await supabase
     .from("contact_messages")
     .delete()
     .eq("id", parsed.data.id)
+    .eq("status", "archived")
     .select("id")
     .maybeSingle();
 

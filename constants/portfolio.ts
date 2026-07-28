@@ -38,7 +38,8 @@ export const profile = {
   linkedInLabel: "linkedin.com/in/ahmed-aziz-mhiri",
   github: "https://github.com/mhiriaziz13-gif",
   githubLabel: "github.com/mhiriaziz13-gif",
-  availability: "Available for Europe-based opportunities from Summer 2027",
+  availability:
+    "International full-time availability from October 2027; selected freelance projects available now.",
   mainTitle: "Data-Driven Marketing & Commercial Analytics",
   secondaryLine:
     "Marketing Analytics | Commercial Analytics | Business Intelligence | Process Automation",
@@ -163,11 +164,11 @@ export const projects: Project[] = [
     ],
   },
   {
-    title: "AI-Ready E-Learning Platform",
+    title: "VERMEG AI-Ready E-Learning Prototype",
     description:
-      "Secure, multilingual e-learning platform contribution with dashboards, microservices, local LLaMA 3.2 deployment and RAG-based knowledge retrieval.",
+      "Two-person internship prototype for an AI-ready e-learning experience. My contribution focused on chatbot functionality and selected application services; the prototype was not deployed to production.",
     image: "/projects/project-3.png",
-    tags: ["Angular", "Spring Boot", "REST APIs", "LLaMA 3.2", "Ollama", "RAG"],
+    tags: ["AI Prototype", "Team Project", "Angular", "Spring Boot", "Ollama", "RAG"],
   },
   {
     title: "Library Management Application",
@@ -246,10 +247,8 @@ export const experiences: Experience[] = [
     logo: "/companies/vermeg.png",
     logoAlt: "VERMEG logo",
     points: [
-      "Contributed to a secure, scalable and multilingual e-learning platform.",
-      "Worked on enrolment, progress tracking, dashboards, event booking and real-time notifications.",
-      "Integrated a locally deployed LLaMA 3.2 assistant through Ollama.",
-      "Contributed to RAG-based PDF and CSV knowledge retrieval, microservices, monitoring and security safeguards.",
+      "Co-developed a demonstrable AI-ready e-learning prototype in a two-person team; focused on chatbot functionality and selected application services.",
+      "Applied Angular, Spring Boot, Ollama and RAG concepts and contributed to integration, secure access, event-driven communication, containerisation and observability concepts. Prototype only; not deployed to production.",
     ],
   },
   {

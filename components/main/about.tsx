@@ -11,6 +11,7 @@ type AboutProps = {
 
 export const About = ({ profile = fallbackPortfolioContent.profile, about = fallbackPortfolioContent.about }: AboutProps) => {
   const avatarProfile = { ...profile, avatarPath: about.avatarUrl || profile.avatarPath };
+  if (!about.title && !about.body && about.highlights.length === 0) return null;
 
   return (
     <section

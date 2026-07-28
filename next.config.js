@@ -2,6 +2,11 @@
 const isDevelopment = process.env.NODE_ENV === "development";
 const isNonProductionDeployment = isDevelopment || Boolean(process.env.VERCEL_ENV && process.env.VERCEL_ENV !== "production");
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const analyticsEnabled = Boolean(
+  process.env.NEXT_PUBLIC_GTM_ID
+  || process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID
+);
+const clarityEnabled = Boolean(process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID);
 const captchaProvider = (
   process.env.NEXT_PUBLIC_CAPTCHA_PROVIDER || ""
 ).trim().toLowerCase();
@@ -9,7 +14,16 @@ const hcaptchaSources =
   captchaProvider === "hcaptcha"
     ? ["https://hcaptcha.com", "https://*.hcaptcha.com"]
     : [];
-const claritySources = ["https://*.clarity.ms", "https://c.bing.com"];
+const claritySources = clarityEnabled
+  ? ["https://*.clarity.ms", "https://c.bing.com"]
+  : [];
+const googleSources = analyticsEnabled
+  ? [
+      "https://www.googletagmanager.com",
+      "https://www.google-analytics.com",
+      "https://region1.google-analytics.com",
+    ]
+  : [];
 const supabaseOrigin = (() => {
   try {
     return supabaseUrl ? new URL(supabaseUrl).origin : "";
@@ -18,18 +32,10 @@ const supabaseOrigin = (() => {
   }
 })();
 
-const supabaseRealtimeOrigin = supabaseOrigin
-  .replace(/^https:/, "wss:")
-  .replace(/^http:/, "ws:");
-
 const connectSources = [
   "'self'",
-  supabaseOrigin,
-  supabaseRealtimeOrigin,
-  "https://www.googletagmanager.com",
-  "https://www.google-analytics.com",
-  "https://region1.google-analytics.com",
   "https://vitals.vercel-insights.com",
+  ...googleSources,
   ...claritySources,
   ...hcaptchaSources,
 ].filter(Boolean).join(" ");
@@ -38,8 +44,8 @@ const scriptSources = [
   "'self'",
   "'unsafe-inline'",
   ...(isDevelopment ? ["'unsafe-eval'"] : []),
-  "https://www.googletagmanager.com",
   "https://va.vercel-scripts.com",
+  ...googleSources.filter((source) => source.includes("googletagmanager")),
   ...claritySources,
   ...hcaptchaSources,
 ].filter(Boolean).join(" ");
@@ -59,9 +65,7 @@ const imageSources = [
   "data:",
   "blob:",
   supabaseOrigin,
-  "https://www.googletagmanager.com",
-  "https://www.google-analytics.com",
-  "https://region1.google-analytics.com",
+  ...googleSources,
   ...claritySources,
 ]
   .filter(Boolean)
@@ -90,8 +94,38 @@ const csp = [
   ...(!isDevelopment ? ["upgrade-insecure-requests"] : []),
 ].join("; ");
 
+// Next.js still emits inline bootstrap scripts. Keep the compatible enforced
+// policy while collecting violations against the nonce/hash-ready target.
+const cspReportOnly = [
+  "default-src 'self'",
+  `script-src ${[
+    "'self'",
+    "https://va.vercel-scripts.com",
+    ...googleSources.filter((source) => source.includes("googletagmanager")),
+    ...claritySources,
+    ...hcaptchaSources,
+  ].join(" ")}`,
+  "script-src-attr 'none'",
+  `style-src ${["'self'", ...hcaptchaSources].join(" ")}`,
+  `img-src ${imageSources}`,
+  "font-src 'self' data:",
+  `connect-src ${connectSources}`,
+  `frame-src ${frameSources}`,
+  "object-src 'none'",
+  "base-uri 'self'",
+  "frame-ancestors 'none'",
+  "form-action 'self'",
+  "report-uri /api/security/csp-report",
+  "report-to csp-endpoint",
+].join("; ");
+
 const securityHeaders = [
   { key: "Content-Security-Policy", value: csp },
+  { key: "Content-Security-Policy-Report-Only", value: cspReportOnly },
+  {
+    key: "Reporting-Endpoints",
+    value: 'csp-endpoint="/api/security/csp-report"',
+  },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },

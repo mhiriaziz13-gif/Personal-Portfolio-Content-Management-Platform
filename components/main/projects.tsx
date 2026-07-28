@@ -3,6 +3,11 @@ import { fallbackPortfolioContent } from "@/data/fallback-portfolio";
 import type { ProjectContent } from "@/lib/cms-types";
 
 export const Projects = ({ projects = fallbackPortfolioContent.projects, cardLocation, title = "Projects", subtitle = "Selected work" }: { projects?: ProjectContent[]; cardLocation: "homepage" | "projects_page"; title?: string; subtitle?: string }) => {
+  const visibleProjects = projects.filter(
+    (project) => project.slug && project.title && project.description,
+  );
+  if (visibleProjects.length === 0) return null;
+
   return (
     <section
       id="projects"
@@ -13,7 +18,7 @@ export const Projects = ({ projects = fallbackPortfolioContent.projects, cardLoc
         {title}
       </h2>
       <div className="grid h-full w-full gap-8 md:grid-cols-2 xl:grid-cols-3">
-        {projects.map((project) => (
+        {visibleProjects.map((project) => (
           <ProjectCard
             key={project.slug || project.title}
             src={project.image}

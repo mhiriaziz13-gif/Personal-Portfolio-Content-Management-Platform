@@ -15,14 +15,17 @@ NEXT_PUBLIC_SITE_URL=https://ahmedaziz-portfolio.vercel.app
 APP_URL=https://ahmedaziz-portfolio.vercel.app
 ALLOWED_ORIGINS=https://ahmedaziz-portfolio.vercel.app,http://localhost:3000,http://127.0.0.1:3000
 
-REQUIRE_ADMIN_MFA=false
-ADMIN_MFA_REMEMBER_DAYS=10
+REQUIRE_ADMIN_MFA=true
+ADMIN_MFA_REMEMBER_DAYS=14
 
 NEXT_PUBLIC_GITHUB_USERNAME=mhiriaziz13-gif
 NEXT_PUBLIC_GA_MEASUREMENT_ID=G-W7WJF6YR9X
 ```
 
-Redeploy the Vercel project after changing environment variables. Keep `REQUIRE_ADMIN_MFA=false` until the full MFA enrollment and recovery flow has been verified. With this value, MFA preferences cannot block login or CMS operations.
+Redeploy the Vercel project after changing environment variables. A controlled
+bootstrap may temporarily use `REQUIRE_ADMIN_MFA=false` until the full MFA
+enrollment and recovery flow has been verified. Set it back to `true`, redeploy,
+and retest before production acceptance.
 
 ## 2. Supabase URL configuration
 

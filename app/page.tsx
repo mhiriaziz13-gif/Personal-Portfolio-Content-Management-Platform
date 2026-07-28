@@ -1,5 +1,7 @@
 export const revalidate = 60;
 
+import type { Metadata } from "next";
+
 import { About } from "@/components/main/about";
 import { CertificationsSection } from "@/components/main/certifications-section";
 import { Contact } from "@/components/main/contact";
@@ -13,13 +15,25 @@ import { getPortfolioContent } from "@/lib/cms";
 import { JsonLd } from "@/components/seo/json-ld";
 import { personSchema, websiteSchema } from "@/lib/seo/schema";
 import { CmsPageSections } from "@/components/main/cms-page-sections";
+import { createCmsPageMetadata } from "@/lib/seo/metadata";
+import { profilePageSchema } from "@/lib/seo/schema";
+
+export async function generateMetadata(): Promise<Metadata> {
+  return createCmsPageMetadata(await getPortfolioContent(), "home");
+}
 
 export default async function Home() {
   const content = await getPortfolioContent();
 
   return (
-    <main className="h-full w-full">
-      <JsonLd data={[websiteSchema(), personSchema(content.profile)]} />
+    <main id="main-content" tabIndex={-1} className="h-full w-full">
+      <JsonLd
+        data={[
+          websiteSchema(),
+          personSchema(content.profile),
+          profilePageSchema(content.profile),
+        ]}
+      />
       {content.pages.find((page) => page.pageKey === "home")?.sections.length ? (
         <CmsPageSections content={content} pageKey="home" />
       ) : (

@@ -64,6 +64,11 @@ const TimelinePanel = ({ experience }: { experience: ExperienceContent }) => {
 };
 
 export const Experience = ({ experience = fallbackPortfolioContent.experience, title = "Work Experience", subtitle = "What I have worked on" }: { experience?: ExperienceContent[]; title?: string; subtitle?: string }) => {
+  const visibleExperience = experience.filter(
+    (item) => item.company && item.role,
+  );
+  if (visibleExperience.length === 0) return null;
+
   return (
     <section
       id="experience"
@@ -75,7 +80,7 @@ export const Experience = ({ experience = fallbackPortfolioContent.experience, t
       </h2>
 
       <div className="mt-16 flex flex-col gap-10">
-        {experience.map((item, index) => (
+        {visibleExperience.map((item, index) => (
           <ExperienceCard
             key={`${item.company}-${item.date}`}
             experience={item}

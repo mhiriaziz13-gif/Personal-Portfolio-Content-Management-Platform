@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type {
   CaptchaController,
   CaptchaSnapshot,
 } from "@/components/security/captcha-widget";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { SiGithub } from "react-icons/si";
+
+import { adminFetch } from "@/components/admin/admin-api";
 
 const CaptchaWidget = dynamic(
   () =>
@@ -83,11 +84,15 @@ export const LoginForm = ({ nextPath, initialMfaRequired = false, initialError, 
     if (!initialMfaRequired) return;
 
     const loadMfa = async () => {
-      const response = await fetch("/api/auth/mfa/status", { cache: "no-store" });
-      if (!response.ok) return;
-      const data = await response.json();
-      const factor = data.factors?.totp?.[0] as MfaFactor | undefined;
-      if (factor?.id) setFactorId(factor.id);
+      try {
+        const response = await adminFetch("/api/auth/mfa/status");
+        if (!response.ok) return;
+        const data = await response.json();
+        const factor = data.factors?.totp?.[0] as MfaFactor | undefined;
+        if (factor?.id) setFactorId(factor.id);
+      } catch {
+        // The verification form retains its existing missing-factor message.
+      }
     };
 
     void loadMfa();
@@ -106,7 +111,7 @@ export const LoginForm = ({ nextPath, initialMfaRequired = false, initialError, 
     setStatus("");
 
     try {
-      const response = await fetch("/api/auth/login", {
+      const response = await adminFetch("/api/auth/login", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -144,16 +149,21 @@ export const LoginForm = ({ nextPath, initialMfaRequired = false, initialError, 
     setStatus("");
 
     try {
-      const supabase = createSupabaseBrowserClient();
-      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath || "/admin")}`;
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "github",
-        options: { redirectTo },
+      const response = await adminFetch("/api/auth/oauth/github", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ next: nextPath || "/admin" }),
       });
+      const data = await response.json().catch(() => ({}));
 
-      if (error) throw error;
+      if (!response.ok || !data.ok || typeof data.redirectTo !== "string") {
+        throw new Error("GitHub OAuth could not be started.");
+      }
+
+      window.location.assign(data.redirectTo);
     } catch {
       setStatus("Unable to continue with GitHub.");
+    } finally {
       setPending(false);
     }
   };
@@ -167,21 +177,26 @@ export const LoginForm = ({ nextPath, initialMfaRequired = false, initialError, 
 
     setPending(true);
     setStatus("");
-    const response = await fetch("/api/auth/mfa/verify", {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ factorId, code, rememberDevice }),
-    });
-    const data = await response.json().catch(() => ({}));
-    setPending(false);
+    try {
+      const response = await adminFetch("/api/auth/mfa/verify", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ factorId, code, rememberDevice }),
+      });
+      const data = await response.json().catch(() => ({}));
 
-    if (!response.ok || !data.ok) {
-      setStatus(data.error ?? "Invalid authenticator code.");
-      return;
+      if (!response.ok || !data.ok) {
+        setStatus(data.error ?? "Invalid authenticator code.");
+        return;
+      }
+
+      window.location.href = nextPath || data.redirectTo || "/admin";
+    } catch {
+      setStatus("Invalid authenticator code.");
+    } finally {
+      setPending(false);
     }
-
-    window.location.href = nextPath || data.redirectTo || "/admin";
   };
 
   return (
@@ -215,7 +230,7 @@ export const LoginForm = ({ nextPath, initialMfaRequired = false, initialError, 
           </label>
           <label className="flex items-center gap-3 text-sm text-gray-300">
             <input type="checkbox" checked={rememberDevice} onChange={(event) => setRememberDevice(event.target.checked)} />
-            Remember this device for 10 days
+            Remember this device for 14 days
           </label>
           <button type="submit" disabled={pending || !factorId} className="button-primary rounded-lg px-5 py-3 font-bold text-white disabled:opacity-60">{pending ? "Verifying..." : "Verify code"}</button>
         </form>

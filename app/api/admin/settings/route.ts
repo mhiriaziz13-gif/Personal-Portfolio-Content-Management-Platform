@@ -1,6 +1,7 @@
 import type { AdminProfileSettings } from "@/lib/cms-types";
 import { requireAdminApi, writeAdminAudit } from "@/lib/security/admin-auth";
-import { jsonError, jsonOk } from "@/lib/security/http";
+import { clientIp, jsonError, jsonOk } from "@/lib/security/http";
+import { consumeRateLimit, rateLimitResponse } from "@/lib/security/rate-limit";
 import { adminProfileSettingsSchema } from "@/lib/security/validation";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseAdminConfigured } from "@/lib/supabase/config";
@@ -71,6 +72,14 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return jsonError("Invalid admin profile settings.", 400, "validation_error");
   }
+
+  const limited = await consumeRateLimit({
+    scope: "admin_settings_update",
+    identifiers: [admin.user.id, clientIp(request)],
+    limit: 30,
+    windowMs: 10 * 60 * 1_000,
+  });
+  if (!limited.allowed) return rateLimitResponse(limited);
 
   const key = settingsKey(admin.user.id);
   const value = { ...parsed.data, public: false as const };

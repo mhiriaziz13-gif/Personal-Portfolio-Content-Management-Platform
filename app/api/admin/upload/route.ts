@@ -1,4 +1,4 @@
-import { randomUUID } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { readdir, stat } from "node:fs/promises";
 import { basename, extname, join, sep } from "node:path";
 import { z } from "zod";
@@ -7,12 +7,22 @@ import type { UploadBucket, UploadRecord } from "@/lib/cms-types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseAdminConfigured } from "@/lib/supabase/config";
 import { requireAdminApi, writeAdminAudit } from "@/lib/security/admin-auth";
-import { jsonError, jsonOk } from "@/lib/security/http";
+import { clientIp, jsonError, jsonOk } from "@/lib/security/http";
+import { consumeRateLimit, rateLimitResponse } from "@/lib/security/rate-limit";
+import {
+  getUploadDeletionPhase,
+  uploadReferenceCandidates,
+  uploadReferenceFields,
+} from "@/lib/security/upload-lifecycle";
+import {
+  extensionForUpload,
+  uploadBuckets,
+  validateUpload,
+} from "@/lib/security/uploads";
 
 export const dynamic = "force-dynamic";
 
-const allowedBuckets = ["public-assets", "project-images", "resumes", "uploads"] as const;
-const bucketSchema = z.enum(allowedBuckets);
+const bucketSchema = z.enum(uploadBuckets);
 
 const allowedMimeByExt: Record<string, string[]> = {
   jpg: ["image/jpeg"],
@@ -25,7 +35,7 @@ const allowedMimeByExt: Record<string, string[]> = {
 
 const publicBuckets = new Set(["public-assets", "project-images", "resumes"]);
 const maxFileSize = 10 * 1024 * 1024;
-const uploadFields = "id,bucket,path,public_url,mime_type,size_bytes,original_name,uploaded_by,created_at";
+const uploadFields = "id,bucket,path,public_url,mime_type,size_bytes,original_name,uploaded_by,created_at,sha256,deletion_status,deletion_requested_at,deletion_error_code";
 
 const uploadListSchema = z.object({
   bucket: bucketSchema.optional(),
@@ -35,8 +45,6 @@ const uploadListSchema = z.object({
 const uploadDeleteSchema = z.object({
   id: z.string().uuid(),
 }).strict();
-
-const extensionFor = (name: string) => name.split(".").pop()?.toLowerCase() ?? "";
 
 const localBucketFor = (path: string): UploadBucket => {
   const normalized = path.toLowerCase();
@@ -58,7 +66,7 @@ const readLocalPublicAssets = async (): Promise<UploadRecord[]> => {
       const absolutePath = join(directory, entry.name);
       if (entry.isDirectory()) {
         await visit(absolutePath);
-      } else if (entry.isFile() && allowedMimeByExt[extensionFor(entry.name)]) {
+      } else if (entry.isFile() && allowedMimeByExt[extensionForUpload(entry.name)]) {
         files.push(absolutePath);
       }
     }
@@ -100,15 +108,6 @@ const readLocalPublicAssets = async (): Promise<UploadRecord[]> => {
   return assets;
 };
 
-const hasMagicBytes = (buffer: Buffer, mime: string) => {
-  if (mime === "image/png") return buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
-  if (mime === "image/jpeg") return buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
-  if (mime === "image/webp") return buffer.subarray(0, 4).toString("ascii") === "RIFF" && buffer.subarray(8, 12).toString("ascii") === "WEBP";
-  if (mime === "application/pdf") return buffer.subarray(0, 5).toString("ascii") === "%PDF-";
-  if (mime === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") return buffer[0] === 0x50 && buffer[1] === 0x4b;
-  return false;
-};
-
 export async function GET(request: Request) {
   const admin = await requireAdminApi(request, { requireMfa: true, sameOrigin: false });
   if (!admin.ok) return admin.response;
@@ -130,6 +129,7 @@ export async function GET(request: Request) {
   let query = supabase
     .from("uploads")
     .select(uploadFields)
+    .in("deletion_status", ["active", "pending", "failed"])
     .order("created_at", { ascending: false })
     .limit(parsed.data.limit);
 
@@ -159,6 +159,19 @@ export async function POST(request: Request) {
   if (!admin.ok) return admin.response;
   if (!isSupabaseAdminConfigured()) return jsonError("CMS server configuration is incomplete.", 500, "server_error");
 
+  const limited = await consumeRateLimit({
+    scope: "admin_upload",
+    identifiers: [admin.user.id, clientIp(request)],
+    limit: 20,
+    windowMs: 10 * 60 * 1_000,
+  });
+  if (!limited.allowed) return rateLimitResponse(limited);
+
+  const declaredLength = Number(request.headers.get("content-length") ?? "0");
+  if (Number.isFinite(declaredLength) && declaredLength > 11 * 1024 * 1024) {
+    return jsonError("Upload request is too large.", 413, "payload_too_large");
+  }
+
   const formData = await request.formData().catch(() => null);
   if (!formData) return jsonError("Invalid upload request.", 400, "validation_error");
   const bucketParsed = bucketSchema.safeParse(String(formData.get("bucket") ?? "uploads"));
@@ -167,24 +180,55 @@ export async function POST(request: Request) {
   const fileValue = formData.get("file");
   if (!(fileValue instanceof File)) return jsonError("File is required.", 400, "validation_error");
 
-  const ext = extensionFor(fileValue.name);
-  const allowedMimes = allowedMimeByExt[ext];
-  if (!allowedMimes || !allowedMimes.includes(fileValue.type) || ext === "svg") {
-    return jsonError("File type is not allowed.", 400, "validation_error");
-  }
-
-  if (fileValue.size <= 0 || fileValue.size > maxFileSize) {
+  if (fileValue.name.length > 255 || fileValue.size <= 0 || fileValue.size > maxFileSize) {
     return jsonError("File size is not allowed.", 400, "validation_error");
   }
 
   const buffer = Buffer.from(await fileValue.arrayBuffer());
-  if (!hasMagicBytes(buffer, fileValue.type)) {
-    return jsonError("File signature is invalid.", 400, "validation_error");
+  const bucket = bucketParsed.data;
+  const validation = validateUpload({
+    bucket,
+    name: fileValue.name,
+    mime: fileValue.type,
+    size: fileValue.size,
+    buffer,
+  });
+  if (!validation.ok) {
+    return jsonError(
+      validation.code === "invalid_docx"
+        ? "The DOCX package is malformed or contains unsupported embedded content."
+        : "File type, bucket, size, or signature is not allowed.",
+      400,
+      validation.code,
+    );
   }
 
-  const bucket = bucketParsed.data;
-  const path = `${admin.user.id}/${randomUUID()}.${ext}`;
+  const digest = createHash("sha256").update(buffer).digest("hex");
+  const path = `${admin.user.id}/${randomUUID()}.${validation.extension}`;
   const supabase = createSupabaseAdminClient();
+
+  const duplicate = await supabase
+    .from("uploads")
+    .select("id,bucket,path")
+    .eq("sha256", digest)
+    .eq("deletion_status", "active")
+    .limit(1)
+    .maybeSingle();
+  if (duplicate.error) {
+    return jsonError(
+      "Upload hardening migration is required before files can be added.",
+      503,
+      "migration_required",
+    );
+  }
+  if (duplicate.data) {
+    return jsonError(
+      "An identical file is already stored.",
+      409,
+      "duplicate_upload",
+    );
+  }
+
   const uploaded = await supabase.storage.from(bucket).upload(path, buffer, {
     contentType: fileValue.type,
     upsert: false,
@@ -208,6 +252,8 @@ export async function POST(request: Request) {
       size_bytes: fileValue.size,
       original_name: fileValue.name,
       uploaded_by: admin.user.id,
+      sha256: digest,
+      deletion_status: "active",
     })
     .select(uploadFields)
     .single();
@@ -233,10 +279,20 @@ export async function DELETE(request: Request) {
     return jsonError("Invalid upload deletion.", 400, "validation_error");
   }
 
+  const limited = await consumeRateLimit({
+    scope: "admin_upload_delete",
+    identifiers: [admin.user.id, clientIp(request)],
+    limit: 10,
+    windowMs: 10 * 60 * 1_000,
+  });
+  if (!limited.allowed) return rateLimitResponse(limited);
+
   const supabase = createSupabaseAdminClient();
   const existing = await supabase
     .from("uploads")
-    .select("id, bucket, path")
+    .select(
+      "id,bucket,path,public_url,deletion_status,deletion_requested_at,deletion_error_code",
+    )
     .eq("id", parsed.data.id)
     .maybeSingle();
 
@@ -252,10 +308,180 @@ export async function DELETE(request: Request) {
     return jsonError("Stored upload metadata is invalid.", 500, "server_error");
   }
 
+  const status =
+    existing.data.deletion_status === "pending"
+    || existing.data.deletion_status === "failed"
+      ? existing.data.deletion_status
+      : "active";
+  const phase = getUploadDeletionPhase({
+    status,
+    requestedAt: existing.data.deletion_requested_at,
+  });
+
+  if (phase === "schedule") {
+    const requestedAt = new Date().toISOString();
+    const pending = await supabase
+      .from("uploads")
+      .update({
+        deletion_status: "pending",
+        deletion_requested_at: requestedAt,
+        deletion_error_code: null,
+      })
+      .eq("id", existing.data.id)
+      .eq("deletion_status", status)
+      .select(uploadFields)
+      .maybeSingle();
+    if (pending.error || !pending.data) {
+      return jsonError(
+        "Could not schedule upload deletion.",
+        409,
+        "delete_conflict",
+      );
+    }
+
+    await writeAdminAudit({
+      actorUserId: admin.user.id,
+      action: "upload_deletion_scheduled",
+      entityType: "uploads",
+      entityId: existing.data.id,
+      metadata: { bucket: bucketParsed.data },
+      request,
+    });
+
+    return jsonOk({
+      phase: "pending",
+      upload: pending.data,
+      message:
+        "Deletion scheduled. The stored file will remain available for at least five minutes before reconciliation.",
+    }, 202);
+  }
+
+  if (phase === "wait") {
+    return jsonError(
+      "Upload deletion is already in progress. Retry reconciliation after five minutes.",
+      409,
+      "deletion_in_progress",
+    );
+  }
+
+  const reconciliationClaim = `reconciling:${randomUUID()}`;
+  let claimQuery = supabase
+    .from("uploads")
+    .update({
+      deletion_error_code: reconciliationClaim,
+    })
+    .eq("id", existing.data.id)
+    .eq("deletion_status", status)
+    .eq("deletion_requested_at", existing.data.deletion_requested_at);
+  claimQuery = existing.data.deletion_error_code === null
+    ? claimQuery.is("deletion_error_code", null)
+    : claimQuery.eq(
+      "deletion_error_code",
+      existing.data.deletion_error_code,
+    );
+  const claim = await claimQuery
+    .select(uploadFields)
+    .maybeSingle();
+  if (claim.error || !claim.data) {
+    return jsonError(
+      "Upload deletion is being reconciled by another request.",
+      409,
+      "delete_conflict",
+    );
+  }
+
+  const candidates = uploadReferenceCandidates({
+    bucket: bucketParsed.data,
+    path: existing.data.path,
+    publicUrl: existing.data.public_url,
+  });
+  let isReferenced = false;
+  let referenceCheckFailed = false;
+
+  for (const [table, fields] of Object.entries(uploadReferenceFields)) {
+    for (const field of fields) {
+      const references = await supabase
+        .from(table)
+        .select("id")
+        .in(field, candidates)
+        .limit(1);
+      if (references.error) {
+        referenceCheckFailed = true;
+        break;
+      }
+      if ((references.data ?? []).length > 0) {
+        isReferenced = true;
+        break;
+      }
+    }
+    if (isReferenced || referenceCheckFailed) break;
+  }
+
+  if (referenceCheckFailed) {
+    await supabase
+      .from("uploads")
+      .update({
+        deletion_status: "failed",
+        deletion_error_code: "reference_check_unavailable",
+      })
+      .eq("id", existing.data.id)
+      .eq("deletion_error_code", reconciliationClaim);
+    return jsonError(
+      "Could not verify whether this upload is in use.",
+      503,
+      "reference_check_unavailable",
+    );
+  }
+
+  if (isReferenced) {
+    const restored = await supabase
+      .from("uploads")
+      .update({
+        deletion_status: "active",
+        deletion_requested_at: null,
+        deletion_error_code: null,
+      })
+      .eq("id", existing.data.id)
+      .eq("deletion_error_code", reconciliationClaim)
+      .select(uploadFields)
+      .maybeSingle();
+    if (restored.error || !restored.data) {
+      return jsonError(
+        "The upload is in use, but its active state could not be restored.",
+        500,
+        "restore_failed",
+      );
+    }
+
+    await writeAdminAudit({
+      actorUserId: admin.user.id,
+      action: "upload_deletion_cancelled_in_use",
+      entityType: "uploads",
+      entityId: existing.data.id,
+      metadata: { bucket: bucketParsed.data },
+      request,
+    });
+
+    return jsonOk({
+      phase: "restored",
+      upload: restored.data,
+      message:
+        "Deletion was cancelled because the upload is referenced by CMS content.",
+    });
+  }
+
   const removed = await supabase.storage
     .from(bucketParsed.data)
     .remove([existing.data.path]);
   if (removed.error) {
+    await supabase
+      .from("uploads")
+      .update({
+        deletion_status: "failed",
+        deletion_error_code: "storage_remove_failed",
+      })
+      .eq("id", existing.data.id)
+      .eq("deletion_error_code", reconciliationClaim);
     return jsonError("Could not delete the stored file.", 500, "server_error");
   }
 
@@ -263,9 +489,18 @@ export async function DELETE(request: Request) {
     .from("uploads")
     .delete()
     .eq("id", existing.data.id)
+    .eq("deletion_error_code", reconciliationClaim)
     .select("id")
     .maybeSingle();
   if (deleted.error || !deleted.data) {
+    await supabase
+      .from("uploads")
+      .update({
+        deletion_status: "failed",
+        deletion_error_code: "metadata_delete_failed",
+      })
+      .eq("id", existing.data.id)
+      .eq("deletion_error_code", reconciliationClaim);
     return jsonError("Could not delete upload metadata.", 500, "server_error");
   }
 
@@ -278,5 +513,9 @@ export async function DELETE(request: Request) {
     request,
   });
 
-  return jsonOk({ id: existing.data.id, message: "Deleted." });
+  return jsonOk({
+    id: existing.data.id,
+    phase: "deleted",
+    message: "Deleted.",
+  });
 }

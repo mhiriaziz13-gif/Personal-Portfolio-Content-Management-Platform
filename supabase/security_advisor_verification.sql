@@ -1,5 +1,7 @@
--- Read-only post-migration verification for 20260714093312_security_advisor_hardening.sql.
--- Run this in the Supabase SQL Editor only after reviewing and applying the migration.
+-- Read-only post-migration verification through
+-- 20260727130027_portfolio_hardening_v1.sql.
+-- Run this in the Supabase SQL Editor only after reviewing and applying the
+-- intended migrations through the controlled production runbook.
 begin;
 set transaction read only;
 
@@ -18,7 +20,9 @@ join pg_namespace as n on n.oid = p.pronamespace
 where (n.nspname, p.proname) in (
   ('public', 'set_updated_at'),
   ('public', 'is_admin'),
-  ('private', 'is_admin')
+  ('private', 'is_admin'),
+  ('public', 'consume_rate_limit'),
+  ('public', 'cleanup_rate_limit_buckets')
 )
 order by n.nspname, p.proname;
 
@@ -93,7 +97,12 @@ select
   has_function_privilege('service_role', p.oid, 'execute') as service_role_can_execute
 from pg_proc as p
 join pg_namespace as n on n.oid = p.pronamespace
-where p.proname in ('is_admin', 'set_updated_at')
+where p.proname in (
+    'is_admin',
+    'set_updated_at',
+    'consume_rate_limit',
+    'cleanup_rate_limit_buckets'
+  )
   and n.nspname in ('public', 'private')
 order by n.nspname, p.proname;
 
@@ -112,7 +121,12 @@ join pg_namespace as n on n.oid = p.pronamespace
 cross join lateral aclexplode(
   coalesce(p.proacl, acldefault('f'::"char", p.proowner))
 ) as acl
-where p.proname in ('is_admin', 'set_updated_at')
+where p.proname in (
+    'is_admin',
+    'set_updated_at',
+    'consume_rate_limit',
+    'cleanup_rate_limit_buckets'
+  )
   and n.nspname in ('public', 'private')
 order by n.nspname, p.proname, grantee, acl.privilege_type;
 
@@ -161,8 +175,9 @@ where function_proc.proname = 'is_admin'
   and function_namespace.nspname = 'private'
 order by policy_namespace.nspname, policy_table.relname, policy.polname;
 
--- Inspect all storage.object policies. The two broad public-listing policy names
--- removed by the migration should be absent; the admin policy should remain.
+-- Inspect all storage.object policies. The broad public-listing policies and
+-- the authenticated admin mutation policy owned by this repository should all
+-- be absent because reads use public object URLs and writes are server-mediated.
 select
   schemaname,
   tablename,
@@ -206,7 +221,13 @@ with expected(table_name, trigger_name) as (
     ('social_links', 'set_social_links_updated_at'),
     ('site_settings', 'set_site_settings_updated_at'),
     ('admin_security_preferences', 'set_admin_security_preferences_updated_at'),
-    ('contact_messages', 'set_contact_messages_updated_at')
+    ('contact_messages', 'set_contact_messages_updated_at'),
+    ('pages', 'set_pages_updated_at'),
+    ('page_sections', 'set_page_sections_updated_at'),
+    ('page_section_items', 'set_page_section_items_updated_at'),
+    ('project_section_items', 'set_project_section_items_updated_at'),
+    ('project_media', 'set_project_media_updated_at'),
+    ('volunteering', 'set_volunteering_updated_at')
 )
 select
   expected.table_name,
@@ -245,6 +266,627 @@ where not trigger_row.tgisinternal
   and function_namespace.nspname = 'public'
   and function_proc.proname = 'set_updated_at'
 order by table_namespace.nspname, table_relation.relname, trigger_row.tgname;
+
+-- Portfolio-hardening machine summary. Every column should be true.
+select
+  exists (
+    select 1
+    from supabase_migrations.schema_migrations
+    where version = '20260727130027'
+  ) as migration_recorded,
+  to_regclass('public.cms_content_revisions') is not null
+    as revisions_table_present,
+  to_regclass('private.rate_limit_buckets') is not null
+    as rate_limit_table_present,
+  to_regprocedure(
+    'public.consume_rate_limit(text,text,integer,integer)'
+  ) is not null as consume_rpc_present,
+  to_regprocedure('public.cleanup_rate_limit_buckets()') is not null
+    as cleanup_rpc_present,
+  not coalesce(
+    has_function_privilege(
+      'anon',
+      to_regprocedure(
+        'public.consume_rate_limit(text,text,integer,integer)'
+      ),
+      'execute'
+    ),
+    false
+  ) as anon_cannot_consume_rate_limit,
+  not coalesce(
+    has_function_privilege(
+      'authenticated',
+      to_regprocedure(
+        'public.consume_rate_limit(text,text,integer,integer)'
+      ),
+      'execute'
+    ),
+    false
+  ) as authenticated_cannot_consume_rate_limit,
+  coalesce(
+    has_function_privilege(
+      'service_role',
+      to_regprocedure(
+        'public.consume_rate_limit(text,text,integer,integer)'
+      ),
+      'execute'
+    ),
+    false
+  ) as service_role_can_consume_rate_limit,
+  not coalesce(
+    has_function_privilege(
+      'anon',
+      to_regprocedure('public.cleanup_rate_limit_buckets()'),
+      'execute'
+    ),
+    false
+  ) as anon_cannot_cleanup_rate_limits,
+  not coalesce(
+    has_function_privilege(
+      'authenticated',
+      to_regprocedure('public.cleanup_rate_limit_buckets()'),
+      'execute'
+    ),
+    false
+  ) as authenticated_cannot_cleanup_rate_limits,
+  coalesce(
+    has_function_privilege(
+      'service_role',
+      to_regprocedure('public.cleanup_rate_limit_buckets()'),
+      'execute'
+    ),
+    false
+  ) as service_role_can_cleanup_rate_limits,
+  not has_table_privilege(
+    'authenticated',
+    'private.rate_limit_buckets',
+    'select'
+  ) as authenticated_cannot_read_rate_buckets,
+  not has_table_privilege(
+    'service_role',
+    'private.rate_limit_buckets',
+    'select'
+  ) as service_role_cannot_bypass_rate_rpc,
+  not has_table_privilege(
+    'authenticated',
+    'storage.objects',
+    'insert'
+  )
+  and not has_table_privilege(
+    'authenticated',
+    'storage.objects',
+    'update'
+  )
+  and not has_table_privilege(
+    'authenticated',
+    'storage.objects',
+    'delete'
+  ) as authenticated_storage_dml_revoked,
+  not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'storage'
+      and tablename = 'objects'
+      and policyname in (
+        'Public can read portfolio assets',
+        'Public can read public portfolio storage',
+        'Admins manage portfolio storage'
+      )
+  ) as repository_storage_policies_absent,
+  not exists (
+    select 1
+    from (
+      values
+        ('home', '/'),
+        ('about', '/about'),
+        ('expertise', '/expertise'),
+        ('projects', '/projects'),
+        ('experience', '/experience'),
+        ('education', '/education'),
+        ('certifications', '/certifications'),
+        ('resume', '/resume'),
+        ('contact', '/contact')
+    ) as expected_pages(page_key, slug)
+    left join public.pages as page
+      on page.page_key = expected_pages.page_key
+    where page.id is null
+       or page.slug <> expected_pages.slug
+       or page.is_published is not true
+  ) as canonical_page_registry_published,
+  not exists (
+    select 1
+    from public.profile
+    where availability in (
+      'Available for Europe-based opportunities from Summer 2027',
+      'Based in Tunisia · Open to European opportunities from Summer 2027',
+      'Based in Tunisia Â· Open to European opportunities from Summer 2027'
+    )
+  )
+  and not exists (
+    select 1
+    from public.page_sections as section
+    join public.pages as page on page.id = section.page_id
+    where page.page_key = 'home'
+      and section.section_key = 'cta'
+      and section.description
+          = 'Open to relevant European opportunities from Summer 2027.'
+  ) as known_summer_2027_copy_absent,
+  not exists (
+    select 1
+    from public.projects
+    where slug in (
+      'vermeg-ai-ready-e-learning-platform',
+      'ai-ready-elearning-platform'
+    )
+      and (
+        title not ilike '%prototype%'
+        or summary not ilike '%two-person%'
+        or summary not ilike '%not deployed to production%'
+        or description not ilike '%prototype%'
+      )
+  )
+  and not exists (
+    select 1
+    from public.experience
+    where company ilike 'VERMEG%'
+      and (
+        array_to_string(points, ' ') not ilike '%prototype%'
+        or array_to_string(points, ' ') not ilike '%two-person%'
+        or array_to_string(points, ' ')
+            not ilike '%not deployed to production%'
+      )
+  ) as vermeg_prototype_attribution_bounded;
+
+-- Canonical public-page registry. Expect nine published rows with exact slugs.
+with expected_pages(page_key, slug) as (
+  values
+    ('home', '/'),
+    ('about', '/about'),
+    ('expertise', '/expertise'),
+    ('projects', '/projects'),
+    ('experience', '/experience'),
+    ('education', '/education'),
+    ('certifications', '/certifications'),
+    ('resume', '/resume'),
+    ('contact', '/contact')
+)
+select
+  expected_pages.page_key,
+  expected_pages.slug as expected_slug,
+  page.slug as actual_slug,
+  page.title,
+  page.is_published,
+  page.updated_at
+from expected_pages
+left join public.pages as page
+  on page.page_key = expected_pages.page_key
+order by expected_pages.page_key;
+
+-- Exact contact-delivery columns, nullability, and defaults.
+select
+  column_name,
+  udt_name,
+  is_nullable,
+  column_default
+from information_schema.columns
+where table_schema = 'public'
+  and table_name = 'contact_messages'
+  and column_name in (
+    'submission_id',
+    'delivery_status',
+    'delivery_attempts',
+    'last_delivery_attempt_at',
+    'next_delivery_attempt_at',
+    'delivered_at',
+    'delivery_error_code',
+    'provider_message_id'
+  )
+order by ordinal_position;
+
+-- Contact constraints and indexes. submission_id must have a valid, non-partial,
+-- one-column unique index. The queue index should be partial.
+select
+  constraint_row.conname as constraint_name,
+  constraint_row.contype as constraint_type,
+  constraint_row.convalidated as validated,
+  pg_get_constraintdef(constraint_row.oid, true) as definition
+from pg_constraint as constraint_row
+where constraint_row.conrelid = 'public.contact_messages'::regclass
+  and (
+    constraint_row.conname like 'contact_messages_delivery_%'
+    or (
+     constraint_row.conrelid = 'public.contact_messages'::regclass
+     and constraint_row.conname = 'contact_messages_submission_id_key'
+    )
+  )
+order by constraint_row.conname;
+
+select
+  index_relation.relname as index_name,
+  index_row.indisunique,
+  index_row.indisvalid,
+  pg_get_expr(index_row.indpred, index_row.indrelid) as predicate,
+  pg_get_indexdef(index_row.indexrelid) as definition
+from pg_index as index_row
+join pg_class as index_relation
+  on index_relation.oid = index_row.indexrelid
+where index_row.indrelid = 'public.contact_messages'::regclass
+  and (
+    pg_get_indexdef(index_row.indexrelid, 1, true) = 'submission_id'
+    or index_relation.relname = 'contact_messages_delivery_queue_idx'
+  )
+order by index_relation.relname;
+
+-- Confirm the three production-observed full FK index gaps are closed. Every
+-- full_index_present value should be true.
+with expected_index(table_name, column_name) as (
+  values
+    ('admin_audit_logs', 'actor_user_id'),
+    ('admin_remembered_devices', 'user_id'),
+    ('uploads', 'uploaded_by')
+)
+select
+  expected_index.table_name,
+  expected_index.column_name,
+  exists (
+    select 1
+    from pg_index as index_row
+    where index_row.indrelid = to_regclass(
+            format('public.%I', expected_index.table_name)
+          )
+      and index_row.indisvalid
+      and index_row.indpred is null
+      and pg_get_indexdef(index_row.indexrelid, 1, true)
+          = expected_index.column_name
+  ) as full_index_present
+from expected_index
+order by expected_index.table_name;
+
+-- Revision table columns, RLS state, policies, and append-only service ACL.
+select
+  column_name,
+  udt_name,
+  is_nullable,
+  column_default
+from information_schema.columns
+where table_schema = 'public'
+  and table_name = 'cms_content_revisions'
+order by ordinal_position;
+
+select
+  relation.relrowsecurity as rls_enabled,
+  relation.relforcerowsecurity as rls_forced,
+  not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'cms_content_revisions'
+  ) as no_browser_policies,
+  has_table_privilege(
+    'service_role',
+    'public.cms_content_revisions',
+    'select'
+  ) as service_role_can_read,
+  has_table_privilege(
+    'service_role',
+    'public.cms_content_revisions',
+    'insert'
+  ) as service_role_can_append,
+  not has_table_privilege(
+    'service_role',
+    'public.cms_content_revisions',
+    'update'
+  ) as service_role_cannot_rewrite,
+  not has_table_privilege(
+    'service_role',
+    'public.cms_content_revisions',
+    'delete'
+  ) as service_role_cannot_delete
+from pg_class as relation
+where relation.oid = 'public.cms_content_revisions'::regclass;
+
+-- Rate-limit storage and RPC shape. Table ACLs should show no rows for
+-- PUBLIC/anon/authenticated/service_role; the function ACLs should grant only
+-- service_role (besides the owner).
+select
+  column_name,
+  udt_name,
+  is_nullable,
+  column_default
+from information_schema.columns
+where table_schema = 'private'
+  and table_name = 'rate_limit_buckets'
+order by ordinal_position;
+
+select
+  namespace.nspname as function_schema,
+  function_row.proname as function_name,
+  pg_get_function_identity_arguments(function_row.oid) as identity_arguments,
+  pg_get_function_result(function_row.oid) as function_result,
+  pg_get_userbyid(function_row.proowner) as owner,
+  function_row.prosecdef as security_definer,
+  function_row.proconfig as function_config,
+  has_function_privilege(
+    'anon',
+    function_row.oid,
+    'execute'
+  ) as anon_can_execute,
+  has_function_privilege(
+    'authenticated',
+    function_row.oid,
+    'execute'
+  ) as authenticated_can_execute,
+  has_function_privilege(
+    'service_role',
+    function_row.oid,
+    'execute'
+  ) as service_role_can_execute
+from pg_proc as function_row
+join pg_namespace as namespace
+  on namespace.oid = function_row.pronamespace
+where namespace.nspname = 'public'
+  and function_row.proname in (
+    'consume_rate_limit',
+    'cleanup_rate_limit_buckets'
+  )
+order by function_row.proname;
+
+select
+  case
+    when acl.grantee = 0 then 'PUBLIC'
+    else pg_get_userbyid(acl.grantee)
+  end as grantee,
+  acl.privilege_type,
+  acl.is_grantable
+from pg_class as relation
+cross join lateral aclexplode(
+  coalesce(
+    relation.relacl,
+    acldefault('r'::"char", relation.relowner)
+  )
+) as acl
+where relation.oid = 'private.rate_limit_buckets'::regclass
+order by grantee, acl.privilege_type;
+
+-- Remembered-device binding/rotation fields and upload-reconciliation fields.
+select
+  table_name,
+  column_name,
+  udt_name,
+  is_nullable,
+  column_default
+from information_schema.columns
+where table_schema = 'public'
+  and (
+    (
+      table_name = 'admin_remembered_devices'
+      and column_name in (
+        'device_context_hash',
+        'network_context_hash',
+        'last_user_agent_hash',
+        'last_network_context_hash',
+        'rotated_at',
+        'rotation_counter',
+        'revocation_reason'
+      )
+    )
+    or (
+      table_name = 'uploads'
+      and column_name in (
+        'sha256',
+        'deletion_status',
+        'deletion_requested_at',
+        'deletion_error_code'
+      )
+    )
+  )
+order by table_name, ordinal_position;
+
+select
+  table_relation.relname as table_name,
+  constraint_row.conname as constraint_name,
+  constraint_row.convalidated as validated,
+  pg_get_constraintdef(constraint_row.oid, true) as definition
+from pg_constraint as constraint_row
+join pg_class as table_relation
+  on table_relation.oid = constraint_row.conrelid
+join pg_namespace as table_namespace
+  on table_namespace.oid = table_relation.relnamespace
+where table_namespace.nspname = 'public'
+  and (
+    constraint_row.conname like 'admin_remembered_devices_%_check'
+    or constraint_row.conname like 'uploads_%_check'
+  )
+order by table_relation.relname, constraint_row.conname;
+
+-- Canonical RLS inventory. Public content should show one anon SELECT and one
+-- authenticated SELECT policy; no table below should show browser-role writes.
+select
+  schemaname,
+  tablename,
+  policyname,
+  roles,
+  cmd,
+  qual,
+  with_check
+from pg_policies
+where (
+    schemaname = 'public'
+    and tablename in (
+      'about',
+      'admin_audit_logs',
+      'admin_remembered_devices',
+      'admin_security_preferences',
+      'admins',
+      'certifications',
+      'cms_content_revisions',
+      'contact_messages',
+      'education',
+      'experience',
+      'hero',
+      'page_section_items',
+      'page_sections',
+      'pages',
+      'profile',
+      'project_media',
+      'project_section_items',
+      'project_sections',
+      'projects',
+      'resumes',
+      'site_settings',
+      'skills',
+      'social_links',
+      'uploads',
+      'volunteering'
+    )
+  )
+  or (
+    schemaname = 'storage'
+    and tablename = 'objects'
+  )
+order by schemaname, tablename, policyname;
+
+-- No rows expected: duplicate permissive policies for one explicit role/action.
+with expanded_policies as (
+  select
+    policy.schemaname,
+    policy.tablename,
+    role_name.role_name,
+    action.action,
+    policy.policyname
+  from pg_policies as policy
+  cross join lateral unnest(policy.roles) as role_name(role_name)
+  cross join lateral unnest(
+    case policy.cmd
+      when 'ALL'
+        then array['SELECT', 'INSERT', 'UPDATE', 'DELETE']::text[]
+      else array[policy.cmd]::text[]
+    end
+  ) as action(action)
+  where policy.permissive = 'PERMISSIVE'
+    and (
+      (
+        policy.schemaname = 'public'
+        and policy.tablename in (
+          'about',
+          'admin_audit_logs',
+          'admin_remembered_devices',
+          'admin_security_preferences',
+          'admins',
+          'certifications',
+          'cms_content_revisions',
+          'contact_messages',
+          'education',
+          'experience',
+          'hero',
+          'page_section_items',
+          'page_sections',
+          'pages',
+          'profile',
+          'project_media',
+          'project_section_items',
+          'project_sections',
+          'projects',
+          'resumes',
+          'site_settings',
+          'skills',
+          'social_links',
+          'uploads',
+          'volunteering'
+        )
+      )
+      or (
+        policy.schemaname = 'storage'
+        and policy.tablename = 'objects'
+      )
+    )
+)
+select
+  schemaname,
+  tablename,
+  role_name,
+  action,
+  array_agg(policyname order by policyname) as duplicate_policies
+from expanded_policies
+group by schemaname, tablename, role_name, action
+having count(*) > 1
+order by schemaname, tablename, role_name, action;
+
+-- Effective browser-role table privileges. Every DML column should be false.
+with target_tables(table_name) as (
+  select *
+  from unnest(array[
+    'about',
+    'admin_audit_logs',
+    'admin_remembered_devices',
+    'admin_security_preferences',
+    'admins',
+    'certifications',
+    'cms_content_revisions',
+    'contact_messages',
+    'education',
+    'experience',
+    'hero',
+    'page_section_items',
+    'page_sections',
+    'pages',
+    'profile',
+    'project_media',
+    'project_section_items',
+    'project_sections',
+    'projects',
+    'resumes',
+    'site_settings',
+    'skills',
+    'social_links',
+    'uploads',
+    'volunteering'
+  ]::text[])
+)
+select
+  target_tables.table_name,
+  has_table_privilege(
+    'anon',
+    format('public.%I', target_tables.table_name),
+    'select'
+  ) as anon_can_select,
+  has_table_privilege(
+    'authenticated',
+    format('public.%I', target_tables.table_name),
+    'select'
+  ) as authenticated_can_select,
+  has_table_privilege(
+    'anon',
+    format('public.%I', target_tables.table_name),
+    'insert'
+  ) as anon_can_insert,
+  has_table_privilege(
+    'anon',
+    format('public.%I', target_tables.table_name),
+    'update'
+  ) as anon_can_update,
+  has_table_privilege(
+    'anon',
+    format('public.%I', target_tables.table_name),
+    'delete'
+  ) as anon_can_delete,
+  has_table_privilege(
+    'authenticated',
+    format('public.%I', target_tables.table_name),
+    'insert'
+  ) as authenticated_can_insert,
+  has_table_privilege(
+    'authenticated',
+    format('public.%I', target_tables.table_name),
+    'update'
+  ) as authenticated_can_update,
+  has_table_privilege(
+    'authenticated',
+    format('public.%I', target_tables.table_name),
+    'delete'
+  ) as authenticated_can_delete
+from target_tables
+order by target_tables.table_name;
 
 -- This may be null in a direct SQL session. Also verify in Dashboard > API that
 -- private is not included in Exposed schemas before applying the migration.

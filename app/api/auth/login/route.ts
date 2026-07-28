@@ -1,6 +1,16 @@
-import { getAdminMembership, getMfaContext, writeAdminAudit } from "@/lib/security/admin-auth";
+import {
+  createRememberedDevice,
+  getAdminMembership,
+  getMfaContext,
+  setRememberDeviceCookie,
+  writeAdminAudit,
+} from "@/lib/security/admin-auth";
+import { isCsrfTokenValid } from "@/lib/security/csrf";
 import { clientIp, isSameOrigin, jsonError, jsonOk } from "@/lib/security/http";
-import { rateLimit } from "@/lib/security/rate-limit";
+import {
+  consumeRateLimit,
+  rateLimitResponse,
+} from "@/lib/security/rate-limit";
 import { safeRedirect } from "@/lib/security/redirects";
 import { loginSchema } from "@/lib/security/validation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -10,6 +20,9 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request) {
   if (!isSameOrigin(request)) {
     return jsonError("Request origin is not allowed.", 403, "origin_not_allowed");
+  }
+  if (!isCsrfTokenValid(request)) {
+    return jsonError("CSRF token is missing or invalid.", 403, "csrf_invalid");
   }
 
   try {
@@ -21,9 +34,26 @@ export async function POST(request: Request) {
 
     const ip = clientIp(request);
     const emailKey = parsed.data.email.toLowerCase();
-    const limited = rateLimit({ key: `login:${ip}:${emailKey}`, limit: 8, windowMs: 15 * 60 * 1000 });
+    const [ipLimit, accountLimit] = await Promise.all([
+      consumeRateLimit({
+        scope: "admin-login-ip",
+        identifiers: [ip],
+        limit: 30,
+        windowMs: 15 * 60 * 1000,
+      }),
+      consumeRateLimit({
+        scope: "admin-login-account",
+        identifiers: [emailKey],
+        limit: 8,
+        windowMs: 15 * 60 * 1000,
+      }),
+    ]);
+    const limited = !ipLimit.allowed ? ipLimit : accountLimit;
     if (!limited.allowed) {
-      return jsonError("Too many login attempts. Please try again later.", 429, "rate_limited");
+      return rateLimitResponse(
+        limited,
+        "Too many login attempts. Please try again later.",
+      );
     }
 
     const supabase = await createSupabaseServerClient();
@@ -68,7 +98,25 @@ export async function POST(request: Request) {
     }
 
     await writeAdminAudit({ actorUserId: data.user.id, action: "login_success", request });
-    return jsonOk({ redirectTo: next });
+    const response = jsonOk({ redirectTo: next });
+
+    if (mfa.remembered) {
+      const remembered = await createRememberedDevice(data.user.id, request);
+      if (remembered) {
+        setRememberDeviceCookie(
+          response,
+          remembered.token,
+          remembered.expiresAt,
+        );
+        await writeAdminAudit({
+          actorUserId: data.user.id,
+          action: "remembered_device_rotated",
+          request,
+        });
+      }
+    }
+
+    return response;
   } catch {
     return jsonError("Login could not be completed.", 500, "server_error");
   }

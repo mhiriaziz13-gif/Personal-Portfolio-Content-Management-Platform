@@ -79,10 +79,21 @@ export const getAllowedOrigins = () => {
   const developmentOrigins = isProduction
     ? []
     : ["http://localhost:3000", "http://127.0.0.1:3000"];
+  const previewOrigins = readEnv("VERCEL_ENV") === "preview"
+    ? [readEnv("VERCEL_URL"), readEnv("VERCEL_BRANCH_URL")]
+      .filter(Boolean)
+      .map((hostname) => `https://${hostname.replace(/^https?:\/\//, "")}`)
+    : [];
 
   return Array.from(
     new Set(
-      [getAppUrl(), getPublicSiteUrl(), ...developmentOrigins, ...explicit]
+      [
+        getAppUrl(),
+        getPublicSiteUrl(),
+        ...previewOrigins,
+        ...developmentOrigins,
+        ...explicit,
+      ]
         .map(trimTrailingSlash)
         .filter((origin) => !isProduction || isAllowedProductionOrigin(origin)),
     ),
@@ -92,9 +103,16 @@ export const getAllowedOrigins = () => {
 export const requireAdminMfa = () => readEnv("REQUIRE_ADMIN_MFA").toLowerCase() === "true";
 
 export const adminMfaRememberDays = () => {
-  const days = Number(readEnv("ADMIN_MFA_REMEMBER_DAYS") || "10");
-  return Number.isFinite(days) && days > 0 ? days : 10;
+  const days = Number(readEnv("ADMIN_MFA_REMEMBER_DAYS") || "14");
+  if (!Number.isFinite(days)) return 14;
+  return Math.min(30, Math.max(1, Math.trunc(days)));
 };
+
+export const adminDeviceHmacSecret = () =>
+  readEnv("ADMIN_DEVICE_HMAC_SECRET")
+  || readEnv("PRIVACY_HMAC_SECRET")
+  || readEnv("RATE_LIMIT_HMAC_SECRET")
+  || (process.env.NODE_ENV === "production" ? "" : supabaseEnv.serviceRoleKey);
 
 export const assertSupabasePublicEnv = () => {
   if (!isSupabaseConfigured()) {

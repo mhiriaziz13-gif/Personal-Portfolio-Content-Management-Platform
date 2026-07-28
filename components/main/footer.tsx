@@ -4,7 +4,10 @@ import { FaGithub, FaLinkedinIn } from "react-icons/fa6";
 
 import { TrackedLink } from "@/components/analytics/tracked-link";
 import { CookiePreferencesButton } from "@/components/consent/cookie-preferences-button";
-import { fallbackPortfolioContent } from "@/data/fallback-portfolio";
+import {
+  fallbackPortfolioContent,
+  primaryNavigation,
+} from "@/data/fallback-portfolio";
 import type { ProfileContent } from "@/lib/cms-types";
 
 export const Footer = ({ profile = fallbackPortfolioContent.profile }: { profile?: ProfileContent }) => {
@@ -63,10 +66,10 @@ export const Footer = ({ profile = fallbackPortfolioContent.profile }: { profile
         &copy; {profile.name} {new Date().getFullYear()}. All rights reserved.
       </p>
       <nav aria-label="Footer navigation" className="mx-auto mt-6 flex max-w-7xl flex-wrap gap-x-5 gap-y-3 text-sm text-gray-400">
-        {[["About","/about"],["Expertise","/expertise"],["Projects","/projects"],["Experience","/experience"],["Education","/education"],["Certifications","/certifications"],["Resume","/resume"],["Contact","/contact"]].map(([label, href]) => <Link key={href} href={href} className="hover:text-cyan-100">{label}</Link>)}
+        {primaryNavigation.map((link) => <Link key={link.href} href={link.href} className="hover:text-cyan-100">{link.title}</Link>)}
         <CookiePreferencesButton />
       </nav>
-      <p className="mx-auto mt-5 max-w-7xl text-xs leading-6 text-gray-500">
+      <p className="mx-auto mt-5 max-w-7xl text-xs leading-6 text-gray-400">
         With your choice, Google Tag Manager manages GA4 aggregate traffic and event measurement, while Microsoft Clarity supports UX heatmaps and session behavior. Advertising personalization stays disabled, sensitive forms are masked, and contact-form content is never sent to analytics. Use Analytics preferences above to change your choice.
       </p>
     </footer>

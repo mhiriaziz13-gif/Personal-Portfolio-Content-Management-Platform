@@ -21,7 +21,7 @@ export type CaptchaController = {
 };
 
 type CaptchaWidgetProps = {
-  action: "admin-login" | "password-recovery";
+  action: "admin-login" | "password-recovery" | "portfolio-contact";
   onChange: (snapshot: CaptchaSnapshot) => void;
   onControllerChange?: (controller: CaptchaController | null) => void;
 };

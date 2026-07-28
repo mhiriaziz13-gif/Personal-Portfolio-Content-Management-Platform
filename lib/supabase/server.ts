@@ -27,7 +27,8 @@ export const createSupabaseServerClient = async (_request?: Request) => {
             cookieStore.set(name, value, options);
           });
         } catch {
-          // Server Components cannot always write cookies. The root proxy refreshes sessions before rendering.
+          // Server Components cannot always write cookies. The private-route
+          // proxy refreshes sessions before protected pages and APIs run.
         }
       },
     },

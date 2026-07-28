@@ -5,12 +5,12 @@ import {
   SparklesIcon,
 } from "@heroicons/react/24/solid";
 import Image from "next/image";
-import Link from "next/link";
 import { FaGithub } from "react-icons/fa6";
 
 import { TrackedLink } from "@/components/analytics/tracked-link";
 import { DynamicTitle } from "@/components/sub/dynamic-title";
 import { fallbackPortfolioContent } from "@/data/fallback-portfolio";
+import type { AnalyticsEvent } from "@/lib/analytics/events";
 import type { HeroContentData, ProfileContent } from "@/lib/cms-types";
 
 type HeroContentProps = {
@@ -51,42 +51,61 @@ export const HeroContent = ({ profile = fallbackPortfolioContent.profile, hero =
         <div className="flex flex-col gap-3">
           <TrackedLink
             href={hero.primaryCtaHref}
-            analyticsEvent={{ event: "contact_cta_click", cta_location: "hero", cta_label: "hero_primary_contact" }}
-            prefetch={false}
+            analyticsEvent={getHeroCtaEvent(
+              hero.primaryCtaHref,
+              hero.primaryCtaLabel,
+            )}
             className="button-primary inline-flex w-full items-center justify-center gap-2 rounded-lg px-7 py-4 text-center text-base font-bold text-white sm:w-fit sm:self-center lg:self-start"
           >
-            <EnvelopeIcon className="h-5 w-5" />
+            {hero.primaryCtaHref.startsWith("/projects") ? (
+              <BriefcaseIcon className="h-5 w-5" />
+            ) : hero.primaryCtaHref.startsWith("/resume") ? (
+              <ArrowDownTrayIcon className="h-5 w-5" />
+            ) : (
+              <EnvelopeIcon className="h-5 w-5" />
+            )}
             {hero.primaryCtaLabel}
           </TrackedLink>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-center lg:justify-start">
-            <Link
+            <TrackedLink
               href={hero.secondaryCtaHref}
-              prefetch={false}
+              analyticsEvent={getHeroCtaEvent(
+                hero.secondaryCtaHref,
+                hero.secondaryCtaLabel,
+              )}
               className="button-secondary inline-flex items-center justify-center gap-2 rounded-lg px-5 py-3 text-center"
             >
               <BriefcaseIcon className="h-5 w-5" />
               {hero.secondaryCtaLabel}
-            </Link>
-            <Link
+            </TrackedLink>
+            <TrackedLink
               href="/resume"
-              prefetch={false}
               aria-label="View CV"
+              analyticsEvent={{
+                event: "resume_view_click",
+                cta_location: "hero",
+              }}
               className="button-secondary inline-flex items-center justify-center gap-2 rounded-lg px-5 py-3 text-center"
             >
               <ArrowDownTrayIcon className="h-5 w-5" />
               View CV
-            </Link>
-            <Link
+            </TrackedLink>
+            <TrackedLink
               href={profile.github}
               aria-label="GitHub profile"
+              analyticsEvent={{
+                event: "profile_link_click",
+                platform: "github",
+                link_location: "hero",
+              }}
               target="_blank"
               rel="noreferrer noopener"
               className="button-secondary inline-flex items-center justify-center gap-2 rounded-lg px-5 py-3 text-center"
             >
               <FaGithub className="h-5 w-5" />
               GitHub
-            </Link>
+            </TrackedLink>
           </div>
         </div>
       </div>
@@ -109,4 +128,21 @@ export const HeroContent = ({ profile = fallbackPortfolioContent.profile, hero =
       </div>
     </section>
   );
+};
+
+const getHeroCtaEvent = (
+  href: string,
+  label: string,
+): AnalyticsEvent => {
+  if (href.startsWith("/projects")) {
+    return { event: "project_explore_click", cta_location: "hero" };
+  }
+  if (href.startsWith("/resume")) {
+    return { event: "resume_view_click", cta_location: "hero" };
+  }
+  return {
+    event: "contact_cta_click",
+    cta_location: "hero",
+    cta_label: label,
+  };
 };

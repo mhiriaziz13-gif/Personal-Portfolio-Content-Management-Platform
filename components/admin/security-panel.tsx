@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
+import { adminFetch } from "@/components/admin/admin-api";
+
 type Device = {
   id: string;
   created_at: string;
@@ -41,9 +43,13 @@ export const SecurityPanel = () => {
   const activeFactorId = enrollment?.factorId ?? verifiedFactor?.id ?? "";
 
   const load = async () => {
-    const response = await fetch("/api/auth/mfa/status", { cache: "no-store" });
-    const data = await response.json().catch(() => ({}));
-    if (response.ok && data.ok) setStatus(data);
+    try {
+      const response = await adminFetch("/api/auth/mfa/status");
+      const data = await response.json().catch(() => ({}));
+      if (response.ok && data.ok) setStatus(data);
+    } catch {
+      // Keep the last known security status when a refresh is unavailable.
+    }
   };
 
   useEffect(() => {
@@ -57,46 +63,95 @@ export const SecurityPanel = () => {
   const enroll = async () => {
     setPending(true);
     setMessage("Creating authenticator enrollment...");
-    const response = await fetch("/api/auth/mfa/enroll", { method: "POST" });
-    const data = await response.json().catch(() => ({}));
-    setPending(false);
-    if (!response.ok || !data.ok) {
-      setMessage(data.error ?? "Could not enroll MFA.");
-      return;
+    try {
+      const response = await adminFetch("/api/auth/mfa/enroll", { method: "POST" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.ok) {
+        setMessage(data.error ?? "Could not enroll MFA.");
+        return;
+      }
+      setEnrollment({ factorId: data.factorId, qrCode: data.qrCode, secret: data.secret });
+      setMessage("Scan the QR code, then verify the 6-digit code.");
+    } catch {
+      setMessage("Could not enroll MFA.");
+    } finally {
+      setPending(false);
     }
-    setEnrollment({ factorId: data.factorId, qrCode: data.qrCode, secret: data.secret });
-    setMessage("Scan the QR code, then verify the 6-digit code.");
   };
 
   const verify = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setPending(true);
-    const response = await fetch("/api/auth/mfa/verify", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ factorId: activeFactorId, code, rememberDevice: false }),
-    });
-    const data = await response.json().catch(() => ({}));
-    setPending(false);
-    setMessage(response.ok && data.ok ? "MFA verified." : data.error ?? "Invalid code.");
-    if (response.ok && data.ok) {
-      setEnrollment(null);
-      setCode("");
-      await load();
+    try {
+      const response = await adminFetch("/api/auth/mfa/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ factorId: activeFactorId, code, rememberDevice: false }),
+      });
+      const data = await response.json().catch(() => ({}));
+      setMessage(response.ok && data.ok ? "MFA verified." : data.error ?? "Invalid code.");
+      if (response.ok && data.ok) {
+        setEnrollment(null);
+        setCode("");
+        await load();
+      }
+    } catch {
+      setMessage("Invalid code.");
+    } finally {
+      setPending(false);
     }
   };
 
   const savePreferences = async (mfaRequired: boolean, rememberDeviceEnabled: boolean) => {
     setPending(true);
-    const response = await fetch("/api/auth/mfa/preferences", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mfaRequired, rememberDeviceEnabled }),
-    });
-    const data = await response.json().catch(() => ({}));
-    setPending(false);
-    setMessage(response.ok && data.ok ? "Security preferences saved." : data.error ?? "Could not save preferences.");
-    await load();
+    try {
+      const response = await adminFetch("/api/auth/mfa/preferences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mfaRequired, rememberDeviceEnabled }),
+      });
+      const data = await response.json().catch(() => ({}));
+      setMessage(response.ok && data.ok ? "Security preferences saved." : data.error ?? "Could not save preferences.");
+      await load();
+    } catch {
+      setMessage("Could not save preferences.");
+    } finally {
+      setPending(false);
+    }
+  };
+
+  const verifyCurrentFactor = async () => {
+    if (!verifiedFactor?.id || !/^\d{6}$/.test(removeCode)) {
+      setMessage("Enter the current 6-digit authenticator code.");
+      return;
+    }
+
+    setPending(true);
+    try {
+      const response = await adminFetch("/api/auth/mfa/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          factorId: verifiedFactor.id,
+          code: removeCode,
+          rememberDevice: false,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      setMessage(
+        response.ok && data.ok
+          ? "Fresh MFA verification completed."
+          : data.error ?? "Invalid authenticator code.",
+      );
+      if (response.ok && data.ok) {
+        setRemoveCode("");
+        await load();
+      }
+    } catch {
+      setMessage("Invalid authenticator code.");
+    } finally {
+      setPending(false);
+    }
   };
 
   const removeFactor = async () => {
@@ -104,26 +159,34 @@ export const SecurityPanel = () => {
     const confirmed = window.confirm("Remove this MFA factor? You should keep at least one secure factor active.");
     if (!confirmed) return;
 
-    const response = await fetch("/api/auth/mfa/remove", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ factorId: verifiedFactor.id, code: removeCode || undefined }),
-    });
-    const data = await response.json().catch(() => ({}));
-    setMessage(response.ok && data.ok ? "MFA factor removed." : data.error ?? "Could not remove factor.");
-    setRemoveCode("");
-    await load();
+    try {
+      const response = await adminFetch("/api/auth/mfa/remove", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ factorId: verifiedFactor.id, code: removeCode || undefined }),
+      });
+      const data = await response.json().catch(() => ({}));
+      setMessage(response.ok && data.ok ? "MFA factor removed." : data.error ?? "Could not remove factor.");
+      setRemoveCode("");
+      await load();
+    } catch {
+      setMessage("Could not remove factor.");
+    }
   };
 
   const revokeDevice = async (id?: string, all = false) => {
-    const response = await fetch("/api/auth/remember-device/revoke", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, all }),
-    });
-    const data = await response.json().catch(() => ({}));
-    setMessage(response.ok && data.ok ? "Remembered device revoked." : data.error ?? "Could not revoke device.");
-    await load();
+    try {
+      const response = await adminFetch("/api/auth/remember-device/revoke", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, all }),
+      });
+      const data = await response.json().catch(() => ({}));
+      setMessage(response.ok && data.ok ? "Remembered device revoked." : data.error ?? "Could not revoke device.");
+      await load();
+    } catch {
+      setMessage("Could not revoke device.");
+    }
   };
 
   return (
@@ -165,6 +228,7 @@ export const SecurityPanel = () => {
             <p className="text-sm text-gray-300">Verified factor: {verifiedFactor.friendly_name ?? verifiedFactor.id}</p>
             <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-center">
               <input value={removeCode} onChange={(event) => setRemoveCode(event.target.value)} inputMode="numeric" placeholder="Current 6-digit code" className="rounded-lg border border-white/10 bg-[#151030] px-4 py-3 text-sm text-white outline-none focus:border-cyan-300/60" />
+              <button type="button" onClick={() => void verifyCurrentFactor()} disabled={pending} className="rounded-lg border border-cyan-300/30 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-100 hover:bg-cyan-500/20 disabled:opacity-60">Verify for settings</button>
               <button type="button" onClick={removeFactor} className="rounded-lg border border-red-300/30 bg-red-500/10 px-4 py-3 text-sm text-red-100 hover:bg-red-500/20">Remove factor</button>
             </div>
           </div>

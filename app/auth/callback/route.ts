@@ -1,7 +1,18 @@
 import { NextResponse } from "next/server";
 
-import { getAdminMembership, getMfaContext, writeAdminAudit } from "@/lib/security/admin-auth";
+import {
+  createPasswordRecoveryState,
+  getAdminMembership,
+  getMfaContext,
+  isPasswordRecoveryStateValid,
+  setPasswordRecoveryCookie,
+  writeAdminAudit,
+} from "@/lib/security/admin-auth";
 import { noStoreHeaders } from "@/lib/security/headers";
+import {
+  getTrustedRequestOrigin,
+  jsonError,
+} from "@/lib/security/http";
 import { safeRedirect } from "@/lib/security/redirects";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -15,30 +26,42 @@ const loginError = (origin: string, code: string) =>
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
+  const trustedOrigin = getTrustedRequestOrigin(request);
+  if (!trustedOrigin) {
+    return jsonError(
+      "Authentication callback target is not allowed.",
+      400,
+      "origin_not_allowed",
+    );
+  }
   const providerError = requestUrl.searchParams.get("error");
   const code = requestUrl.searchParams.get("code");
   const tokenHash = requestUrl.searchParams.get("token_hash");
   const type = requestUrl.searchParams.get("type");
+  const recoveryState = requestUrl.searchParams.get("recovery_state");
   const next = safeRedirect(requestUrl.searchParams.get("next"), "/admin");
+  const isRecoveryDestination =
+    new URL(next, trustedOrigin).pathname === "/admin/reset-password";
 
   if (providerError) {
-    return loginError(requestUrl.origin, "github_oauth_failed");
+    return loginError(trustedOrigin, "github_oauth_failed");
   }
 
   let supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>;
   try {
     supabase = await createSupabaseServerClient();
   } catch {
-    return loginError(requestUrl.origin, "supabase_config");
+    return loginError(trustedOrigin, "supabase_config");
   }
 
+  let verifiedRecoveryOtp = false;
   if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) {
       await writeAdminAudit({ action: "oauth_callback_exchange_failure", metadata: { code: error.code ?? null }, request });
       return loginError(
-        requestUrl.origin,
-        next.startsWith("/admin/reset-password") ? "recovery" : "callback",
+        trustedOrigin,
+        isRecoveryDestination ? "recovery" : "callback",
       );
     }
   } else if (tokenHash && type) {
@@ -46,39 +69,60 @@ export async function GET(request: Request) {
       token_hash: tokenHash,
       type: type as "signup" | "invite" | "magiclink" | "recovery" | "email_change" | "email",
     });
-    if (error) return loginError(requestUrl.origin, type === "recovery" ? "recovery" : "callback");
+    if (error) return loginError(trustedOrigin, type === "recovery" ? "recovery" : "callback");
+    verifiedRecoveryOtp = type === "recovery";
   } else {
-    return loginError(requestUrl.origin, "callback");
+    return loginError(trustedOrigin, "callback");
   }
 
-  if (next.startsWith("/admin/reset-password")) {
-    return redirectTo(next, requestUrl.origin);
-  }
-
-  if (next.startsWith("/admin")) {
-    const { data, error: userError } = await supabase.auth.getUser();
+  if (isRecoveryDestination) {
+    const { data, error } = await supabase.auth.getUser();
     const user = data.user;
     const membership = user ? await getAdminMembership(user.id) : null;
+    const verifiedRecoveryState =
+      recoveryState && user?.email &&
+      isPasswordRecoveryStateValid(recoveryState, user.email)
+        ? recoveryState
+        : verifiedRecoveryOtp && user?.email
+          ? createPasswordRecoveryState(user.email)
+          : null;
 
-    if (userError || !user || !membership || membership.status !== "admin") {
+    if (
+      error ||
+      !user ||
+      membership?.status !== "admin" ||
+      !verifiedRecoveryState
+    ) {
       await supabase.auth.signOut();
-      const reason = membership?.status === "server_error" ? "server" : "unauthorized";
-      await writeAdminAudit({ actorUserId: user?.id ?? null, action: "oauth_login_failure", metadata: { reason }, request });
-      return loginError(requestUrl.origin, reason);
+      return loginError(trustedOrigin, "recovery");
     }
 
-    const mfa = await getMfaContext(supabase, user.id, request);
-
-    if (mfa.mfaRequired && !mfa.mfaSatisfied) {
-      await writeAdminAudit({ actorUserId: user.id, action: "mfa_challenge_required", request });
-      if (!mfa.verifiedFactors.length) {
-        return redirectTo("/admin/security?setup=mfa", requestUrl.origin);
-      }
-      return redirectTo(`/admin/login?mfa=required&next=${encodeURIComponent(next)}`, requestUrl.origin);
-    }
-
-    await writeAdminAudit({ actorUserId: user.id, action: "oauth_login_success", request });
+    const response = redirectTo(next, trustedOrigin);
+    setPasswordRecoveryCookie(response, verifiedRecoveryState);
+    return response;
   }
 
-  return redirectTo(next, requestUrl.origin);
+  const { data, error: userError } = await supabase.auth.getUser();
+  const user = data.user;
+  const membership = user ? await getAdminMembership(user.id) : null;
+
+  if (userError || !user || !membership || membership.status !== "admin") {
+    await supabase.auth.signOut();
+    const reason = membership?.status === "server_error" ? "server" : "unauthorized";
+    await writeAdminAudit({ actorUserId: user?.id ?? null, action: "oauth_login_failure", metadata: { reason }, request });
+    return loginError(trustedOrigin, reason);
+  }
+
+  const mfa = await getMfaContext(supabase, user.id, request);
+
+  if (mfa.mfaRequired && !mfa.mfaSatisfied) {
+    await writeAdminAudit({ actorUserId: user.id, action: "mfa_challenge_required", request });
+    if (!mfa.verifiedFactors.length) {
+      return redirectTo("/admin/security?setup=mfa", trustedOrigin);
+    }
+    return redirectTo(`/admin/login?mfa=required&next=${encodeURIComponent(next)}`, trustedOrigin);
+  }
+
+  await writeAdminAudit({ actorUserId: user.id, action: "oauth_login_success", request });
+  return redirectTo(next, trustedOrigin);
 }

@@ -1,18 +1,33 @@
-import { fallbackPortfolioContent } from "@/data/fallback-portfolio";
+import { unstable_cache } from "next/cache";
+import { cache } from "react";
+
+import { fallbackPortfolioContent, primaryNavigation } from "@/data/fallback-portfolio";
+import { cmsSelectColumns } from "@/lib/cms-columns";
+import { hasMeaningfulProjectSection } from "@/lib/content-completeness";
 import type {
   AdminContentSnapshot,
   CertificationContent,
   CmsTableName,
   ExperienceContent,
+  PageContent,
+  PageSectionContent,
+  PageSectionItemContent,
+  PortfolioChromeContent,
   PortfolioContent,
   ProjectContent,
+  ProjectMediaContent,
   ProjectSectionContent,
+  ProjectSectionItemContent,
   ResumeContent,
   SkillCategory,
 } from "@/lib/cms-types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { createSupabasePublicClient } from "@/lib/supabase/server";
 import { isSupabaseAdminConfigured, isSupabaseConfigured } from "@/lib/supabase/config";
+import { createSupabasePublicClient } from "@/lib/supabase/server";
+import {
+  type EditableCmsTable,
+  isEditableCmsTable,
+} from "@/lib/security/validation";
 
 export const cmsTables: CmsTableName[] = [
   "profile",
@@ -29,7 +44,12 @@ export const cmsTables: CmsTableName[] = [
   "site_settings",
   "contact_messages",
   "uploads",
-  "pages", "page_sections", "page_section_items", "project_section_items", "project_media", "volunteering",
+  "pages",
+  "page_sections",
+  "page_section_items",
+  "project_section_items",
+  "project_media",
+  "volunteering",
 ];
 
 const publicTables: CmsTableName[] = [
@@ -39,343 +59,1002 @@ const publicTables: CmsTableName[] = [
   "skills",
   "projects",
   "project_sections",
+  "project_section_items",
+  "project_media",
   "experience",
   "education",
   "certifications",
   "resumes",
   "social_links",
-  "pages", "page_sections", "volunteering",
+  "pages",
+  "page_sections",
+  "page_section_items",
+  "volunteering",
 ];
 
-const asStringArray = (value: unknown): string[] =>
-  Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+const PUBLIC_REVALIDATE_SECONDS = 60;
 
-const slugify = (value: string) =>
-  value
-    .toLowerCase()
-    .replace(/&/g, "and")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
+const publicColumns = {
+  profile:
+    "id,full_name,initials,headline,secondary_line,tagline,location,email,linkedin_url,linkedin_label,github_url,github_label,avatar_url,availability,short_bio,about_text,about_focus,published,updated_at",
+  hero:
+    "id,eyebrow,title,subtitle,tagline,dynamic_titles,primary_cta_label,primary_cta_href,secondary_cta_label,secondary_cta_href,published,updated_at",
+  about: "id,title,body,highlights,avatar_url,published,updated_at",
+  skills: "id,name,category,sort_order,published,updated_at",
+  projects:
+    "id,slug,title,type,summary,description,cover_image_url,placeholder_image_url,card_image_url,tags,tools,github_url,linkedin_url,demo_url,featured,published,status,project_group,home_featured_order,projects_page_order,sort_order,seo_title,seo_description,open_graph_image,created_at,updated_at",
+  projectSections:
+    "id,project_id,title,body,bullets,sort_order,section_type,is_visible,is_archived,created_at,updated_at",
+  projectSectionItems:
+    "id,project_section_id,label,value,description,display_order,is_visible,updated_at",
+  projectMedia:
+    "id,project_id,media_url,alt_text,caption,media_type,display_order,is_visible,updated_at",
+  experience:
+    "id,company,role,location,start_date,end_date,date_label,icon_bg,logo_url,logo_alt,points,tools,sort_order,published,updated_at",
+  education:
+    "id,institution,degree,start_date,end_date,status,location,sort_order,published,updated_at",
+  certifications:
+    "id,name,issuer,date,credential_url,credential_id,image_url,description,tags,sort_order,published,updated_at",
+  resumes: "id,label,variant,pdf_url,docx_url,sort_order,published,updated_at",
+  socialLinks: "id,label,url,icon_key,sort_order,published,updated_at",
+  pages:
+    "id,page_key,title,slug,seo_title,seo_description,open_graph_title,open_graph_description,open_graph_image,is_published,updated_at",
+  pageSections:
+    "id,page_id,section_type,title,subtitle,description,cta_label,cta_href,secondary_cta_label,secondary_cta_href,display_order,layout_variant,is_visible,is_archived,updated_at",
+  pageSectionItems:
+    "id,page_section_id,title,subtitle,description,link_label,link_url,media_url,media_alt,display_order,is_visible,updated_at",
+  volunteering:
+    "id,role,organisation,logo_url,logo_alt,start_date,end_date,date_label,domain,summary,description_items,focus_areas,certification_id,sort_order,published,archived,updated_at",
+} as const;
 
-type CmsRow = Record<string, unknown> & { sort_order?: number; sortOrder?: number };
+const adminOnlyColumns: Record<
+  Exclude<CmsTableName, EditableCmsTable>,
+  string
+> = {
+  site_settings: "key,value,updated_at",
+  contact_messages:
+    "id,name,email,message,source,status,created_at,updated_at,read_at,archived_at,delivery_status,delivery_attempts,last_delivery_attempt_at,next_delivery_attempt_at,delivered_at,delivery_error_code,provider_message_id",
+  uploads:
+    "id,bucket,path,public_url,mime_type,size_bytes,original_name,uploaded_by,created_at,sha256,deletion_status,deletion_requested_at,deletion_error_code",
+};
 
-const readRows = (data: unknown): CmsRow[] => Array.isArray(data) ? (data as CmsRow[]) : [];
+const adminColumnsFor = (table: CmsTableName) =>
+  isEditableCmsTable(table)
+    ? cmsSelectColumns(table)
+    : adminOnlyColumns[table];
 
-const sortByOrder = <T extends { sort_order?: number; sortOrder?: number }>(rows: T[]) =>
-  [...rows].sort((a, b) => (a.sort_order ?? a.sortOrder ?? 0) - (b.sort_order ?? b.sortOrder ?? 0));
+type CmsRow = Record<string, unknown> & {
+  display_order?: number;
+  projects_page_order?: number;
+  sort_order?: number;
+  sortOrder?: number;
+};
+
+type PublicQueryResult = {
+  rows: CmsRow[];
+  ok: boolean;
+};
+
+type QueryLike = PromiseLike<{ data: unknown; error: unknown }>;
+
+const readRows = (data: unknown): CmsRow[] =>
+  Array.isArray(data) ? (data as CmsRow[]) : [];
+
+const readText = (value: unknown) =>
+  typeof value === "string" ? value.trim() : "";
+
+const readStringArray = (value: unknown): string[] =>
+  Array.isArray(value)
+    ? value
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : [];
+
+const readTimestamp = (value: unknown) => {
+  const candidate = readText(value);
+  return candidate && Number.isFinite(Date.parse(candidate)) ? candidate : "";
+};
+
+const latestTimestamp = (...values: string[]) =>
+  values
+    .filter(Boolean)
+    .sort((left, right) => Date.parse(right) - Date.parse(left))[0] ?? "";
+
+const sortByOrder = <T extends CmsRow>(rows: T[]) =>
+  [...rows].sort(
+    (left, right) =>
+      (left.sort_order ??
+        left.sortOrder ??
+        left.display_order ??
+        0) -
+      (right.sort_order ??
+        right.sortOrder ??
+        right.display_order ??
+        0),
+  );
+
+const sortProjectsByPageOrder = <T extends CmsRow>(rows: T[]) =>
+  [...rows].sort(
+    (left, right) =>
+      Number(left.projects_page_order ?? left.sort_order ?? 0)
+      - Number(right.projects_page_order ?? right.sort_order ?? 0),
+  );
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
 const localAssetAliases: Record<string, string> = {
-  "/projects/project-placeholder-1.png": "/projects/project-1.png",
-  "/projects/project-placeholder-2.png": "/projects/project-2.png",
-  "/projects/project-placeholder-3.png": "/projects/project-3.png",
-  "/projects/project-placeholder-4.png": "/projects/project-1.png",
-  "/projects/project-placeholder-5.png": "/projects/project-2.png",
   "/companies/arabsoft.png": "/companies/arab-soft.png",
   "/companies/confidential-client.png": "/companies/chicchac.png",
 };
 
-const normalizeCmsAssetPath = (value: unknown, fallback: string) => {
-  if (typeof value !== "string" || !value.trim()) {
-    return fallback;
-  }
-
-  let path = value.trim();
+const normalizeCmsAssetPath = (value: unknown, fallback = "") => {
+  let path = readText(value) || fallback;
+  if (!path) return "";
 
   if (path.startsWith("public/")) {
     path = `/${path.slice("public/".length)}`;
   }
-
-  if (!path.startsWith("/") && !path.startsWith("http://") && !path.startsWith("https://")) {
+  if (
+    !path.startsWith("/") &&
+    !path.startsWith("http://") &&
+    !path.startsWith("https://")
+  ) {
     path = `/${path}`;
   }
 
   return localAssetAliases[path] ?? path;
 };
 
+const deriveInitials = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 3)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+
 const emptyPublishedContent = (): PortfolioContent => ({
-  profile: { name: "", initials: "", avatarPath: "", location: "", email: "", linkedIn: "", linkedInLabel: "", github: "", githubLabel: "", availability: "", mainTitle: "", secondaryLine: "", tagline: "", shortProfile: "", about: "", aboutFocus: [] },
-  hero: { eyebrow: "", title: "", subtitle: "", tagline: "", dynamicTitles: [], primaryCtaLabel: "", primaryCtaHref: "/contact", secondaryCtaLabel: "", secondaryCtaHref: "/projects" },
+  profile: {
+    name: "",
+    initials: "",
+    avatarPath: "",
+    location: "",
+    email: "",
+    linkedIn: "",
+    linkedInLabel: "",
+    github: "",
+    githubLabel: "",
+    availability: "",
+    mainTitle: "",
+    secondaryLine: "",
+    tagline: "",
+    shortProfile: "",
+    about: "",
+    aboutFocus: [],
+  },
+  hero: {
+    eyebrow: "",
+    title: "",
+    subtitle: "",
+    tagline: "",
+    dynamicTitles: [],
+    primaryCtaLabel: "",
+    primaryCtaHref: "",
+    secondaryCtaLabel: "",
+    secondaryCtaHref: "",
+  },
   about: { title: "", body: "", highlights: [], avatarUrl: "" },
-  skillCategories: [], projects: [], projectSections: [], experience: [], education: [], certifications: [], resumes: [], socialLinks: [], pages: [], volunteering: [],
-  navLinks: fallbackPortfolioContent.navLinks,
+  skillCategories: [],
+  projects: [],
+  projectSections: [],
+  experience: [],
+  education: [],
+  certifications: [],
+  resumes: [],
+  socialLinks: [],
+  pages: [],
+  volunteering: [],
+  navLinks: primaryNavigation,
+  delivery: {
+    source: "cms",
+    profile: "ok",
+    pages: "ok",
+    presentation: "ok",
+    projects: "ok",
+    career: "ok",
+    secondary: "ok",
+  },
 });
 
-const failClosedOnError = (error: unknown) => {
-  const detail = error instanceof Error ? error.message.slice(0, 160) : "unknown public CMS error";
-  console.warn(`Public CMS discovery failed; returning no uncertain published rows. ${detail}`);
-  return emptyPublishedContent();
+const readPublicRows = async (
+  incidentId: string,
+  query: QueryLike,
+): Promise<PublicQueryResult> => {
+  try {
+    const result = await query;
+    if (result.error) {
+      console.warn("Public CMS read failed.", { incidentId });
+      return { rows: [], ok: false };
+    }
+    return { rows: readRows(result.data), ok: true };
+  } catch {
+    console.warn("Public CMS read failed.", { incidentId });
+    return { rows: [], ok: false };
+  }
 };
 
-export const getPortfolioContent = async (): Promise<PortfolioContent> => {
-  if (!isSupabaseConfigured()) {
-    return fallbackPortfolioContent;
-  }
+export const readPublicCmsRows = readPublicRows;
 
-  try {
+const groupStatus = (results: PublicQueryResult[]) => {
+  const successful = results.filter((result) => result.ok).length;
+  if (successful === results.length) return "ok" as const;
+  if (successful === 0) return "failed" as const;
+  return "partial" as const;
+};
+
+const loadProfileRows = unstable_cache(
+  async () => {
     const supabase = createSupabasePublicClient();
+    return readPublicRows(
+      "CMS-PUBLIC-PROFILE-READ",
+      supabase
+        .from("profile")
+        .select(publicColumns.profile)
+        .eq("published", true)
+        .order("updated_at", { ascending: false })
+        .limit(1),
+    );
+  },
+  ["public-cms-profile-v2"],
+  { revalidate: PUBLIC_REVALIDATE_SECONDS, tags: ["public-cms-profile"] },
+);
 
-    const [profileResult, heroResult, aboutResult, skillsResult, projectsResult, sectionsResult, experienceResult, educationResult, certificationsResult, resumesResult, socialLinksResult, pagesResult, pageSectionsResult, volunteeringResult] =
+const loadPresentationRows = unstable_cache(
+  async () => {
+    const supabase = createSupabasePublicClient();
+    const [hero, about, pages, pageSections, pageSectionItems] =
       await Promise.all([
-        supabase.from("profile").select("*").eq("published", true).order("updated_at", { ascending: false }).limit(1),
-        supabase.from("hero").select("*").eq("published", true).order("updated_at", { ascending: false }).limit(1),
-        supabase.from("about").select("*").eq("published", true).order("updated_at", { ascending: false }).limit(1),
-        supabase.from("skills").select("*").eq("published", true).order("sort_order", { ascending: true }),
-        supabase.from("projects").select("*").eq("published", true).eq("status", "published").order("projects_page_order", { ascending: true }),
-        supabase.from("project_sections").select("*" ).eq("is_visible", true).eq("is_archived", false).order("sort_order", { ascending: true }),
-        supabase.from("experience").select("*").eq("published", true).order("sort_order", { ascending: true }),
-        supabase.from("education").select("*").eq("published", true).order("sort_order", { ascending: true }),
-        supabase.from("certifications").select("*").eq("published", true).order("sort_order", { ascending: true }),
-        supabase.from("resumes").select("*").eq("published", true).order("sort_order", { ascending: true }),
-        supabase.from("social_links").select("*").eq("published", true).order("sort_order", { ascending: true }),
-        supabase.from("pages").select("*").eq("is_published", true),
-        supabase.from("page_sections").select("*").eq("is_visible", true).eq("is_archived", false).order("display_order", { ascending: true }),
-        supabase.from("volunteering").select("*").eq("published", true).eq("archived", false).order("sort_order", { ascending: true }),
+        readPublicRows(
+          "CMS-PUBLIC-HERO-READ",
+          supabase
+            .from("hero")
+            .select(publicColumns.hero)
+            .eq("published", true)
+            .order("updated_at", { ascending: false })
+            .limit(1),
+        ),
+        readPublicRows(
+          "CMS-PUBLIC-ABOUT-READ",
+          supabase
+            .from("about")
+            .select(publicColumns.about)
+            .eq("published", true)
+            .order("updated_at", { ascending: false })
+            .limit(1),
+        ),
+        readPublicRows(
+          "CMS-PUBLIC-PAGES-READ",
+          supabase
+            .from("pages")
+            .select(publicColumns.pages)
+            .eq("is_published", true),
+        ),
+        readPublicRows(
+          "CMS-PUBLIC-PAGE-SECTIONS-READ",
+          supabase
+            .from("page_sections")
+            .select(publicColumns.pageSections)
+            .eq("is_visible", true)
+            .eq("is_archived", false)
+            .order("display_order", { ascending: true }),
+        ),
+        readPublicRows(
+          "CMS-PUBLIC-PAGE-ITEMS-READ",
+          supabase
+            .from("page_section_items")
+            .select(publicColumns.pageSectionItems)
+            .eq("is_visible", true)
+            .order("display_order", { ascending: true }),
+        ),
       ]);
 
-    const results = [profileResult, heroResult, aboutResult, skillsResult, projectsResult, sectionsResult, experienceResult, educationResult, certificationsResult, resumesResult, socialLinksResult, pagesResult, pageSectionsResult, volunteeringResult];
-    const failed = results.find((result) => result.error);
-    if (failed?.error) {
-      throw failed.error;
-    }
+    return { hero, about, pages, pageSections, pageSectionItems };
+  },
+  ["public-cms-presentation-v2"],
+  { revalidate: PUBLIC_REVALIDATE_SECONDS, tags: ["public-cms-presentation"] },
+);
 
-    const profileRows = readRows(profileResult.data);
-    const heroRows = readRows(heroResult.data);
-    const aboutRows = readRows(aboutResult.data);
-    const skillsRows = readRows(skillsResult.data);
-    const projectsRows = readRows(projectsResult.data);
-    const sectionRows = readRows(sectionsResult.data);
-    const experienceRows = readRows(experienceResult.data);
-    const educationRows = readRows(educationResult.data);
-    const certificationRows = readRows(certificationsResult.data);
-    const resumeRows = readRows(resumesResult.data);
-    const socialLinkRows = readRows(socialLinksResult.data);
-    const pageRows = readRows(pagesResult.data);
-    const pageSectionRows = readRows(pageSectionsResult.data);
-    const volunteeringRows = readRows(volunteeringResult.data);
+const loadProjectRows = unstable_cache(
+  async () => {
+    const supabase = createSupabasePublicClient();
+    const [projects, projectSections, projectSectionItems, projectMedia] =
+      await Promise.all([
+        readPublicRows(
+          "CMS-PUBLIC-PROJECTS-READ",
+          supabase
+            .from("projects")
+            .select(publicColumns.projects)
+            .eq("published", true)
+            .eq("status", "published")
+            .order("projects_page_order", { ascending: true }),
+        ),
+        readPublicRows(
+          "CMS-PUBLIC-PROJECT-SECTIONS-READ",
+          supabase
+            .from("project_sections")
+            .select(publicColumns.projectSections)
+            .eq("is_visible", true)
+            .eq("is_archived", false)
+            .order("sort_order", { ascending: true }),
+        ),
+        readPublicRows(
+          "CMS-PUBLIC-PROJECT-ITEMS-READ",
+          supabase
+            .from("project_section_items")
+            .select(publicColumns.projectSectionItems)
+            .eq("is_visible", true)
+            .order("display_order", { ascending: true }),
+        ),
+        readPublicRows(
+          "CMS-PUBLIC-PROJECT-MEDIA-READ",
+          supabase
+            .from("project_media")
+            .select(publicColumns.projectMedia)
+            .eq("is_visible", true)
+            .order("display_order", { ascending: true }),
+        ),
+      ]);
 
-    const profileRow = profileRows[0];
-    const heroRow = heroRows[0];
-    const aboutRow = aboutRows[0];
+    return { projects, projectSections, projectSectionItems, projectMedia };
+  },
+  ["public-cms-projects-v2"],
+  { revalidate: PUBLIC_REVALIDATE_SECONDS, tags: ["public-cms-projects"] },
+);
 
-    const profile = profileRow
-      ? {
-          ...fallbackPortfolioContent.profile,
-          name: fallbackPortfolioContent.profile.name,
-          initials: String(profileRow.initials ?? fallbackPortfolioContent.profile.initials),
-          avatarPath: String(profileRow.avatar_url ?? fallbackPortfolioContent.profile.avatarPath),
-          location: String(profileRow.location ?? fallbackPortfolioContent.profile.location),
-          email: String(profileRow.email ?? fallbackPortfolioContent.profile.email),
-          linkedIn: String(profileRow.linkedin_url ?? fallbackPortfolioContent.profile.linkedIn),
-          linkedInLabel: String(profileRow.linkedin_label ?? fallbackPortfolioContent.profile.linkedInLabel),
-          github: String(profileRow.github_url ?? fallbackPortfolioContent.profile.github),
-          githubLabel: String(profileRow.github_label ?? fallbackPortfolioContent.profile.githubLabel),
-          availability: String(profileRow.availability ?? fallbackPortfolioContent.profile.availability),
-          mainTitle: String(profileRow.headline ?? fallbackPortfolioContent.profile.mainTitle),
-          secondaryLine: String(profileRow.secondary_line ?? fallbackPortfolioContent.profile.secondaryLine),
-          tagline: String(profileRow.tagline ?? fallbackPortfolioContent.profile.tagline),
-          shortProfile: String(profileRow.short_bio ?? fallbackPortfolioContent.profile.shortProfile),
-          about: String(profileRow.about_text ?? fallbackPortfolioContent.profile.about),
-          aboutFocus: asStringArray(profileRow.about_focus).length ? asStringArray(profileRow.about_focus) : fallbackPortfolioContent.profile.aboutFocus,
-        }
-      : emptyPublishedContent().profile;
+const loadCareerRows = unstable_cache(
+  async () => {
+    const supabase = createSupabasePublicClient();
+    const [skills, experience, education] = await Promise.all([
+      readPublicRows(
+        "CMS-PUBLIC-SKILLS-READ",
+        supabase
+          .from("skills")
+          .select(publicColumns.skills)
+          .eq("published", true)
+          .order("sort_order", { ascending: true }),
+      ),
+      readPublicRows(
+        "CMS-PUBLIC-EXPERIENCE-READ",
+        supabase
+          .from("experience")
+          .select(publicColumns.experience)
+          .eq("published", true)
+          .order("sort_order", { ascending: true }),
+      ),
+      readPublicRows(
+        "CMS-PUBLIC-EDUCATION-READ",
+        supabase
+          .from("education")
+          .select(publicColumns.education)
+          .eq("published", true)
+          .order("sort_order", { ascending: true }),
+      ),
+    ]);
 
-    const hero = heroRow
-      ? {
-          eyebrow: String(heroRow.eyebrow ?? profile.mainTitle),
-          title: profile.name,
-          subtitle: String(heroRow.subtitle ?? profile.secondaryLine),
-          tagline: String(heroRow.tagline ?? profile.tagline),
-          dynamicTitles: asStringArray(heroRow.dynamic_titles).length ? asStringArray(heroRow.dynamic_titles) : fallbackPortfolioContent.hero.dynamicTitles,
-          primaryCtaLabel: String(heroRow.primary_cta_label ?? fallbackPortfolioContent.hero.primaryCtaLabel),
-          primaryCtaHref: String(heroRow.primary_cta_href ?? fallbackPortfolioContent.hero.primaryCtaHref),
-          secondaryCtaLabel: String(heroRow.secondary_cta_label ?? fallbackPortfolioContent.hero.secondaryCtaLabel),
-          secondaryCtaHref: String(heroRow.secondary_cta_href ?? fallbackPortfolioContent.hero.secondaryCtaHref),
-        }
-      : emptyPublishedContent().hero;
+    return { skills, experience, education };
+  },
+  ["public-cms-career-v2"],
+  { revalidate: PUBLIC_REVALIDATE_SECONDS, tags: ["public-cms-career"] },
+);
 
-    const about = aboutRow
-      ? {
-          title: String(aboutRow.title ?? fallbackPortfolioContent.about.title),
-          body: String(aboutRow.body ?? profile.about),
-          highlights: asStringArray(aboutRow.highlights).length ? asStringArray(aboutRow.highlights) : profile.aboutFocus,
-          avatarUrl: String(aboutRow.avatar_url ?? profile.avatarPath),
-        }
-      : emptyPublishedContent().about;
+const loadSecondaryRows = unstable_cache(
+  async () => {
+    const supabase = createSupabasePublicClient();
+    const [certifications, resumes, socialLinks, volunteering] =
+      await Promise.all([
+        readPublicRows(
+          "CMS-PUBLIC-CERTIFICATIONS-READ",
+          supabase
+            .from("certifications")
+            .select(publicColumns.certifications)
+            .eq("published", true)
+            .order("sort_order", { ascending: true }),
+        ),
+        readPublicRows(
+          "CMS-PUBLIC-RESUMES-READ",
+          supabase
+            .from("resumes")
+            .select(publicColumns.resumes)
+            .eq("published", true)
+            .order("sort_order", { ascending: true }),
+        ),
+        readPublicRows(
+          "CMS-PUBLIC-SOCIAL-LINKS-READ",
+          supabase
+            .from("social_links")
+            .select(publicColumns.socialLinks)
+            .eq("published", true)
+            .order("sort_order", { ascending: true }),
+        ),
+        readPublicRows(
+          "CMS-PUBLIC-VOLUNTEERING-READ",
+          supabase
+            .from("volunteering")
+            .select(publicColumns.volunteering)
+            .eq("published", true)
+            .eq("archived", false)
+            .order("sort_order", { ascending: true }),
+        ),
+      ]);
 
-    const groupedSkills = new Map<string, string[]>();
-    sortByOrder(skillsRows).forEach((row) => {
-      const category = String(row.category ?? "Skills");
-      const current = groupedSkills.get(category) ?? [];
-      current.push(String(row.name));
-      groupedSkills.set(category, current);
-    });
+    return { certifications, resumes, socialLinks, volunteering };
+  },
+  ["public-cms-secondary-v2"],
+  { revalidate: PUBLIC_REVALIDATE_SECONDS, tags: ["public-cms-secondary"] },
+);
 
-    const skillCategories: SkillCategory[] = groupedSkills.size
-      ? Array.from(groupedSkills.entries()).map(([title, skills]) => ({ title, skills }))
-      : [];
+const mapProfile = (result: PublicQueryResult): PortfolioContent["profile"] => {
+  if (!result.ok) return fallbackPortfolioContent.profile;
+  const row = result.rows[0];
+  if (!row) return emptyPublishedContent().profile;
 
-    const sectionsByProjectId = new Map<string, ProjectSectionContent[]>();
-    sortByOrder(sectionRows).forEach((row) => {
-      const projectId = String(row.project_id ?? "");
-      if (!projectId) return;
-      const section = {
-        id: String(row.id ?? ""),
-        projectSlug: "",
-        title: String(row.title ?? "Section"),
-        body: String(row.body ?? ""),
-        bullets: asStringArray(row.bullets),
-        sortOrder: Number(row.sort_order ?? 0),
-        sectionType: String(row.section_type ?? "rich_text"),
-        isVisible: Boolean(row.is_visible ?? true),
+  const name = readText(row.full_name);
+  const linkedIn = readText(row.linkedin_url);
+  const github = readText(row.github_url);
+
+  return {
+    name,
+    initials: readText(row.initials) || deriveInitials(name),
+    avatarPath: normalizeCmsAssetPath(row.avatar_url),
+    location: readText(row.location),
+    email: readText(row.email),
+    linkedIn,
+    linkedInLabel: readText(row.linkedin_label) || linkedIn,
+    github,
+    githubLabel: readText(row.github_label) || github,
+    availability: readText(row.availability),
+    mainTitle: readText(row.headline),
+    secondaryLine: readText(row.secondary_line),
+    tagline: readText(row.tagline),
+    shortProfile: readText(row.short_bio),
+    about: readText(row.about_text),
+    aboutFocus: readStringArray(row.about_focus),
+  };
+};
+
+const mapHero = (
+  result: PublicQueryResult,
+): PortfolioContent["hero"] => {
+  if (!result.ok) return fallbackPortfolioContent.hero;
+  const row = result.rows[0];
+  if (!row) return emptyPublishedContent().hero;
+
+  return {
+    eyebrow: readText(row.eyebrow),
+    title: readText(row.title),
+    subtitle: readText(row.subtitle),
+    tagline: readText(row.tagline),
+    dynamicTitles: readStringArray(row.dynamic_titles),
+    primaryCtaLabel: readText(row.primary_cta_label),
+    primaryCtaHref: readText(row.primary_cta_href),
+    secondaryCtaLabel: readText(row.secondary_cta_label),
+    secondaryCtaHref: readText(row.secondary_cta_href),
+  };
+};
+
+const mapAbout = (
+  result: PublicQueryResult,
+): PortfolioContent["about"] => {
+  if (!result.ok) return fallbackPortfolioContent.about;
+  const row = result.rows[0];
+  if (!row) return emptyPublishedContent().about;
+
+  return {
+    title: readText(row.title),
+    body: readText(row.body),
+    highlights: readStringArray(row.highlights),
+    avatarUrl: normalizeCmsAssetPath(row.avatar_url),
+  };
+};
+
+const mapPageSectionItems = (
+  rows: CmsRow[],
+): PageSectionItemContent[] =>
+  sortByOrder(rows)
+    .map((row) => ({
+      id: readText(row.id),
+      pageSectionId: readText(row.page_section_id),
+      title: readText(row.title),
+      subtitle: readText(row.subtitle),
+      description: readText(row.description),
+      linkLabel: readText(row.link_label),
+      linkUrl: readText(row.link_url),
+      mediaUrl: normalizeCmsAssetPath(row.media_url),
+      mediaAlt: readText(row.media_alt),
+      displayOrder: Number(row.display_order ?? 0),
+    }))
+    .filter(
+      (item) =>
+        item.subtitle ||
+        item.description ||
+        (item.linkUrl && item.linkLabel) ||
+        (item.mediaUrl && item.mediaAlt),
+    );
+
+const mapPages = (
+  pageRows: CmsRow[],
+  pageSectionRows: CmsRow[],
+  pageSectionItemRows: CmsRow[],
+): PageContent[] => {
+  const items = mapPageSectionItems(pageSectionItemRows);
+
+  return pageRows.map((row) => {
+    const sections: PageSectionContent[] = sortByOrder(
+      pageSectionRows.filter(
+        (section) => readText(section.page_id) === readText(row.id),
+      ),
+    ).map((section) => {
+      const sectionItems = items.filter(
+        (item) => item.pageSectionId === readText(section.id),
+      );
+      return {
+        id: readText(section.id),
+        pageKey: readText(row.page_key),
+        sectionType: readText(section.section_type) || "rich_text",
+        title: readText(section.title),
+        subtitle: readText(section.subtitle),
+        description: readText(section.description),
+        ctaLabel: readText(section.cta_label),
+        ctaHref: readText(section.cta_href),
+        secondaryCtaLabel: readText(section.secondary_cta_label),
+        secondaryCtaHref: readText(section.secondary_cta_href),
+        displayOrder: Number(section.display_order ?? 0),
+        layoutVariant: readText(section.layout_variant),
+        items: sectionItems,
+        updatedAt: latestTimestamp(
+          readTimestamp(section.updated_at),
+          ...sectionItems.map((item) => {
+            const source = pageSectionItemRows.find(
+              (candidate) => readText(candidate.id) === item.id,
+            );
+            return readTimestamp(source?.updated_at);
+          }),
+        ),
       };
-      sectionsByProjectId.set(projectId, [...(sectionsByProjectId.get(projectId) ?? []), section]);
     });
 
-    const projects: ProjectContent[] = sortByOrder(projectsRows).map((row, index) => {
-      const slug = String(row.slug ?? slugify(String(row.title ?? `project-${index + 1}`)));
-      const sections = (sectionsByProjectId.get(String(row.id ?? "")) ?? []).map((section) => ({ ...section, projectSlug: slug }));
+    return {
+      id: readText(row.id),
+      pageKey: readText(row.page_key),
+      title: readText(row.title),
+      slug: readText(row.slug),
+      seoTitle: readText(row.seo_title),
+      seoDescription: readText(row.seo_description),
+      openGraphTitle: readText(row.open_graph_title),
+      openGraphDescription: readText(row.open_graph_description),
+      openGraphImage: normalizeCmsAssetPath(row.open_graph_image),
+      isPublished: true,
+      updatedAt: latestTimestamp(
+        readTimestamp(row.updated_at),
+        ...sections.map((section) => section.updatedAt),
+      ),
+      sections,
+    };
+  });
+};
+
+const mapProjectSectionItems = (
+  rows: CmsRow[],
+): ProjectSectionItemContent[] =>
+  sortByOrder(rows)
+    .map((row) => ({
+      id: readText(row.id),
+      projectSectionId: readText(row.project_section_id),
+      label: readText(row.label),
+      value: readText(row.value),
+      description: readText(row.description),
+      displayOrder: Number(row.display_order ?? 0),
+    }))
+    .filter((item) => item.value || item.description);
+
+const mapProjectMedia = (rows: CmsRow[]): ProjectMediaContent[] =>
+  sortByOrder(rows)
+    .map((row): ProjectMediaContent => {
+      const mediaType = readText(row.media_type);
+      return {
+        id: readText(row.id),
+        projectId: readText(row.project_id),
+        mediaUrl: normalizeCmsAssetPath(row.media_url),
+        altText: readText(row.alt_text),
+        caption: readText(row.caption),
+        mediaType:
+          mediaType === "video" || mediaType === "document"
+            ? mediaType
+            : "image",
+        displayOrder: Number(row.display_order ?? 0),
+        updatedAt: readTimestamp(row.updated_at),
+      };
+    })
+    .filter((item) => item.mediaUrl && item.altText);
+
+const mapProjects = (
+  projectRows: CmsRow[],
+  projectSectionRows: CmsRow[],
+  projectSectionItemRows: CmsRow[],
+  projectMediaRows: CmsRow[],
+): ProjectContent[] => {
+  const items = mapProjectSectionItems(projectSectionItemRows);
+  const media = mapProjectMedia(projectMediaRows);
+
+  return sortProjectsByPageOrder(projectRows)
+    .map((row, index): ProjectContent => {
+      const projectId = readText(row.id);
+      const slug = readText(row.slug);
+      const projectMedia = media.filter(
+        (item) => item.projectId === projectId,
+      );
+      const sections = sortByOrder(
+        projectSectionRows.filter(
+          (section) => readText(section.project_id) === projectId,
+        ),
+      )
+        .map((section): ProjectSectionContent => {
+          const sectionType = readText(section.section_type) || "rich_text";
+          return {
+          id: readText(section.id),
+          projectSlug: slug,
+          title: readText(section.title),
+          body: readText(section.body),
+          bullets: readStringArray(section.bullets),
+          items: items.filter(
+            (item) => item.projectSectionId === readText(section.id),
+          ),
+          media:
+            sectionType === "media_gallery" ||
+            sectionType === "media"
+              ? projectMedia
+              : [],
+          sortOrder: Number(section.sort_order ?? 0),
+          sectionType,
+          isVisible: true,
+          };
+        })
+        .filter(hasMeaningfulProjectSection);
+
+      const sectionTimestamps = projectSectionRows
+        .filter((section) => readText(section.project_id) === projectId)
+        .flatMap((section) => [
+          readTimestamp(section.updated_at),
+          ...projectSectionItemRows
+            .filter(
+              (item) =>
+                readText(item.project_section_id) === readText(section.id),
+            )
+            .map((item) => readTimestamp(item.updated_at)),
+        ]);
 
       return {
+        id: projectId,
         slug,
-        title: String(row.title ?? "Untitled project"),
-        description: String(row.summary ?? row.description ?? ""),
+        title: readText(row.title),
+        description: readText(row.summary) || readText(row.description),
         image: normalizeCmsAssetPath(
-          row.cover_image_url ?? row.placeholder_image_url,
-          fallbackPortfolioContent.projects[index]?.image ?? "/projects/project-1.png",
+          readText(row.cover_image_url) ||
+            readText(row.card_image_url) ||
+            readText(row.placeholder_image_url),
+          "/projects/project-placeholder-1.png",
         ),
-        tags: asStringArray(row.tags),
-        tools: asStringArray(row.tools),
-        type: String(row.type ?? ""),
-        githubUrl: String(row.github_url ?? ""),
-        linkedinUrl: String(row.linkedin_url ?? ""),
-        featured: Boolean(row.featured),
-        status: String(row.status ?? "published") as ProjectContent["status"],
-        group: String(row.project_group ?? "Additional Projects"),
-        homeFeaturedOrder: row.home_featured_order == null ? undefined : Number(row.home_featured_order),
-        projectsPageOrder: Number(row.projects_page_order ?? row.sort_order ?? index),
-        demoUrl: String(row.demo_url ?? ""),
-        repositoryUrl: String(row.github_url ?? ""),
-        seoTitle: String(row.seo_title ?? ""),
-        seoDescription: String(row.seo_description ?? ""),
-        openGraphImage: String(row.open_graph_image ?? ""),
-        sortOrder: Number(row.projects_page_order ?? row.sort_order ?? index),
-        sections,
+      tags: readStringArray(row.tags),
+      tools: readStringArray(row.tools),
+      type: readText(row.type),
+      githubUrl: readText(row.github_url),
+      linkedinUrl: readText(row.linkedin_url),
+      featured: row.featured === true,
+      status: "published",
+      group: readText(row.project_group),
+      homeFeaturedOrder:
+        row.home_featured_order == null
+          ? undefined
+          : Number(row.home_featured_order),
+      projectsPageOrder: Number(
+        row.projects_page_order ?? row.sort_order ?? index,
+      ),
+      demoUrl: readText(row.demo_url),
+      repositoryUrl: readText(row.github_url),
+      seoTitle: readText(row.seo_title),
+      seoDescription: readText(row.seo_description),
+      openGraphImage: normalizeCmsAssetPath(row.open_graph_image),
+      sortOrder: Number(
+        row.projects_page_order ?? row.sort_order ?? index,
+      ),
+      sections,
+      media: projectMedia,
+      createdAt: readTimestamp(row.created_at),
+        updatedAt: latestTimestamp(
+          readTimestamp(row.updated_at),
+          ...sectionTimestamps,
+          ...projectMedia.map((item) => item.updatedAt),
+        ),
       };
-    });
-
-    const experience: ExperienceContent[] = sortByOrder(experienceRows).map((row, index) => ({
-      company: String(row.company ?? ""),
-      role: String(row.role ?? ""),
-      location: String(row.location ?? ""),
-      date: [row.start_date, row.end_date].filter(Boolean).join(" - ") || String(row.date_label ?? ""),
-      iconBg: String(row.icon_bg ?? fallbackPortfolioContent.experience[index]?.iconBg ?? "#2a0e61"),
-      logo: normalizeCmsAssetPath(
-        row.logo_url,
-        fallbackPortfolioContent.experience[index]?.logo ?? "",
-      ) || undefined,
-      logoAlt: String(row.logo_alt ?? `${row.company ?? "Company"} logo`),
-      points: asStringArray(row.points),
-      tools: asStringArray(row.tools),
-      sortOrder: Number(row.sort_order ?? index),
-    }));
-
-    const resumes: ResumeContent[] = sortByOrder(resumeRows).map((row, index) => ({
-      title: String(row.label ?? row.variant ?? "Resume"),
-      variant: String(row.variant ?? slugify(String(row.label ?? `resume-${index + 1}`))),
-      pdfPath: String(row.pdf_url ?? ""),
-      docxPath: String(row.docx_url ?? ""),
-      available: Boolean(row.pdf_url || row.docx_url),
-      sortOrder: Number(row.sort_order ?? index),
-    }));
-
-    const certifications: CertificationContent[] = sortByOrder(certificationRows).map((row, index) => ({
-      name: String(row.name ?? ""),
-      issuer: String(row.issuer ?? ""),
-      date: String(row.date ?? ""),
-      credentialUrl: typeof row.credential_url === "string" ? row.credential_url : undefined,
-      credentialId: typeof row.credential_id === "string" ? row.credential_id : undefined,
-      imageUrl: typeof row.image_url === "string" ? row.image_url : undefined,
-      description: typeof row.description === "string" ? row.description : undefined,
-      tags: asStringArray(row.tags),
-      sortOrder: Number(row.sort_order ?? index),
-    }));
-
-    const content: PortfolioContent = {
-      profile,
-      hero,
-      about,
-      skillCategories,
-      projects,
-      projectSections: projects.flatMap((project) => project.sections ?? []),
-      experience,
-      education: sortByOrder(educationRows).map((row, index) => ({
-        institution: String(row.institution ?? ""),
-        degree: String(row.degree ?? ""),
-        startDate: String(row.start_date ?? ""),
-        endDate: String(row.end_date ?? ""),
-        status: String(row.status ?? ""),
-        location: String(row.location ?? ""),
-        sortOrder: Number(row.sort_order ?? index),
-      })),
-      certifications,
-      resumes,
-      socialLinks: sortByOrder(socialLinkRows).map((row, index) => ({
-        label: String(row.label ?? ""),
-        url: String(row.url ?? ""),
-        iconKey: typeof row.icon_key === "string" ? row.icon_key : undefined,
-        sortOrder: Number(row.sort_order ?? index),
-      })),
-      pages: pageRows.map((row) => ({
-        id: String(row.id ?? ""),
-        pageKey: String(row.page_key ?? ""),
-        title: String(row.title ?? ""),
-        slug: String(row.slug ?? ""),
-        seoTitle: String(row.seo_title ?? ""),
-        seoDescription: String(row.seo_description ?? ""),
-        openGraphTitle: String(row.open_graph_title ?? ""),
-        openGraphDescription: String(row.open_graph_description ?? ""),
-        openGraphImage: String(row.open_graph_image ?? ""),
-        sections: sortByOrder(pageSectionRows.filter((section) => String(section.page_id) === String(row.id))).map((section) => ({
-          id: String(section.id ?? ""),
-          pageKey: String(row.page_key ?? ""),
-          sectionType: String(section.section_type ?? "rich_text"),
-          title: String(section.title ?? ""),
-          subtitle: String(section.subtitle ?? ""),
-          description: String(section.description ?? ""),
-          ctaLabel: String(section.cta_label ?? ""),
-          ctaHref: String(section.cta_href ?? ""),
-          secondaryCtaLabel: String(section.secondary_cta_label ?? ""),
-          secondaryCtaHref: String(section.secondary_cta_href ?? ""),
-          displayOrder: Number(section.display_order ?? 0),
-          layoutVariant: String(section.layout_variant ?? ""),
-        })),
-      })),
-      volunteering: sortByOrder(volunteeringRows).map((row, index) => ({
-        role: String(row.role ?? ""),
-        organisation: String(row.organisation ?? ""),
-        logoUrl: String(row.logo_url ?? ""),
-        logoAlt: String(row.logo_alt ?? ""),
-        date: String(row.date_label ?? [row.start_date, row.end_date].filter(Boolean).join(" – ")),
-        domain: String(row.domain ?? ""),
-        summary: String(row.summary ?? ""),
-        descriptionItems: asStringArray(row.description_items),
-        focusAreas: asStringArray(row.focus_areas),
-        certification: certifications.find((certification) =>
-          String(certificationRows.find((item) => String(item.id) === String(row.certification_id))?.name ?? "") === certification.name
-        ),
-        sortOrder: Number(row.sort_order ?? index),
-      })),
-      navLinks: fallbackPortfolioContent.navLinks,
-    };
-
-    return content;
-  } catch (error) {
-    return failClosedOnError(error);
-  }
+    })
+    .filter(
+      (project) =>
+        Boolean(project.id) &&
+        Boolean(project.slug) &&
+        Boolean(project.title) &&
+        Boolean(project.description),
+    );
 };
+
+const getPortfolioChromeContentImpl =
+  async (): Promise<PortfolioChromeContent> => {
+    if (shouldUseE2eFixture()) {
+      return {
+        profile: fallbackPortfolioContent.profile,
+        navLinks: primaryNavigation,
+      };
+    }
+    if (!isSupabaseConfigured()) {
+      return {
+        profile: fallbackPortfolioContent.profile,
+        navLinks: primaryNavigation,
+      };
+    }
+
+    const profile = await loadProfileRows();
+    return { profile: mapProfile(profile), navLinks: primaryNavigation };
+  };
+
+export const getPortfolioChromeContent = cache(
+  getPortfolioChromeContentImpl,
+);
+
+const shouldUseE2eFixture = () =>
+  process.env.E2E_USE_FIXTURES === "true" && process.env.VERCEL !== "1";
+
+const e2eFixtureContent = (): PortfolioContent => {
+  const updatedAt = "2026-07-27T00:00:00.000Z";
+  const section: ProjectSectionContent = {
+    id: "e2e-section",
+    projectSlug: "e2e-commercial-analytics-case-study",
+    title: "Decision-ready evidence",
+    body:
+      "A synthetic browser-test fixture proving that meaningful case-study content renders while title-only sections do not.",
+    bullets: ["Visible evidence survives the CMS mapping boundary."],
+    items: [],
+    media: [],
+    sortOrder: 0,
+    sectionType: "rich_text",
+    isVisible: true,
+  };
+  const project: ProjectContent = {
+    id: "e2e-project",
+    slug: "e2e-commercial-analytics-case-study",
+    title: "E2E Commercial Analytics Case Study",
+    description:
+      "Synthetic fixture used only by the isolated browser test environment.",
+    image: "/projects/project-placeholder-1.png",
+    tags: ["Commercial Analytics", "Browser Test"],
+    tools: ["Playwright"],
+    featured: true,
+    status: "published",
+    group: "Featured Projects",
+    homeFeaturedOrder: 0,
+    projectsPageOrder: 0,
+    seoTitle: "E2E Commercial Analytics Case Study",
+    seoDescription:
+      "Synthetic project fixture for isolated portfolio browser tests.",
+    openGraphImage: "/projects/project-placeholder-1.png",
+    sortOrder: 0,
+    sections: [section],
+    media: [],
+    createdAt: updatedAt,
+    updatedAt,
+  };
+  const pageDefinitions = [
+    ["home", "Home", "/"],
+    ["about", "About", "/about"],
+    ["expertise", "Expertise", "/expertise"],
+    ["projects", "Projects", "/projects"],
+    ["experience", "Experience", "/experience"],
+    ["education", "Education", "/education"],
+    ["certifications", "Certifications", "/certifications"],
+    ["resume", "CV", "/resume"],
+    ["contact", "Contact", "/contact"],
+  ] as const;
+
+  return {
+    ...fallbackPortfolioContent,
+    projects: [project],
+    projectSections: [section],
+    pages: pageDefinitions.map(([pageKey, title, slug]) => ({
+      id: `e2e-page-${pageKey}`,
+      pageKey,
+      title,
+      slug,
+      seoTitle: `${title} | Ahmed Aziz Mhiri`,
+      seoDescription:
+        `${title} page for the isolated Ahmed Aziz Mhiri portfolio browser fixture.`,
+      openGraphTitle: title,
+      openGraphDescription:
+        `${title} page for the isolated portfolio browser fixture.`,
+      openGraphImage: "/opengraph-image",
+      isPublished: true,
+      updatedAt,
+      sections: [],
+    })),
+    delivery: {
+      source: "cms",
+      profile: "ok",
+      pages: "ok",
+      presentation: "ok",
+      projects: "ok",
+      career: "ok",
+      secondary: "ok",
+    },
+  };
+};
+
+const getPortfolioContentImpl = async (): Promise<PortfolioContent> => {
+  if (shouldUseE2eFixture()) return e2eFixtureContent();
+  if (!isSupabaseConfigured()) return fallbackPortfolioContent;
+
+  const [profileResult, presentation, projectsGroup, career, secondary] =
+    await Promise.all([
+      loadProfileRows(),
+      loadPresentationRows(),
+      loadProjectRows(),
+      loadCareerRows(),
+      loadSecondaryRows(),
+    ]);
+
+  const content = emptyPublishedContent();
+  const profile = mapProfile(profileResult);
+  const hero = mapHero(presentation.hero);
+  const about = mapAbout(presentation.about);
+
+  const groupedSkills = new Map<string, string[]>();
+  sortByOrder(career.skills.rows).forEach((row) => {
+    const name = readText(row.name);
+    if (!name) return;
+    const category = readText(row.category) || "Skills";
+    groupedSkills.set(category, [
+      ...(groupedSkills.get(category) ?? []),
+      name,
+    ]);
+  });
+  const skillCategories: SkillCategory[] = Array.from(
+    groupedSkills.entries(),
+  ).map(([title, skills]) => ({ title, skills }));
+
+  const certifications: CertificationContent[] = sortByOrder(
+    secondary.certifications.rows,
+  ).map((row, index) => ({
+    name: readText(row.name),
+    issuer: readText(row.issuer),
+    date: readText(row.date),
+    credentialUrl: readText(row.credential_url) || undefined,
+    credentialId: readText(row.credential_id) || undefined,
+    imageUrl: normalizeCmsAssetPath(row.image_url) || undefined,
+    description: readText(row.description) || undefined,
+    tags: readStringArray(row.tags),
+    sortOrder: Number(row.sort_order ?? index),
+  }));
+  const certificationsById = new Map(
+    sortByOrder(secondary.certifications.rows).map((row, index) => [
+      readText(row.id),
+      certifications[index],
+    ]),
+  );
+
+  const projects = mapProjects(
+    projectsGroup.projects.rows,
+    projectsGroup.projectSections.rows,
+    projectsGroup.projectSectionItems.rows,
+    projectsGroup.projectMedia.rows,
+  );
+
+  const experience: ExperienceContent[] = sortByOrder(
+    career.experience.rows,
+  ).map((row, index) => ({
+    company: readText(row.company),
+    role: readText(row.role),
+    location: readText(row.location),
+    date:
+      [readText(row.start_date), readText(row.end_date)]
+        .filter(Boolean)
+        .join(" - ") || readText(row.date_label),
+    iconBg: readText(row.icon_bg) || "#2a0e61",
+    logo: normalizeCmsAssetPath(row.logo_url) || undefined,
+    logoAlt:
+      readText(row.logo_alt) ||
+      (readText(row.company) ? `${readText(row.company)} logo` : ""),
+    points: readStringArray(row.points),
+    tools: readStringArray(row.tools),
+    sortOrder: Number(row.sort_order ?? index),
+  }));
+
+  const resumes: ResumeContent[] = sortByOrder(
+    secondary.resumes.rows,
+  ).map((row, index) => ({
+    title: readText(row.label) || readText(row.variant) || "Resume",
+    variant: readText(row.variant),
+    pdfPath: normalizeCmsAssetPath(row.pdf_url),
+    docxPath: normalizeCmsAssetPath(row.docx_url),
+    available: Boolean(readText(row.pdf_url) || readText(row.docx_url)),
+    sortOrder: Number(row.sort_order ?? index),
+  }));
+
+  return {
+    ...content,
+    profile,
+    hero,
+    about,
+    skillCategories,
+    projects,
+    projectSections: projects.flatMap((project) => project.sections ?? []),
+    experience,
+    education: sortByOrder(career.education.rows).map((row, index) => ({
+      institution: readText(row.institution),
+      degree: readText(row.degree),
+      startDate: readText(row.start_date),
+      endDate: readText(row.end_date),
+      status: readText(row.status),
+      location: readText(row.location),
+      sortOrder: Number(row.sort_order ?? index),
+    })),
+    certifications,
+    resumes,
+    socialLinks: sortByOrder(secondary.socialLinks.rows).map(
+      (row, index) => ({
+        label: readText(row.label),
+        url: readText(row.url),
+        iconKey: readText(row.icon_key) || undefined,
+        sortOrder: Number(row.sort_order ?? index),
+      }),
+    ),
+    pages: mapPages(
+      presentation.pages.rows,
+      presentation.pageSections.rows,
+      presentation.pageSectionItems.rows,
+    ),
+    volunteering: sortByOrder(secondary.volunteering.rows).map(
+      (row, index) => ({
+        role: readText(row.role),
+        organisation: readText(row.organisation),
+        logoUrl: normalizeCmsAssetPath(row.logo_url),
+        logoAlt: readText(row.logo_alt),
+        date:
+          readText(row.date_label) ||
+          [readText(row.start_date), readText(row.end_date)]
+            .filter(Boolean)
+            .join(" - "),
+        domain: readText(row.domain),
+        summary: readText(row.summary),
+        descriptionItems: readStringArray(row.description_items),
+        focusAreas: readStringArray(row.focus_areas),
+        certification:
+          certificationsById.get(readText(row.certification_id)) ??
+          undefined,
+        sortOrder: Number(row.sort_order ?? index),
+      }),
+    ),
+    navLinks: primaryNavigation,
+    delivery: {
+      source: "cms",
+      profile: profileResult.ok ? "ok" : "failed",
+      pages: presentation.pages.ok ? "ok" : "failed",
+      presentation: groupStatus(Object.values(presentation)),
+      projects: groupStatus(Object.values(projectsGroup)),
+      career: groupStatus(Object.values(career)),
+      secondary: groupStatus(Object.values(secondary)),
+    },
+  };
+};
+
+export const getPortfolioContent = cache(getPortfolioContentImpl);
 
 export const getProjectBySlug = async (slug: string) => {
   const content = await getPortfolioContent();
@@ -383,115 +1062,101 @@ export const getProjectBySlug = async (slug: string) => {
 };
 
 const fallbackAdminContentSnapshot = (): AdminContentSnapshot => ({
-  profile: [{
-    full_name: fallbackPortfolioContent.profile.name,
-    initials: fallbackPortfolioContent.profile.initials,
-    headline: fallbackPortfolioContent.profile.mainTitle,
-    secondary_line: fallbackPortfolioContent.profile.secondaryLine,
-    tagline: fallbackPortfolioContent.profile.tagline,
-    location: fallbackPortfolioContent.profile.location,
-    email: fallbackPortfolioContent.profile.email,
-    linkedin_url: fallbackPortfolioContent.profile.linkedIn,
-    linkedin_label: fallbackPortfolioContent.profile.linkedInLabel,
-    github_url: fallbackPortfolioContent.profile.github,
-    github_label: fallbackPortfolioContent.profile.githubLabel,
-    avatar_url: fallbackPortfolioContent.profile.avatarPath,
-    availability: fallbackPortfolioContent.profile.availability,
-    short_bio: fallbackPortfolioContent.profile.shortProfile,
-    about_text: fallbackPortfolioContent.profile.about,
-    about_focus: fallbackPortfolioContent.profile.aboutFocus,
-    published: true,
-  }],
-  hero: [{
-    eyebrow: fallbackPortfolioContent.hero.eyebrow,
-    title: fallbackPortfolioContent.hero.title,
-    subtitle: fallbackPortfolioContent.hero.subtitle,
-    tagline: fallbackPortfolioContent.hero.tagline,
-    dynamic_titles: fallbackPortfolioContent.hero.dynamicTitles,
-    primary_cta_label: fallbackPortfolioContent.hero.primaryCtaLabel,
-    primary_cta_href: fallbackPortfolioContent.hero.primaryCtaHref,
-    secondary_cta_label: fallbackPortfolioContent.hero.secondaryCtaLabel,
-    secondary_cta_href: fallbackPortfolioContent.hero.secondaryCtaHref,
-    published: true,
-  }],
-  about: [{
-    title: fallbackPortfolioContent.about.title,
-    body: fallbackPortfolioContent.about.body,
-    highlights: fallbackPortfolioContent.about.highlights,
-    avatar_url: fallbackPortfolioContent.about.avatarUrl,
-    published: true,
-  }],
-  skills: fallbackPortfolioContent.skillCategories.flatMap((category, categoryIndex) =>
-    category.skills.map((name, skillIndex) => ({ name, category: category.title, icon_key: name, description: "", sort_order: categoryIndex * 100 + skillIndex, published: true })),
-  ),
-  projects: fallbackPortfolioContent.projects.map((project, index) => ({
-    slug: project.slug, title: project.title, type: project.type ?? "", summary: project.description,
-    description: project.description, cover_image_url: project.image, tags: project.tags, tools: project.tools ?? project.tags,
-    featured: project.featured ?? false, published: true, sort_order: project.sortOrder ?? index,
-  })),
-  project_sections: fallbackPortfolioContent.projects.flatMap((project) =>
-    (project.sections ?? []).map((section) => ({
-      title: section.title,
-      body: section.body,
-      bullets: section.bullets,
-      sort_order: section.sortOrder,
-    })),
-  ),
-  experience: fallbackPortfolioContent.experience.map((entry, index) => ({
-    company: entry.company, role: entry.role, location: entry.location, date_label: entry.date,
-    logo_url: entry.logo ?? "", logo_alt: entry.logoAlt ?? `${entry.company} logo`, points: entry.points,
-    tools: entry.tools ?? [], sort_order: entry.sortOrder ?? index, published: true,
-  })),
-  education: fallbackPortfolioContent.education.map((entry) => ({
-    institution: entry.institution, degree: entry.degree, start_date: entry.startDate, end_date: entry.endDate,
-    status: entry.status, location: entry.location, sort_order: entry.sortOrder, published: true,
-  })),
-  certifications: fallbackPortfolioContent.certifications.map((entry) => ({
-    name: entry.name, issuer: entry.issuer, date: entry.date, credential_url: entry.credentialUrl ?? "",
-    credential_id: entry.credentialId ?? "", image_url: entry.imageUrl ?? "", description: entry.description ?? "",
-    tags: entry.tags, sort_order: entry.sortOrder, published: true,
-  })),
-  resumes: fallbackPortfolioContent.resumes.map((entry) => ({
-    label: entry.title, variant: entry.variant, pdf_url: entry.pdfPath, docx_url: entry.docxPath,
-    sort_order: entry.sortOrder, published: true,
-  })),
-  social_links: fallbackPortfolioContent.socialLinks.map((entry) => ({
-    label: entry.label, url: entry.url, icon_key: entry.iconKey ?? "", sort_order: entry.sortOrder, published: true,
-  })),
+  profile: [
+    {
+      full_name: fallbackPortfolioContent.profile.name,
+      initials: fallbackPortfolioContent.profile.initials,
+      headline: fallbackPortfolioContent.profile.mainTitle,
+      secondary_line: fallbackPortfolioContent.profile.secondaryLine,
+      tagline: fallbackPortfolioContent.profile.tagline,
+      location: fallbackPortfolioContent.profile.location,
+      email: fallbackPortfolioContent.profile.email,
+      linkedin_url: fallbackPortfolioContent.profile.linkedIn,
+      linkedin_label: fallbackPortfolioContent.profile.linkedInLabel,
+      github_url: fallbackPortfolioContent.profile.github,
+      github_label: fallbackPortfolioContent.profile.githubLabel,
+      avatar_url: fallbackPortfolioContent.profile.avatarPath,
+      availability: fallbackPortfolioContent.profile.availability,
+      short_bio: fallbackPortfolioContent.profile.shortProfile,
+      about_text: fallbackPortfolioContent.profile.about,
+      about_focus: fallbackPortfolioContent.profile.aboutFocus,
+      published: true,
+    },
+  ],
+  hero: [
+    {
+      eyebrow: fallbackPortfolioContent.hero.eyebrow,
+      title: fallbackPortfolioContent.hero.title,
+      subtitle: fallbackPortfolioContent.hero.subtitle,
+      tagline: fallbackPortfolioContent.hero.tagline,
+      dynamic_titles: fallbackPortfolioContent.hero.dynamicTitles,
+      primary_cta_label: fallbackPortfolioContent.hero.primaryCtaLabel,
+      primary_cta_href: fallbackPortfolioContent.hero.primaryCtaHref,
+      secondary_cta_label: fallbackPortfolioContent.hero.secondaryCtaLabel,
+      secondary_cta_href: fallbackPortfolioContent.hero.secondaryCtaHref,
+      published: true,
+    },
+  ],
+  about: [
+    {
+      title: fallbackPortfolioContent.about.title,
+      body: fallbackPortfolioContent.about.body,
+      highlights: fallbackPortfolioContent.about.highlights,
+      avatar_url: fallbackPortfolioContent.about.avatarUrl,
+      published: true,
+    },
+  ],
+  skills: [],
+  projects: [],
+  project_sections: [],
+  project_section_items: [],
+  project_media: [],
+  experience: [],
+  education: [],
+  certifications: [],
+  resumes: [],
+  social_links: [],
+  pages: [],
+  page_sections: [],
+  page_section_items: [],
+  volunteering: [],
   site_settings: [],
   contact_messages: [],
   uploads: [],
 });
-export const getAdminContentSnapshot = async (): Promise<AdminContentSnapshot> => {
-  const fallback = fallbackAdminContentSnapshot();
-  if (!isSupabaseAdminConfigured()) {
-    return fallback;
-  }
 
-  const supabase = createSupabaseAdminClient();
-  const entries = await Promise.all(
-    publicTables.map(async (table) => {
-      const query = supabase.from(table).select("*");
-      const result = table === "contact_messages"
-        ? await query.order("created_at", { ascending: false }).limit(100)
-        : await query.limit(500);
+export const getAdminContentSnapshot =
+  async (): Promise<AdminContentSnapshot> => {
+    if (!isSupabaseAdminConfigured()) {
+      return fallbackAdminContentSnapshot();
+    }
 
-      return [table, result.data ?? []] as const;
-    }),
-  );
+    const supabase = createSupabaseAdminClient();
+    const entries = await Promise.all(
+      cmsTables.map(async (table) => {
+        const result = await supabase
+          .from(table)
+          .select(adminColumnsFor(table))
+          .limit(500);
+        if (result.error) {
+          const incidentId = `CMS-ADMIN-${table.toUpperCase()}-READ`;
+          console.error("Admin CMS snapshot read failed.", { incidentId });
+          throw new Error(`Admin CMS snapshot unavailable (${incidentId}).`);
+        }
+        return [table, result.data ?? []] as const;
+      }),
+    );
 
-  return Object.fromEntries(entries.map(([table, rows]) => [
-    table,
-    rows.length || table === "project_sections"
-      ? rows
-      : fallback[table] ?? [],
-  ])) as AdminContentSnapshot;
-};
+    return Object.fromEntries(entries) as AdminContentSnapshot;
+  };
 
 export const isCmsTableName = (value: string): value is CmsTableName =>
   cmsTables.includes(value as CmsTableName);
 
-export const isPublicCmsTableName = (value: string): value is CmsTableName =>
+export const isPublicCmsTableName = (
+  value: string,
+): value is CmsTableName =>
   publicTables.includes(value as CmsTableName);
 
-export const sanitizeAdminRow = (value: unknown) => (isObject(value) ? value : {});
+export const sanitizeAdminRow = (value: unknown) =>
+  isObject(value) ? value : {};

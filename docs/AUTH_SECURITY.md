@@ -67,7 +67,7 @@ Rules implemented:
 - raw token stored only in an HttpOnly cookie
 - Secure cookie in production
 - SameSite=Lax
-- default expiry controlled by `ADMIN_MFA_REMEMBER_DAYS`, default 10 days
+- default expiry controlled by `ADMIN_MFA_REMEMBER_DAYS`, default 14 days (configurable from 1–30 days)
 - remembered devices skip only MFA, never password/OAuth login
 - admin can revoke devices from `/admin/security`
 - password reset revokes remembered devices

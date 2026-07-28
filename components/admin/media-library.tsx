@@ -8,11 +8,13 @@ import {
   FiHardDrive,
   FiImage,
   FiLock,
+  FiRefreshCw,
   FiTrash2,
   FiUploadCloud,
 } from "react-icons/fi";
 
 import type { UploadBucket, UploadRecord } from "@/lib/cms-types";
+import { uploadDeletionGraceMs } from "@/lib/security/upload-lifecycle";
 
 import {
   adminApiError,
@@ -69,6 +71,7 @@ export function MediaLibrary({ initialUploads, request }: MediaLibraryProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [openingId, setOpeningId] = useState<string | null>(null);
   const [status, setStatus] = useState("Loading Media Library...");
 
   useEffect(() => {
@@ -92,7 +95,13 @@ export function MediaLibrary({ initialUploads, request }: MediaLibraryProps) {
     };
 
     void loadUploads();
-    return () => controller.abort();
+    const refreshTimer = window.setInterval(() => {
+      void loadUploads();
+    }, 30_000);
+    return () => {
+      window.clearInterval(refreshTimer);
+      controller.abort();
+    };
   }, [request]);
 
   const upload = async (event: FormEvent<HTMLFormElement>) => {
@@ -130,10 +139,19 @@ export function MediaLibrary({ initialUploads, request }: MediaLibraryProps) {
 
   const deleteUpload = async (asset: UploadRecord) => {
     const name = assetName(asset);
-    if (!window.confirm(`Delete ${name} from storage and the Media Library? This cannot be undone.`)) return;
+    const reconciliation = asset.deletion_status !== "active";
+    if (!window.confirm(
+      reconciliation
+        ? `Reconcile the scheduled deletion for ${name}? References will be checked again before Storage is changed.`
+        : `Schedule ${name} for deletion? The file remains in Storage for at least five minutes and is checked for CMS references before removal.`,
+    )) return;
 
     setDeletingId(asset.id);
-    setStatus(`Deleting ${name}...`);
+    setStatus(
+      reconciliation
+        ? `Reconciling deletion for ${name}...`
+        : `Scheduling deletion for ${name}...`,
+    );
     try {
       const response = await request("/api/admin/upload", {
         method: "DELETE",
@@ -141,13 +159,37 @@ export function MediaLibrary({ initialUploads, request }: MediaLibraryProps) {
         body: JSON.stringify({ id: asset.id }),
       });
       const data = await readJsonObject(response);
+      const returnedUpload = parseUploads([data.upload])[0];
+      if (returnedUpload) {
+        setUploads((current) => sortUploads([
+          returnedUpload,
+          ...current.filter((item) => item.id !== returnedUpload.id),
+        ]));
+      }
       if (!response.ok || data.ok !== true) {
         setStatus(adminApiError(data));
         return;
       }
 
-      setUploads((current) => current.filter((item) => item.id !== asset.id));
-      setStatus(`${name} deleted.`);
+      if (data.phase === "pending" && returnedUpload) {
+        setStatus(
+          `${name} is pending deletion. Reconcile it after the five-minute safety window.`,
+        );
+      } else if (data.phase === "restored" && returnedUpload) {
+        setStatus(
+          `${name} remains active because CMS content still references it.`,
+        );
+      } else if (data.phase === "deleted") {
+        setUploads((current) =>
+          current.filter((item) => item.id !== asset.id));
+        setStatus(`${name} deleted.`);
+      } else {
+        setStatus(
+          typeof data.message === "string"
+            ? data.message
+            : `Deletion state for ${name} was updated.`,
+        );
+      }
     } catch {
       setStatus("The asset could not be deleted.");
     } finally {
@@ -167,6 +209,38 @@ export function MediaLibrary({ initialUploads, request }: MediaLibraryProps) {
       setStatus(`Copied the URL for ${assetName(asset)}.`);
     } catch {
       setStatus("The browser blocked clipboard access.");
+    }
+  };
+
+  const openPrivateUpload = async (asset: UploadRecord) => {
+    setOpeningId(asset.id);
+    setStatus(`Creating a private link for ${assetName(asset)}...`);
+    try {
+      const response = await request("/api/admin/upload/signed-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: asset.id }),
+      });
+      const data = await readJsonObject(response);
+      if (
+        !response.ok
+        || data.ok !== true
+        || typeof data.url !== "string"
+      ) {
+        setStatus(adminApiError(data));
+        return;
+      }
+
+      const link = document.createElement("a");
+      link.href = data.url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.click();
+      setStatus(`Opened a 60-second private link for ${assetName(asset)}.`);
+    } catch {
+      setStatus("The private upload could not be opened.");
+    } finally {
+      setOpeningId(null);
     }
   };
 
@@ -245,7 +319,15 @@ export function MediaLibrary({ initialUploads, request }: MediaLibraryProps) {
           const isImage = asset.mime_type?.startsWith("image/") ?? false;
           const isDocument = asset.mime_type === "application/pdf" || asset.mime_type?.includes("wordprocessingml") === true;
           const isDeleting = deletingId === asset.id;
+          const isOpening = openingId === asset.id;
           const isBuiltIn = asset.source === "local";
+          const deletionStatus = asset.deletion_status ?? "active";
+          const deletionRequestedAt = asset.deletion_requested_at
+            ? Date.parse(asset.deletion_requested_at)
+            : Number.NaN;
+          const reconciliationAt = Number.isFinite(deletionRequestedAt)
+            ? new Date(deletionRequestedAt + uploadDeletionGraceMs)
+            : null;
 
           return (
             <article key={asset.id} aria-busy={isDeleting} className="min-w-0 overflow-hidden rounded-xl border border-white/10 bg-white/[0.04]">
@@ -269,6 +351,30 @@ export function MediaLibrary({ initialUploads, request }: MediaLibraryProps) {
                   <div className="flex gap-2"><dt className="shrink-0 text-gray-500">Type:</dt><dd className="min-w-0 truncate" title={asset.mime_type ?? undefined}>{asset.mime_type ?? "Unknown"}</dd></div>
                   <div className="flex gap-2"><dt className="shrink-0 text-gray-500">Size:</dt><dd>{formatBytes(asset.size_bytes)}</dd></div>
                   <div className="flex gap-2"><dt className="shrink-0 text-gray-500">Source:</dt><dd>{isBuiltIn ? "Built-in file" : "Supabase Storage"}</dd></div>
+                  {!isBuiltIn && deletionStatus !== "active" && (
+                    <div className="flex gap-2">
+                      <dt className="shrink-0 text-gray-500">Deletion:</dt>
+                      <dd className="text-amber-200">
+                        {deletionStatus === "pending"
+                          ? "pending safety window"
+                          : "failed; retry available"}
+                      </dd>
+                    </div>
+                  )}
+                  {!isBuiltIn && deletionStatus !== "active" && reconciliationAt && (
+                    <div className="flex gap-2">
+                      <dt className="shrink-0 text-gray-500">Reconcile after:</dt>
+                      <dd>{formatDateTime(reconciliationAt.toISOString())}</dd>
+                    </div>
+                  )}
+                  {!isBuiltIn && asset.deletion_error_code && (
+                    <div className="flex gap-2">
+                      <dt className="shrink-0 text-gray-500">Last result:</dt>
+                      <dd className="min-w-0 truncate font-mono" title={asset.deletion_error_code}>
+                        {asset.deletion_error_code}
+                      </dd>
+                    </div>
+                  )}
                   <div className="flex gap-2"><dt className="shrink-0 text-gray-500">{isBuiltIn ? "Modified:" : "Uploaded:"}</dt><dd>{formatDateTime(asset.created_at)}</dd></div>
                 </dl>
                 {asset.public_url ? (
@@ -278,7 +384,7 @@ export function MediaLibrary({ initialUploads, request }: MediaLibraryProps) {
                 )}
 
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {asset.public_url && (
+                  {asset.public_url && deletionStatus === "active" && (
                     <>
                       <button type="button" onClick={() => void copyUrl(asset)} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs hover:bg-white/10">
                         <FiCopy aria-hidden="true" />Copy URL
@@ -288,6 +394,20 @@ export function MediaLibrary({ initialUploads, request }: MediaLibraryProps) {
                       </a>
                     </>
                   )}
+                  {!asset.public_url
+                    && asset.source === "storage"
+                    && asset.bucket === "uploads"
+                    && deletionStatus === "active" && (
+                      <button
+                        type="button"
+                        disabled={isOpening}
+                        onClick={() => void openPrivateUpload(asset)}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-purple-300/20 bg-purple-500/10 px-3 py-2 text-xs text-purple-100 hover:bg-purple-500/20 disabled:cursor-wait disabled:opacity-50"
+                      >
+                        <FiExternalLink aria-hidden="true" />
+                        {isOpening ? "Opening..." : "Open privately"}
+                      </button>
+                    )}
                   {isBuiltIn ? (
                     <span className="inline-flex items-center rounded-lg border border-cyan-300/15 bg-cyan-400/5 px-3 py-2 text-xs text-cyan-100">
                       Read-only built-in
@@ -299,7 +419,14 @@ export function MediaLibrary({ initialUploads, request }: MediaLibraryProps) {
                       onClick={() => void deleteUpload(asset)}
                       className="inline-flex items-center gap-1.5 rounded-lg border border-red-300/20 bg-red-500/10 px-3 py-2 text-xs text-red-100 hover:bg-red-500/20 disabled:cursor-wait disabled:opacity-50"
                     >
-                      <FiTrash2 aria-hidden="true" />{isDeleting ? "Deleting..." : "Delete"}
+                      {deletionStatus === "active"
+                        ? <FiTrash2 aria-hidden="true" />
+                        : <FiRefreshCw aria-hidden="true" />}
+                      {isDeleting
+                        ? "Working..."
+                        : deletionStatus === "active"
+                          ? "Schedule deletion"
+                          : "Reconcile deletion"}
                     </button>
                   )}
                 </div>

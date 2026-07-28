@@ -2,10 +2,17 @@
 
 ## Automated
 
-- [ ] `npm install`
+- [ ] `npm ci`
 - [ ] `npm run type-check`
 - [ ] `npm run build`
 - [ ] `npm run lint`
+- [ ] `npm run test:coverage`
+- [ ] `npm run test:integration` against an explicitly mutation-enabled
+  non-production Supabase project
+- [ ] `npm run test:e2e`
+- [ ] `npm run audit:seo`
+- [ ] `npm run audit:security`
+- [ ] `npm run audit:lighthouse`
 
 ## Public QA
 
@@ -34,6 +41,10 @@
 - [ ] Admin can upload CV.
 - [ ] Admin can view contact messages.
 - [ ] Admin can logout.
+- [ ] A second tab with a stale `updated_at` receives a 409 conflict.
+- [ ] Each successful create/update/archive/delete has an atomic revision row.
+- [ ] Concurrent child edits cannot remove the last meaningful published-project
+  evidence.
 
 ## Auth QA
 
@@ -45,7 +56,7 @@
 - [ ] MFA enrollment works.
 - [ ] TOTP verification works.
 - [ ] Wrong TOTP is rejected.
-- [ ] Remember device works for 10 days.
+- [ ] Remember device works for the configured duration (14 days by default).
 - [ ] Revoke remembered device works.
 - [ ] Forgot password sends recovery.
 - [ ] Reset password works.
@@ -68,6 +79,29 @@
 - [ ] TOTP-only login is not available.
 - [ ] GitHub does not auto-create admin access.
 - [ ] Old domains are not hardcoded.
+
+## Isolated authenticated browser lifecycle
+
+Never point lifecycle automation at the production Supabase project. Configure
+a separate project with the hardening migration, an allowlisted AAL2
+administrator, and a Playwright storage-state file, then set:
+
+```text
+PLAYWRIGHT_BASE_URL=https://trusted-test-deployment.example
+E2E_TEST_SUPABASE_URL=
+E2E_TEST_SUPABASE_ANON_KEY=
+E2E_TEST_SUPABASE_SERVICE_ROLE_KEY=
+E2E_ADMIN_STORAGE_STATE=C:\path\to\aal2-admin-state.json
+PRODUCTION_SUPABASE_PROJECT_REF=
+ALLOW_E2E_DATABASE_MUTATIONS=true
+```
+
+The authenticated suite requires an explicit production reference and refuses
+to run when the test URL resolves to it. It otherwise remains skipped until all
+isolation inputs are present. It covers the admin
+dashboard accessibility smoke test, create/update/stale-CAS/archive/restore/
+delete and revision history, plus upload pending-grace/reconciled deletion.
+
 ## CMS and Analytics Refinement
 
 - [ ] Admin dashboard contains no raw JSON editor.
