@@ -2,6 +2,12 @@ const trimTrailingSlash = (value: string) => value.replace(/\/+$/, "");
 
 const readEnv = (key: string) => process.env[key]?.trim() ?? "";
 
+const meaningfulUtf8ByteLength = (value: string) =>
+  new TextEncoder().encode(value.replace(/\s/gu, "")).byteLength;
+
+const ADMIN_SECURITY_HMAC_CONFIGURATION_ERROR =
+  "Admin security HMAC configuration is missing or invalid.";
+
 const isLocalHostname = (hostname: string) => {
   const normalized = hostname
     .toLowerCase()
@@ -79,10 +85,21 @@ export const getAllowedOrigins = () => {
   const developmentOrigins = isProduction
     ? []
     : ["http://localhost:3000", "http://127.0.0.1:3000"];
+  const previewOrigins = readEnv("VERCEL_ENV") === "preview"
+    ? [readEnv("VERCEL_URL"), readEnv("VERCEL_BRANCH_URL")]
+      .filter(Boolean)
+      .map((hostname) => `https://${hostname.replace(/^https?:\/\//, "")}`)
+    : [];
 
   return Array.from(
     new Set(
-      [getAppUrl(), getPublicSiteUrl(), ...developmentOrigins, ...explicit]
+      [
+        getAppUrl(),
+        getPublicSiteUrl(),
+        ...previewOrigins,
+        ...developmentOrigins,
+        ...explicit,
+      ]
         .map(trimTrailingSlash)
         .filter((origin) => !isProduction || isAllowedProductionOrigin(origin)),
     ),
@@ -93,7 +110,21 @@ export const requireAdminMfa = () => readEnv("REQUIRE_ADMIN_MFA").toLowerCase() 
 
 export const adminMfaRememberDays = () => {
   const days = Number(readEnv("ADMIN_MFA_REMEMBER_DAYS") || "10");
-  return Number.isFinite(days) && days > 0 ? days : 10;
+  if (!Number.isFinite(days)) return 10;
+  return Math.min(30, Math.max(1, Math.trunc(days)));
+};
+
+export const adminDeviceHmacSecret = () => {
+  const secret = readEnv("ADMIN_DEVICE_HMAC_SECRET");
+  return meaningfulUtf8ByteLength(secret) >= 32 ? secret : "";
+};
+
+export const requireAdminDeviceHmacSecret = () => {
+  const secret = adminDeviceHmacSecret();
+  if (!secret) {
+    throw new Error(ADMIN_SECURITY_HMAC_CONFIGURATION_ERROR);
+  }
+  return secret;
 };
 
 export const assertSupabasePublicEnv = () => {

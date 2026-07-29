@@ -4,15 +4,45 @@ import {
   isPublicAnalyticsPath,
 } from "@/lib/analytics/consent";
 
+export type VirtualPageViewEvent = {
+  event: "virtual_page_view";
+  page_path: string;
+  page_location: string;
+  page_title: string;
+};
+
+export type AnalyticsConsentUpdatedEvent = {
+  event: "analytics_consent_updated";
+  analytics_consent: "granted" | "denied";
+};
+
+export type GoogleTagManagerStartEvent = {
+  event: "gtm.js";
+  "gtm.start": number;
+};
+
 export type AnalyticsEvent =
   | {
       event: "project_view";
       project_slug: string;
       project_title: string;
-      card_location: "homepage" | "projects_page" | "related_projects";
     }
   | {
-      event: "cv_download";
+      event: "project_explore_click";
+      project_slug?: string;
+      project_title?: string;
+      cta_location:
+        | "hero"
+        | "homepage"
+        | "projects_page"
+        | "related_projects";
+    }
+  | {
+      event: "resume_view_click";
+      cta_location: "hero" | "homepage" | "contact_section";
+    }
+  | {
+      event: "resume_download";
       cv_variant: "english" | "french" | "ats" | "canadian";
       file_format: "pdf" | "docx";
       cta_location: "resume_page" | "homepage" | "contact_section";
@@ -37,7 +67,7 @@ export type AnalyticsEvent =
   | {
       event: "profile_link_click";
       platform: "linkedin" | "github";
-      link_location: "navbar" | "footer" | "contact" | "about";
+      link_location: "navbar" | "footer" | "contact" | "about" | "hero";
     }
   | {
       event: "email_contact_click";
@@ -56,11 +86,20 @@ export type AnalyticsEvent =
   | {
       event: "outbound_linkedin_click" | "outbound_github_click";
       link_location: "project_card" | "project_page" | "navbar" | "footer" | "contact" | "about";
-    }
-  | {
-      event: "contact_submit";
-      form_name: "portfolio_contact";
     };
+
+export type AnalyticsDataLayerEvent =
+  | AnalyticsEvent
+  | AnalyticsConsentUpdatedEvent
+  | GoogleTagManagerStartEvent
+  | VirtualPageViewEvent;
+
+export type AnalyticsDataLayerItem = AnalyticsDataLayerEvent | IArguments;
+
+export const pushDataLayerEvent = (event: AnalyticsDataLayerEvent) => {
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push(event);
+};
 
 export const pushAnalyticsEvent = (event: AnalyticsEvent) => {
   if (
@@ -71,7 +110,6 @@ export const pushAnalyticsEvent = (event: AnalyticsEvent) => {
   ) {
     return false;
   }
-  window.dataLayer = window.dataLayer || [];
-  window.dataLayer.push(event);
+  pushDataLayerEvent(event);
   return true;
 };

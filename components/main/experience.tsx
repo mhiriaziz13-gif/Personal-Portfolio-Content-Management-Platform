@@ -2,6 +2,7 @@ import { CalendarDaysIcon, MapPinIcon } from "@heroicons/react/24/solid";
 
 import { ExperienceMarker } from "@/components/sub/experience-marker";
 import { fallbackPortfolioContent } from "@/data/fallback-portfolio";
+import type { CmsLayoutVariant } from "@/lib/cms-block-registry";
 import type { ExperienceContent } from "@/lib/cms-types";
 
 const ExperienceCard = ({
@@ -63,19 +64,43 @@ const TimelinePanel = ({ experience }: { experience: ExperienceContent }) => {
   );
 };
 
-export const Experience = ({ experience = fallbackPortfolioContent.experience, title = "Work Experience", subtitle = "What I have worked on" }: { experience?: ExperienceContent[]; title?: string; subtitle?: string }) => {
+export const Experience = ({
+  experience = fallbackPortfolioContent.experience,
+  title = "Work Experience",
+  subtitle = "What I have worked on",
+  variant = "timeline",
+}: {
+  experience?: ExperienceContent[];
+  title?: string;
+  subtitle?: string;
+  variant?: CmsLayoutVariant;
+}) => {
+  const visibleExperience = experience.filter(
+    (item) => item.company && item.role,
+  );
+  if (visibleExperience.length === 0) return null;
+
   return (
     <section
       id="experience"
-      className="render-deferred relative z-[20] mx-auto flex w-full max-w-7xl flex-col px-6 py-24"
+      data-layout-variant={variant}
+      className={`render-deferred relative z-[20] mx-auto flex w-full max-w-7xl flex-col px-6 ${
+        variant === "compact" ? "py-14" : "py-24"
+      }`}
     >
-      <p className="Welcome-text text-sm uppercase">{subtitle}</p>
-      <h2 className="mt-3 text-4xl font-bold text-white sm:text-5xl">
-        {title}
-      </h2>
+      {subtitle && <p className="Welcome-text text-sm uppercase">{subtitle}</p>}
+      {title && (
+        <h2 className="mt-3 text-4xl font-bold text-white sm:text-5xl">
+          {title}
+        </h2>
+      )}
 
-      <div className="mt-16 flex flex-col gap-10">
-        {experience.map((item, index) => (
+      <div
+        className={`flex flex-col ${
+          variant === "compact" ? "mt-10 gap-6" : "mt-16 gap-10"
+        }`}
+      >
+        {visibleExperience.map((item, index) => (
           <ExperienceCard
             key={`${item.company}-${item.date}`}
             experience={item}

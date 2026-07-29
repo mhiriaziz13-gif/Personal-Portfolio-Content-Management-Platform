@@ -2,10 +2,10 @@ import Image from "next/image";
 import { FaCertificate } from "react-icons/fa6";
 
 import type { CertificationContent } from "@/lib/cms-types";
-import { isHttpsUrl } from "@/lib/utils";
 
 const isSupportedImageSource = (source: string) =>
-  (source.startsWith("/") && !source.startsWith("//")) || isHttpsUrl(source);
+  (source.startsWith("/") && !source.startsWith("//")) ||
+  source.startsWith("https://");
 
 export const CertificationArtwork = ({
   certification,
@@ -32,7 +32,6 @@ export const CertificationArtwork = ({
             fill
             sizes="(min-width: 1280px) 405px, (min-width: 768px) calc(50vw - 36px), calc(100vw - 48px)"
             className="object-contain p-3 transition duration-500 group-hover:scale-[1.03]"
-            unoptimized={isHttpsUrl(imageUrl)}
             data-image-fallback="hide"
           />
           <div

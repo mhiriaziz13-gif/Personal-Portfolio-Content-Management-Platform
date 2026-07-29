@@ -60,18 +60,20 @@ Use production plus GTM Tag Assistant. Browser validation is required; the stati
 4. Reject analytics.
 5. Verify consent update to denied.
 6. Verify first-party GA and Clarity cookies are removed.
-7. Verify future events do not fire.
-8. Verify auth/security cookies remain.
-9. Verify no page reload is required.
+7. Verify the page reloads once and GTM, Clarity, Vercel Analytics and Speed
+   Insights remain absent afterward.
+8. Verify future events do not fire.
+9. Verify auth/security cookies remain.
 
 ## Scenario F — Events
 
 After consent:
 
-- project click: one `select_content`;
-- CV download: one `cv_download`;
-- successful contact: one `generate_lead`;
-- mailto fallback: one `contact_fallback_mailto`;
+- project detail: one Data Layer `project_view`, mapped to one GA4 `view_item`;
+- project click: one `project_explore_click`, mapped to one `select_content`;
+- CV download: one `resume_download`, mapped to one `cv_download`;
+- successful contact: one `contact_submit_success`, mapped to one
+  `generate_lead`;
 - error: one `contact_submit_error`;
 - LinkedIn click: one `profile_link_click`;
 - Contact CTA: one `contact_cta_click`.
@@ -98,4 +100,8 @@ For a returning accepted visitor, the initial analytics state must be granted be
 
 ## GA4 acceptance
 
-Realtime/DebugView should show one page view per public route, `select_content` for projects, `cv_download` for CV files, and `generate_lead` only after real API success. It must show no PII, admin/auth URL, duplicate event or duplicate page view. The owner may mark `generate_lead` and `cv_download` as key events only after verification.
+Realtime/DebugView should show one page view per public route, `view_item` for a
+project detail, `select_content` for project exploration, `cv_download` for CV
+files, and `generate_lead` only after real API success. It must show no PII,
+admin/auth URL, duplicate event or duplicate page view. The owner may mark
+`generate_lead` and `cv_download` as key events only after verification.

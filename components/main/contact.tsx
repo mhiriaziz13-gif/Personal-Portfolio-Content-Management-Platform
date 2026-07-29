@@ -3,7 +3,6 @@ import {
   EnvelopeIcon,
   LinkIcon,
 } from "@heroicons/react/24/solid";
-import Link from "next/link";
 import { FaGithub } from "react-icons/fa6";
 
 import { TrackedLink } from "@/components/analytics/tracked-link";
@@ -65,14 +64,18 @@ export const Contact = ({ profile = fallbackPortfolioContent.profile }: { profil
             <FaGithub className="h-4 w-4" />
             GitHub
           </TrackedLink>
-          <Link
+          <TrackedLink
             href="/resume"
             aria-label="View CV"
+            analyticsEvent={{
+              event: "resume_view_click",
+              cta_location: "contact_section",
+            }}
             className="button-secondary inline-flex items-center gap-2 rounded-full px-4 py-2.5 font-semibold"
           >
             <ArrowDownTrayIcon className="h-4 w-4" />
             View CV
-          </Link>
+          </TrackedLink>
         </div>
       </div>
 

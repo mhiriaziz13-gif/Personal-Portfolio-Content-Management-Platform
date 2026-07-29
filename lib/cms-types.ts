@@ -4,12 +4,20 @@ import type {
   ResumeAsset as StaticResumeAsset,
   SkillCategory,
 } from "@/constants/portfolio";
+import type {
+  CmsBlockType,
+  CmsLayoutVariant,
+} from "@/lib/cms-block-registry";
 
 export type { SkillCategory };
 
 export type NavLink = {
   title: string;
   href: string;
+  navigationOrder: number;
+  showInNavigation: boolean;
+  showInFooter: boolean;
+  kind?: "link" | "resume";
 };
 
 export type ProfileContent = {
@@ -56,12 +64,36 @@ export type ProjectSectionContent = {
   title: string;
   body: string;
   bullets: string[];
+  items: ProjectSectionItemContent[];
+  media: ProjectMediaContent[];
   sortOrder: number;
-  sectionType?: string;
+  sectionType?: "rich_text" | "media_gallery";
+  layoutVariant?: CmsLayoutVariant;
   isVisible?: boolean;
 };
 
+export type ProjectSectionItemContent = {
+  id: string;
+  projectSectionId: string;
+  label: string;
+  value: string;
+  description: string;
+  displayOrder: number;
+};
+
+export type ProjectMediaContent = {
+  id: string;
+  projectId: string;
+  mediaUrl: string;
+  altText: string;
+  caption: string;
+  mediaType: "image" | "video" | "document";
+  displayOrder: number;
+  updatedAt: string;
+};
+
 export type ProjectContent = StaticProject & {
+  id: string;
   slug: string;
   type?: string;
   tools?: string[];
@@ -79,12 +111,28 @@ export type ProjectContent = StaticProject & {
   openGraphImage?: string;
   sortOrder?: number;
   sections?: ProjectSectionContent[];
+  media: ProjectMediaContent[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PageSectionItemContent = {
+  id: string;
+  pageSectionId: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  linkLabel: string;
+  linkUrl: string;
+  mediaUrl: string;
+  mediaAlt: string;
+  displayOrder: number;
 };
 
 export type PageSectionContent = {
   id: string;
   pageKey: string;
-  sectionType: string;
+  sectionType: CmsBlockType;
   title: string;
   subtitle: string;
   description: string;
@@ -93,7 +141,9 @@ export type PageSectionContent = {
   secondaryCtaLabel: string;
   secondaryCtaHref: string;
   displayOrder: number;
-  layoutVariant: string;
+  layoutVariant: CmsLayoutVariant;
+  items: PageSectionItemContent[];
+  updatedAt: string;
 };
 
 export type PageContent = {
@@ -106,6 +156,12 @@ export type PageContent = {
   openGraphTitle: string;
   openGraphDescription: string;
   openGraphImage: string;
+  navigationLabel: string;
+  navigationOrder: number;
+  showInNavigation: boolean;
+  showInFooter: boolean;
+  isPublished: boolean;
+  updatedAt: string;
   sections: PageSectionContent[];
 };
 
@@ -177,7 +233,18 @@ export type PortfolioContent = {
   pages: PageContent[];
   volunteering: VolunteeringContent[];
   navLinks: NavLink[];
+  delivery: {
+    source: "cms" | "fallback";
+    profile: "ok" | "failed";
+    pages: "ok" | "failed";
+    presentation: "ok" | "partial" | "failed";
+    projects: "ok" | "partial" | "failed";
+    career: "ok" | "partial" | "failed";
+    secondary: "ok" | "partial" | "failed";
+  };
 };
+
+export type PortfolioChromeContent = Pick<PortfolioContent, "profile" | "navLinks">;
 
 export type CmsTableName =
   | "profile"
@@ -210,7 +277,8 @@ export type MessageAction =
   | "mark_unread"
   | "archive"
   | "restore_read"
-  | "restore_unread";
+  | "restore_unread"
+  | "resend_notification";
 
 export type ContactMessage = {
   id: string;
@@ -219,6 +287,18 @@ export type ContactMessage = {
   message: string;
   source: string | null;
   status: MessageStatus;
+  delivery_status:
+    | "not_requested"
+    | "pending"
+    | "sending"
+    | "sent"
+    | "failed";
+  delivery_attempts: number;
+  last_delivery_attempt_at: string | null;
+  next_delivery_attempt_at: string | null;
+  delivered_at: string | null;
+  delivery_error_code: string | null;
+  provider_message_id: string | null;
   created_at: string;
   updated_at: string;
   read_at: string | null;
@@ -242,6 +322,10 @@ export type UploadRecord = {
   original_name: string | null;
   uploaded_by: string | null;
   created_at: string;
+  sha256?: string | null;
+  deletion_status?: "active" | "pending" | "failed";
+  deletion_requested_at?: string | null;
+  deletion_error_code?: string | null;
 };
 
 export type AdminProfileSettings = {

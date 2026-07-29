@@ -6,6 +6,7 @@ import type {
   CaptchaController,
   CaptchaSnapshot,
 } from "@/components/security/captcha-widget";
+import { adminFetch } from "@/components/admin/admin-api";
 import { FormEvent, useCallback, useRef, useState } from "react";
 
 const CaptchaWidget = dynamic(
@@ -64,7 +65,7 @@ export const ForgotPasswordForm = () => {
     setStatus("");
 
     try {
-      const response = await fetch("/api/auth/forgot-password", {
+      const response = await adminFetch("/api/auth/forgot-password", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -135,10 +136,16 @@ export const ResetPasswordForm = ({ recoveryReady = true }: { recoveryReady?: bo
       return;
     }
     setPending(true);
-    const response = await fetch("/api/auth/reset-password", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password }) });
-    const data = await response.json().catch(() => ({})); setPending(false);
-    if (!response.ok || !data.ok) { setStatus(data.error ?? "Password could not be updated."); return; }
-    window.location.href = data.redirectTo ?? "/admin/login?reset=success";
+    try {
+      const response = await adminFetch("/api/auth/reset-password", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password }) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.ok) { setStatus(data.error ?? "Password could not be updated."); return; }
+      window.location.href = data.redirectTo ?? "/admin/login?reset=success";
+    } catch {
+      setStatus("Password could not be updated.");
+    } finally {
+      setPending(false);
+    }
   };
 
   return <div className="mx-auto w-full max-w-md rounded-lg border border-white/10 bg-[#100b24]/90 p-6 text-gray-200 shadow-xl shadow-[#2A0E61]/25 backdrop-blur-md"><h1 className="text-3xl font-bold text-white">Reset password</h1><p className="mt-3 text-sm leading-6 text-gray-400">{recoveryReady ? "Use at least 12 characters with uppercase, lowercase and a number." : "This recovery session is missing or expired. Request a new recovery email."}</p><form onSubmit={submit} className="mt-8 flex flex-col gap-5"><label className="flex flex-col gap-2 text-sm">New password<input className="rounded-lg border border-white/10 bg-[#151030] px-4 py-3 text-white outline-none focus:border-cyan-300/60" type="password" minLength={12} value={password} onChange={(event) => setPassword(event.target.value)} required disabled={!recoveryReady} /></label><label className="flex flex-col gap-2 text-sm">Confirm new password<input className="rounded-lg border border-white/10 bg-[#151030] px-4 py-3 text-white outline-none focus:border-cyan-300/60" type="password" minLength={12} value={confirmation} onChange={(event) => setConfirmation(event.target.value)} required disabled={!recoveryReady} /></label><button type="submit" disabled={pending || !recoveryReady} className="button-primary rounded-lg px-5 py-3 font-bold text-white disabled:opacity-60">{pending ? "Updating..." : "Update password"}</button></form><p className="mt-5 min-h-6 text-sm text-cyan-100" aria-live="polite">{status}</p>{!recoveryReady && <Link href="/admin/forgot-password" className="mt-4 inline-flex text-sm text-gray-300 hover:text-cyan-100">Request another recovery link</Link>}</div>;

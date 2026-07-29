@@ -1,7 +1,11 @@
 import type { AuthError } from "@supabase/supabase-js";
 
 import { requireAdminApi, writeAdminAudit } from "@/lib/security/admin-auth";
-import { jsonError, jsonOk } from "@/lib/security/http";
+import { clientIp, jsonError, jsonOk } from "@/lib/security/http";
+import {
+  consumeRateLimit,
+  rateLimitResponse,
+} from "@/lib/security/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -25,12 +29,36 @@ export async function POST(request: Request) {
   const admin = await requireAdminApi(request, { requireMfa: false });
   if (!admin.ok) return admin.response;
 
+  const limited = await consumeRateLimit({
+    scope: "admin-mfa-enroll",
+    identifiers: [admin.user.id, clientIp(request)],
+    limit: 6,
+    windowMs: 30 * 60 * 1000,
+  });
+  if (!limited.allowed) {
+    return rateLimitResponse(limited);
+  }
+
   const factors = await admin.supabase.auth.mfa.listFactors();
   if (factors.error) return jsonError(enrollmentErrorMessage(factors.error), 400);
 
   const allFactors = factors.data?.all ?? [];
   const verifiedTotp = allFactors.find((factor) => factor.factor_type === "totp" && factor.status === "verified");
-  if (verifiedTotp) return jsonError("An authenticator is already enrolled for this account.", 409);
+  if (verifiedTotp) {
+    const assurance = await admin.supabase.auth.mfa
+      .getAuthenticatorAssuranceLevel();
+    if (
+      assurance.error ||
+      assurance.data.currentLevel !== "aal2"
+    ) {
+      return jsonError(
+        "Verify the current authenticator before changing MFA factors.",
+        403,
+        "fresh_mfa_required",
+      );
+    }
+    return jsonError("An authenticator is already enrolled for this account.", 409);
+  }
 
   const unfinishedTotp = allFactors.filter((factor) => factor.factor_type === "totp" && factor.status === "unverified");
   for (const factor of unfinishedTotp) {

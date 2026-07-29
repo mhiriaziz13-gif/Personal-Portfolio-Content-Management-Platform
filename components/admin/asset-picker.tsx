@@ -92,6 +92,7 @@ export function AssetPicker({
         const matching = parseUploads(data.uploads).filter((asset) =>
           Boolean(asset.public_url)
           && asset.bucket === bucket
+          && asset.deletion_status === "active"
           && Boolean(asset.mime_type)
           && allowedMimeTypes.includes(asset.mime_type ?? ""),
         );

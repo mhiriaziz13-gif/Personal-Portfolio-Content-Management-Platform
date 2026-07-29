@@ -2,13 +2,16 @@
 
 import {
   createContext,
-  Suspense,
+  useCallback,
   useContext,
+  useEffect,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
 import { usePathname } from "next/navigation";
 
+import { AnalyticsPreferencesDialog } from "@/components/analytics/analytics-preferences-dialog";
 import { ClarityLoader } from "@/components/analytics/clarity-loader";
 import { GoogleTagManagerLoader } from "@/components/analytics/google-tag-manager-loader";
 import { PageViewTracker } from "@/components/analytics/page-view-tracker";
@@ -16,11 +19,14 @@ import {
   ANALYTICS_CONSENT_STORAGE_KEY,
   type AnalyticsConsentValue,
   clearAnalyticsCookies,
+  clarityConsentState,
+  clearStoredAnalyticsConsent,
   isProductionAnalyticsLocation,
   isPublicAnalyticsPath,
   readStoredAnalyticsConsent,
   writeStoredAnalyticsConsent,
 } from "@/lib/analytics/consent";
+import { pushDataLayerEvent } from "@/lib/analytics/events";
 
 type AnalyticsConsentContextValue = {
   consent: AnalyticsConsentValue;
@@ -60,10 +66,6 @@ const updateGoogleConsent = (value: "granted" | "denied") => {
     ad_user_data: "denied",
     ad_personalization: "denied",
   });
-  window.dataLayer.push({
-    event: "analytics_consent_updated",
-    analytics_consent: value,
-  });
 };
 
 export const AnalyticsConsentProvider = ({
@@ -89,44 +91,109 @@ export const AnalyticsConsentProvider = ({
     () => false,
   );
   const [isPreferencesOpen, setIsPreferencesOpen] = useState(false);
+  const previousConsent = useRef<AnalyticsConsentValue>("unknown");
   const isAvailable =
     hydrated &&
     analyticsEnabled &&
     isPublicAnalyticsPath(pathname) &&
     isProductionAnalyticsLocation();
 
-  const saveConsent = (value: "granted" | "denied") => {
-    if (consent === value) {
-      setIsPreferencesOpen(false);
-      return;
-    }
-    writeStoredAnalyticsConsent(value);
-    updateGoogleConsent(value);
-    if (value === "denied") {
-      window.clarity?.("consentv2", {
-        ad_Storage: "denied",
-        analytics_Storage: "denied",
-      });
+  const effectiveConsent =
+    isAvailable && consent === "granted" ? "granted" : "denied";
+
+  useEffect(() => {
+    if (!hydrated) return;
+    const withdrewConsent =
+      previousConsent.current === "granted" && consent !== "granted";
+    previousConsent.current = consent;
+
+    updateGoogleConsent(effectiveConsent);
+    if (effectiveConsent === "denied") {
+      window.clarity?.("consentv2", clarityConsentState("denied"));
       clearAnalyticsCookies();
     }
-    window.dispatchEvent(new Event(CONSENT_CHANGE_EVENT));
-    setIsPreferencesOpen(false);
-  };
+
+    const enteredExcludedPath =
+      consent === "granted" &&
+      analyticsEnabled &&
+      isProductionAnalyticsLocation() &&
+      !isPublicAnalyticsPath(pathname);
+    const optionalCollectorWasLoaded =
+      window.googleTagManagerLoaded ||
+      window.microsoftClarityInitialized ||
+      window.vai ||
+      window.sil;
+    if (
+      optionalCollectorWasLoaded &&
+      (withdrewConsent || enteredExcludedPath)
+    ) {
+      window.setTimeout(() => window.location.reload(), 0);
+    }
+  }, [
+    analyticsEnabled,
+    consent,
+    effectiveConsent,
+    hydrated,
+    pathname,
+  ]);
+
+  const saveConsent = useCallback(
+    (value: "granted" | "denied") => {
+      const stored = writeStoredAnalyticsConsent(value);
+      if (!stored) {
+        clearStoredAnalyticsConsent();
+        if (value === "granted") {
+          updateGoogleConsent("denied");
+          clearAnalyticsCookies();
+          setIsPreferencesOpen(false);
+          window.dispatchEvent(new Event(CONSENT_CHANGE_EVENT));
+          return;
+        }
+      }
+
+      updateGoogleConsent(value);
+      pushDataLayerEvent({
+        event: "analytics_consent_updated",
+        analytics_consent: value,
+      });
+      if (value === "denied") {
+        window.clarity?.("consentv2", clarityConsentState("denied"));
+        clearAnalyticsCookies();
+      }
+      window.dispatchEvent(new Event(CONSENT_CHANGE_EVENT));
+      setIsPreferencesOpen(false);
+    },
+    [],
+  );
+
+  const acceptAnalytics = useCallback(
+    () => saveConsent("granted"),
+    [saveConsent],
+  );
+  const rejectAnalytics = useCallback(
+    () => saveConsent("denied"),
+    [saveConsent],
+  );
+  const closePreferences = useCallback(
+    () => setIsPreferencesOpen(false),
+    [],
+  );
+  const openPreferences = useCallback(() => {
+    if (isAvailable) setIsPreferencesOpen(true);
+  }, [isAvailable]);
 
   const contextValue: AnalyticsConsentContextValue = {
     consent,
     isAvailable,
     isPreferencesOpen,
-    acceptAnalytics: () => saveConsent("granted"),
-    rejectAnalytics: () => saveConsent("denied"),
-    openPreferences: () => {
-      if (isAvailable) setIsPreferencesOpen(true);
-    },
-    closePreferences: () => setIsPreferencesOpen(false),
+    acceptAnalytics,
+    rejectAnalytics,
+    openPreferences,
+    closePreferences,
   };
 
   const showBanner =
-    hydrated && isAvailable && consent === "unknown" && !isPreferencesOpen;
+    hydrated && isAvailable && consent === "unknown";
 
   return (
     <AnalyticsConsentContext.Provider value={contextValue}>
@@ -135,9 +202,7 @@ export const AnalyticsConsentProvider = ({
         enabled={analyticsEnabled}
         containerId={gtmId}
       />
-      <Suspense fallback={null}>
-        <PageViewTracker enabled={analyticsEnabled} />
-      </Suspense>
+      <PageViewTracker enabled={analyticsEnabled} />
       <ClarityLoader
         enabled={analyticsEnabled}
         projectId={clarityProjectId}
@@ -147,20 +212,28 @@ export const AnalyticsConsentProvider = ({
         <section
           aria-label="Analytics consent"
           aria-live="polite"
+          hidden={isPreferencesOpen}
           className="fixed inset-x-4 bottom-4 z-[100] mx-auto max-w-4xl rounded-2xl border border-white/15 bg-[#0b0920]/95 p-5 text-white shadow-2xl backdrop-blur-xl sm:p-6"
         >
           <h2 className="text-lg font-semibold">Your privacy choices</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-gray-300">
-            Optional analytics help measure aggregate visits and improve the portfolio. Advertising storage and personalization remain disabled.
+            Optional Google Analytics, Microsoft Clarity, Vercel Web Analytics,
+            and Speed Insights help measure aggregate visits and improve the
+            portfolio. Advertising storage and personalization remain disabled.
           </p>
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <button type="button" onClick={() => saveConsent("granted")} className="rounded-lg border border-cyan-200/60 bg-cyan-300 px-4 py-2.5 text-sm font-semibold text-[#030014] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-200">
+            <button type="button" onClick={acceptAnalytics} className="min-h-[44px] rounded-lg border border-cyan-200/60 bg-cyan-300 px-4 py-2.5 text-sm font-semibold text-[#030014] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-200">
               Accept analytics
             </button>
-            <button type="button" onClick={() => saveConsent("denied")} className="rounded-lg border border-cyan-200/60 px-4 py-2.5 text-sm font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-200">
+            <button type="button" onClick={rejectAnalytics} className="min-h-[44px] rounded-lg border border-cyan-200/60 px-4 py-2.5 text-sm font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-200">
               Reject analytics
             </button>
-            <button type="button" onClick={() => setIsPreferencesOpen(true)} className="rounded-lg px-4 py-2.5 text-sm font-medium text-gray-200 underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-200">
+            <button
+              type="button"
+              onClick={openPreferences}
+              data-analytics-preferences-trigger
+              className="min-h-[44px] rounded-lg px-4 py-2.5 text-sm font-medium text-gray-200 underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-200"
+            >
               Manage preferences
             </button>
           </div>
@@ -168,18 +241,12 @@ export const AnalyticsConsentProvider = ({
       )}
 
       {hydrated && isAvailable && isPreferencesOpen && (
-        <div className="fixed inset-0 z-[110] flex items-end justify-center bg-black/70 p-4 sm:items-center">
-          <section role="dialog" aria-modal="true" aria-labelledby="analytics-preferences-title" className="w-full max-w-lg rounded-2xl border border-white/15 bg-[#0b0920] p-6 text-white shadow-2xl">
-            <h2 id="analytics-preferences-title" className="text-xl font-semibold">Analytics preferences</h2>
-            <p className="mt-2 text-sm leading-6 text-gray-300">Essential security and authentication remain active. Choose whether Google Analytics and Microsoft Clarity may measure this public visit.</p>
-            <p className="mt-4 text-sm text-gray-400" role="status">Current choice: {consent}</p>
-            <div className="mt-6 grid gap-3 sm:grid-cols-2">
-              <button type="button" onClick={() => saveConsent("granted")} className="rounded-lg border border-cyan-200/60 bg-cyan-300 px-4 py-2.5 text-sm font-semibold text-[#030014] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-200">Accept analytics</button>
-              <button type="button" onClick={() => saveConsent("denied")} className="rounded-lg border border-cyan-200/60 px-4 py-2.5 text-sm font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-200">Reject analytics</button>
-              <button type="button" onClick={() => setIsPreferencesOpen(false)} className="rounded-lg px-4 py-2.5 text-sm font-medium text-gray-300 sm:col-span-2">Cancel</button>
-            </div>
-          </section>
-        </div>
+        <AnalyticsPreferencesDialog
+          consent={consent}
+          onAccept={acceptAnalytics}
+          onClose={closePreferences}
+          onReject={rejectAnalytics}
+        />
       )}
     </AnalyticsConsentContext.Provider>
   );

@@ -17,7 +17,11 @@ export default async function AdminLoginPage({ searchParams }: PageProps) {
   const resetSuccess = readParam(params.reset) === "success";
 
   return (
-    <main className="min-h-screen px-6 py-28">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="min-h-screen px-6 py-28"
+    >
       <LoginForm nextPath={nextPath} initialMfaRequired={initialMfaRequired} initialError={initialError} resetSuccess={resetSuccess} />
     </main>
   );

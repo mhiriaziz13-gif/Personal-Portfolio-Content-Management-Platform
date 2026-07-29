@@ -1,3 +1,5 @@
+import { publicIdentity } from "@/lib/seo/config";
+
 export type SkillCategory = {
   title: string;
   skills: string[];
@@ -28,17 +30,23 @@ export type ResumeAsset = {
   available: boolean;
 };
 
+const getProfileLabel = (value: string) => {
+  const url = new URL(value);
+  return `${url.hostname}${url.pathname}`.replace(/\/$/, "");
+};
+
 export const profile = {
-  name: "Ahmed Aziz Mhiri",
+  name: publicIdentity.name,
   initials: "AAM",
   avatarPath: "/profile/avatar.png",
   location: "Sousse, Tunisia",
   email: "mhiriaziz13@gmail.com",
-  linkedIn: "https://linkedin.com/in/ahmed-aziz-mhiri",
-  linkedInLabel: "linkedin.com/in/ahmed-aziz-mhiri",
-  github: "https://github.com/mhiriaziz13-gif",
-  githubLabel: "github.com/mhiriaziz13-gif",
-  availability: "Available for Europe-based opportunities from Summer 2027",
+  linkedIn: publicIdentity.linkedInUrl,
+  linkedInLabel: getProfileLabel(publicIdentity.linkedInUrl),
+  github: publicIdentity.githubUrl,
+  githubLabel: getProfileLabel(publicIdentity.githubUrl),
+  availability:
+    "International full-time availability from October 2027; selected freelance projects available now.",
   mainTitle: "Data-Driven Marketing & Commercial Analytics",
   secondaryLine:
     "Marketing Analytics | Commercial Analytics | Business Intelligence | Process Automation",
@@ -65,13 +73,86 @@ export const dynamicTitles = [
 ] as const;
 
 export const navLinks = [
-  { title: "Home", href: "/" },
-  { title: "About", href: "/about" },
-  { title: "Expertise", href: "/expertise" },
-  { title: "Projects", href: "/projects" },
-  { title: "Experience", href: "/experience" },
-  { title: "CV", href: "/resume" },
-  { title: "Contact", href: "/contact" },
+  {
+    title: "Home",
+    href: "/",
+    navigationOrder: 0,
+    showInNavigation: true,
+    showInFooter: true,
+    kind: "link",
+  },
+  {
+    title: "Projects",
+    href: "/projects",
+    navigationOrder: 10,
+    showInNavigation: true,
+    showInFooter: true,
+    kind: "link",
+  },
+  {
+    title: "Experience",
+    href: "/experience",
+    navigationOrder: 20,
+    showInNavigation: true,
+    showInFooter: true,
+    kind: "link",
+  },
+  {
+    title: "Expertise",
+    href: "/expertise",
+    navigationOrder: 30,
+    showInNavigation: true,
+    showInFooter: true,
+    kind: "link",
+  },
+  {
+    title: "About",
+    href: "/about",
+    navigationOrder: 40,
+    showInNavigation: true,
+    showInFooter: true,
+    kind: "link",
+  },
+  {
+    title: "Contact",
+    href: "/contact",
+    navigationOrder: 50,
+    showInNavigation: true,
+    showInFooter: true,
+    kind: "link",
+  },
+  {
+    title: "Resume",
+    href: "/resume",
+    navigationOrder: 60,
+    showInNavigation: true,
+    showInFooter: true,
+    kind: "resume",
+  },
+  {
+    title: "Education",
+    href: "/education",
+    navigationOrder: 70,
+    showInNavigation: false,
+    showInFooter: true,
+    kind: "link",
+  },
+  {
+    title: "Certifications",
+    href: "/certifications",
+    navigationOrder: 80,
+    showInNavigation: false,
+    showInFooter: true,
+    kind: "link",
+  },
+  {
+    title: "Volunteering",
+    href: "/about#volunteering",
+    navigationOrder: 90,
+    showInNavigation: false,
+    showInFooter: true,
+    kind: "link",
+  },
 ] as const;
 
 export const skillCategories: SkillCategory[] = [
@@ -163,11 +244,11 @@ export const projects: Project[] = [
     ],
   },
   {
-    title: "AI-Ready E-Learning Platform",
+    title: "VERMEG AI-Ready E-Learning Prototype",
     description:
-      "Secure, multilingual e-learning platform contribution with dashboards, microservices, local LLaMA 3.2 deployment and RAG-based knowledge retrieval.",
+      "Two-person internship prototype for an AI-ready e-learning experience. My contribution focused on chatbot functionality and selected application services. It was not presented as a production deployment or as a sole-authored system.",
     image: "/projects/project-3.png",
-    tags: ["Angular", "Spring Boot", "REST APIs", "LLaMA 3.2", "Ollama", "RAG"],
+    tags: ["AI Prototype", "Team Project", "Angular", "Spring Boot", "Ollama", "RAG"],
   },
   {
     title: "Library Management Application",
@@ -246,10 +327,8 @@ export const experiences: Experience[] = [
     logo: "/companies/vermeg.png",
     logoAlt: "VERMEG logo",
     points: [
-      "Contributed to a secure, scalable and multilingual e-learning platform.",
-      "Worked on enrolment, progress tracking, dashboards, event booking and real-time notifications.",
-      "Integrated a locally deployed LLaMA 3.2 assistant through Ollama.",
-      "Contributed to RAG-based PDF and CSV knowledge retrieval, microservices, monitoring and security safeguards.",
+      "Co-developed a demonstrable AI-ready e-learning prototype in a two-person team; focused on chatbot functionality and selected application services.",
+      "Applied Angular, Spring Boot, Ollama and RAG concepts within that bounded contribution. The prototype was not presented as a production deployment or as a sole-authored system.",
     ],
   },
   {

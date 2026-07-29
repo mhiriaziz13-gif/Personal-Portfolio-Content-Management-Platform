@@ -1,9 +1,15 @@
 import type { MetadataRoute } from "next";
+
 import { getPortfolioContent } from "@/lib/cms";
-import { absoluteUrl } from "@/lib/seo/urls";
+import { createSitemapEntries } from "@/lib/seo/discoverability";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const content = await getPortfolioContent();
-  const paths = ["/", "/about", "/expertise", "/projects", "/experience", "/education", "/certifications", "/resume", "/contact"];
-  return [...paths, ...content.projects.map((project) => `/projects/${project.slug}`)].map((path) => ({ url: absoluteUrl(path) }));
+  try {
+    return createSitemapEntries(await getPortfolioContent());
+  } catch {
+    console.warn(
+      "Sitemap CMS read failed; omitting unconfirmed publication entries.",
+    );
+    return createSitemapEntries(null);
+  }
 }

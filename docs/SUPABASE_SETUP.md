@@ -7,20 +7,25 @@
 > version against live schema first, then apply only individually reviewed files.
 > The legacy bootstrap SQL also recreates the function/Storage findings addressed
 > by `20260714093312_security_advisor_hardening.sql`, which was applied and verified
-> on project `qflchsmvszbesfnomdeo` on 2026-07-14. Do not apply it again. See
+> on the production project on 2026-07-14. Do not apply it again. See
 > `security-scan-remediation-2026-07.md` for the release gate and verification.
 
-## 1. Bootstrap a new/disposable database
+## 1. Database bootstrap and production hardening
 
-Run the migration in Supabase SQL editor or with Supabase CLI:
+`supabase/schema.sql` and
+`supabase/migrations/202607080001_cms_auth_security.sql` are historical bootstrap
+artifacts. They do not represent the current hardened schema and must not be used
+to initialize or repair production.
 
-- `supabase/migrations/202607080001_cms_auth_security.sql`
+For the existing project, use the single-file, production-drift-aware process in
+`SUPABASE_PORTFOLIO_HARDENING_V1_RUNBOOK.md`. The prepared migration is
+`supabase/migrations/20260727130027_portfolio_hardening_v1.sql`; it has not been
+applied to production by this repository change.
 
-The same SQL is also copied to:
-
-- `supabase/schema.sql`
-
-It creates CMS tables, admin security tables, contact messages, uploads, RLS policies, indexes and storage buckets.
+For a genuinely new/disposable project, first derive and review a current
+baseline from the intended schema. Do not treat the historical clean reset as a
+current baseline, and never copy production data or credentials into a disposable
+environment.
 
 ## 2. Auth URL Configuration
 
@@ -63,22 +68,29 @@ For password recovery, the email template should include:
 
 ## 4. CAPTCHA Protection
 
-For production project `qflchsmvszbesfnomdeo`, open **Authentication > Bot and Abuse Protection** and configure:
+In the production project, open **Authentication > Bot and Abuse Protection**
+and configure:
 
 - Provider: **hCaptcha**
 - Secret key: the private secret from the matching hCaptcha site
 - CAPTCHA protection: enabled
 
-The app renders the public widget only on `/admin/login` and `/admin/forgot-password`. It passes the resulting token to Supabase Auth for `signInWithPassword` and `resetPasswordForEmail`; it does not verify tokens with the provider secret itself.
+The app renders the public widget on `/admin/login`,
+`/admin/forgot-password`, and `/contact`. Auth tokens go to Supabase Auth;
+contact tokens are verified server-side by `/api/contact`.
 
 Set these public build variables locally and in Vercel:
 
 ```text
 NEXT_PUBLIC_CAPTCHA_PROVIDER=hcaptcha
 NEXT_PUBLIC_CAPTCHA_SITE_KEY=your-public-hcaptcha-site-key
+HCAPTCHA_SECRET_KEY=your-private-hcaptcha-secret
 ```
 
-Never add the hCaptcha secret to a `NEXT_PUBLIC_*` variable. Keep it in hCaptcha and the Supabase Auth CAPTCHA configuration. Add only the required production, trusted preview, or development hostnames to the hCaptcha site.
+Never add the hCaptcha secret to a `NEXT_PUBLIC_*` variable. Store it in
+Supabase Auth and as a server-only Vercel/local environment variable for the
+contact API. Add only required production, trusted preview, or development
+hostnames to the hCaptcha site.
 
 ## 5. GitHub OAuth
 
@@ -161,12 +173,13 @@ Do not insert fake clients, fake metrics or old-owner content.
 
 ## 2026 CMS/Auth Refinement
 
-For a new or disposable database created from the legacy bootstrap migration,
-review `supabase/migrations/202607090001_fix_cms_auth_certifications.sql`
-before applying it, then optionally run `supabase/seed_ahmed_portfolio.sql`.
+For a new or disposable database created from a separately reviewed current
+baseline, use the admin dashboard to create initial content. The historical
+`202607090001_fix_cms_auth_certifications.sql` and standalone seed are retained
+for provenance, not as an apply sequence.
 
 Do not replay that migration against the existing production project
-`qflchsmvszbesfnomdeo`. Its live migration ledger does not align with the legacy
+the production project. Its live migration ledger does not align with the legacy
 repository sequence, and the production schema was verified separately on
 2026-07-14. Detailed provider, recovery and MFA steps are in
 `docs/AUTH_FIX_GITHUB_MFA_RESET.md`.

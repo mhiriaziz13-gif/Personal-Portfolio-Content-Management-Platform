@@ -1,42 +1,31 @@
 import {
   dynamicTitles,
-  experiences,
   navLinks,
   profile,
-  projects,
-  resumes,
-  skillCategories,
 } from "@/constants/portfolio";
-import type { PortfolioContent, ProjectContent, ResumeContent } from "@/lib/cms-types";
+import type { PortfolioContent } from "@/lib/cms-types";
 
-const slugify = (value: string) =>
-  value
-    .toLowerCase()
-    .replace(/&/g, "and")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
+/**
+ * Repository fallback content is intentionally small. It keeps the public shell
+ * useful during configuration incidents without replaying projects or other
+ * records that may have been unpublished in the CMS.
+ */
+export const primaryNavigation = navLinks.map((link) => ({ ...link }));
 
-const fallbackProjects: ProjectContent[] = projects.map((project, index) => ({
-  ...project,
-  slug: slugify(project.title),
-  featured: index < 3,
-  sortOrder: index,
-  sections: [],
-}));
-
-const fallbackResumes: ResumeContent[] = resumes.map((resume, index) => ({
-  ...resume,
-  variant: resume.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""),
-  sortOrder: index,
-}));
+const fallbackProfile: PortfolioContent["profile"] = {
+  ...profile,
+  availability:
+    "International full-time availability from October 2027; selected freelance projects available now.",
+  aboutFocus: [...profile.aboutFocus],
+};
 
 export const fallbackPortfolioContent: PortfolioContent = {
-  profile: { ...profile, aboutFocus: [...profile.aboutFocus] },
+  profile: fallbackProfile,
   hero: {
-    eyebrow: profile.mainTitle,
-    title: profile.name,
-    subtitle: profile.secondaryLine,
-    tagline: profile.tagline,
+    eyebrow: fallbackProfile.mainTitle,
+    title: fallbackProfile.name,
+    subtitle: fallbackProfile.secondaryLine,
+    tagline: fallbackProfile.tagline,
     dynamicTitles: [...dynamicTitles],
     primaryCtaLabel: "Contact Me",
     primaryCtaHref: "/contact",
@@ -45,70 +34,28 @@ export const fallbackPortfolioContent: PortfolioContent = {
   },
   about: {
     title: "Data, commercial context and automation in one working view.",
-    body: profile.about,
-    highlights: [...profile.aboutFocus],
-    avatarUrl: profile.avatarPath,
+    body: fallbackProfile.about,
+    highlights: [...fallbackProfile.aboutFocus],
+    avatarUrl: fallbackProfile.avatarPath,
   },
-  skillCategories: skillCategories.map((category) => ({
-    title: category.title,
-    skills: [...category.skills],
-  })),
-  projects: fallbackProjects,
-  projectSections: fallbackProjects.flatMap((project) => project.sections ?? []),
-  experience: experiences.map((experience, index) => ({ ...experience, sortOrder: index })),
-  education: [
-    {
-      institution: "Institut des Hautes Études Commerciales de Carthage — IHEC Carthage",
-      degree: "Master's in Big Data Analytics & E-Commerce",
-      startDate: "2025",
-      endDate: "2027",
-      status: "In progress",
-      location: "Tunisia",
-      sortOrder: 0,
-    },
-    {
-      institution: "Institut des Hautes Études Commerciales de Carthage — IHEC Carthage",
-      degree: "Licence / Bachelor's degree in Business Intelligence — Mention Excellent, 19.5/20",
-      startDate: "",
-      endDate: "",
-      status: "Completed",
-      location: "Tunisia",
-      sortOrder: 1,
-    },
-  ],
-  certifications: [
-    {
-      name: "Fundamentals of Digital Marketing",
-      issuer: "Google",
-      date: "",
-      credentialUrl: "https://drive.google.com/file/d/10v7Z86IzuUwwvhTYdKfZji24-2-K00JN/view",
-      description: "Google Digital Marketing Fundamentals certification covering core concepts in online marketing, SEO, analytics and digital growth.",
-      tags: ["Digital Marketing", "SEO", "Analytics", "Online Marketing"],
-      sortOrder: 0,
-    },
-  ],
-  resumes: fallbackResumes,
-  socialLinks: [
-    {
-      label: "LinkedIn",
-      url: profile.linkedIn,
-      iconKey: "linkedin",
-      sortOrder: 0,
-    },
-    {
-      label: "GitHub",
-      url: profile.github,
-      iconKey: "github",
-      sortOrder: 1,
-    },
-    {
-      label: "Email",
-      url: `mailto:${profile.email}`,
-      iconKey: "email",
-      sortOrder: 2,
-    },
-  ],
+  skillCategories: [],
+  projects: [],
+  projectSections: [],
+  experience: [],
+  education: [],
+  certifications: [],
+  resumes: [],
+  socialLinks: [],
   pages: [],
   volunteering: [],
-  navLinks: navLinks.map((link) => ({ ...link })),
+  navLinks: primaryNavigation,
+  delivery: {
+    source: "fallback",
+    profile: "failed",
+    pages: "failed",
+    presentation: "failed",
+    projects: "failed",
+    career: "failed",
+    secondary: "failed",
+  },
 };

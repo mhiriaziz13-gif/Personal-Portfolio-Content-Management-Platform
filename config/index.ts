@@ -1,9 +1,21 @@
 import type { Metadata } from "next";
-import { isProductionDeployment, siteSeo } from "@/lib/seo/config";
+import {
+  isProductionDeployment,
+  publicIdentity,
+  siteSeo,
+} from "@/lib/seo/config";
 import { absoluteUrl } from "@/lib/seo/urls";
 
-const bingSiteVerification = process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION || "DD704E07F3105765E0E7CDC8CA9E980A";
-const googleSiteVerification = process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || "GZ_oefFbiVYu4Jb4QStHsKTNk5Rpjsy-C6ohR_vKQq4";
+const bingSiteVerification =
+  process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION?.trim();
+const googleSiteVerification =
+  process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION?.trim();
+const verification: Metadata["verification"] = {
+  ...(googleSiteVerification ? { google: googleSiteVerification } : {}),
+  ...(bingSiteVerification
+    ? { other: { "msvalidate.01": bingSiteVerification } }
+    : {}),
+};
 
 export const siteConfig: Metadata = {
   metadataBase: new URL(siteSeo.url),
@@ -22,18 +34,20 @@ export const siteConfig: Metadata = {
     "Digital Marketing Analyst",
   ],
   authors: {
-    name: "Ahmed Aziz Mhiri",
-    url: "https://linkedin.com/in/ahmed-aziz-mhiri",
+    name: publicIdentity.name,
+    url: publicIdentity.linkedInUrl,
   },
-  creator: "Ahmed Aziz Mhiri",
-  publisher: "Ahmed Aziz Mhiri",
+  creator: publicIdentity.name,
+  publisher: publicIdentity.name,
   alternates: { canonical: absoluteUrl("/") },
   manifest: "/manifest.webmanifest",
   icons: { icon: "/favicon.ico", apple: "/apple-icon.png" },
   robots: { index: isProductionDeployment, follow: isProductionDeployment, nocache: !isProductionDeployment },
-  verification: { google: googleSiteVerification, other: { "msvalidate.01": bingSiteVerification } },
+  ...(googleSiteVerification || bingSiteVerification
+    ? { verification }
+    : {}),
   openGraph: {
-    title: "Ahmed Aziz Mhiri | Data-Driven Marketing & Commercial Analytics",
+    title: `${publicIdentity.name} | Data-Driven Marketing & Commercial Analytics`,
     description:
       "Marketing analytics, commercial analytics, business intelligence, process automation and digital growth portfolio.",
     type: "website",

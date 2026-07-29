@@ -1,21 +1,20 @@
+import { createHmac, timingSafeEqual } from "crypto";
 import type { User } from "@supabase/supabase-js";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
-  createSupabasePublicClient,
-  createSupabaseServerClient,
-} from "@/lib/supabase/server";
-import {
+  adminDeviceHmacSecret,
   adminMfaRememberDays,
   isSupabaseAdminConfigured,
+  requireAdminDeviceHmacSecret,
   requireAdminMfa,
-  supabaseEnv,
 } from "@/lib/supabase/config";
 import {
-  hashNullable,
+  hmacSha256Hex,
   randomToken,
   sha256Hex,
 } from "@/lib/security/crypto";
@@ -25,9 +24,101 @@ import {
   jsonError,
   userAgent,
 } from "@/lib/security/http";
+import {
+  isCsrfTokenValid,
+  isMutationRequest,
+} from "@/lib/security/csrf";
 import { safeRedirect } from "@/lib/security/redirects";
 
 export const REMEMBER_DEVICE_COOKIE = "aam_admin_mfa_device";
+export const passwordRecoveryCookieName = () =>
+  process.env.NODE_ENV === "production"
+    ? "__Host-aam_admin_recovery"
+    : "aam_admin_recovery";
+
+const recoveryStateSignature = (payload: string) => {
+  const secret = requireAdminDeviceHmacSecret();
+
+  return createHmac("sha256", secret)
+    .update(`password-recovery\0${payload}`)
+    .digest("base64url");
+};
+
+export const createPasswordRecoveryState = (email: string) => {
+  const payload = Buffer.from(
+    JSON.stringify({
+      emailHash: sha256Hex(email.trim().toLowerCase()),
+      expiresAt: Date.now() + 30 * 60 * 1000,
+      nonce: randomToken(16),
+    }),
+  ).toString("base64url");
+  return `${payload}.${recoveryStateSignature(payload)}`;
+};
+
+export const isPasswordRecoveryStateValid = (
+  state: string | null,
+  email: string | null | undefined,
+) => {
+  if (!state || !email) return false;
+  const [payload, signature, extra] = state.split(".");
+  if (!payload || !signature || extra) return false;
+
+  const expected = recoveryStateSignature(payload);
+  if (!hashesMatch(signature, expected)) return false;
+
+  try {
+    const parsed = JSON.parse(
+      Buffer.from(payload, "base64url").toString("utf8"),
+    ) as {
+      emailHash?: unknown;
+      expiresAt?: unknown;
+      nonce?: unknown;
+    };
+    return (
+      parsed.emailHash === sha256Hex(email.trim().toLowerCase()) &&
+      typeof parsed.expiresAt === "number" &&
+      parsed.expiresAt > Date.now() &&
+      parsed.expiresAt <= Date.now() + 31 * 60 * 1000 &&
+      typeof parsed.nonce === "string" &&
+      parsed.nonce.length >= 20
+    );
+  } catch {
+    return false;
+  }
+};
+
+export const setPasswordRecoveryCookie = (
+  response: NextResponse,
+  state: string,
+) => {
+  response.cookies.set(passwordRecoveryCookieName(), state, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 30 * 60,
+  });
+};
+
+export const clearPasswordRecoveryCookie = (
+  response: NextResponse,
+) => {
+  response.cookies.set(passwordRecoveryCookieName(), "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+  });
+};
+
+export const passwordRecoveryStateFromRequest = (
+  request: Request,
+) =>
+  cookieValueFromRequest(
+    request,
+    passwordRecoveryCookieName(),
+  );
 
 type AuthenticatedAdmin = {
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>;
@@ -42,7 +133,6 @@ export type AdminAuthState =
       status: "authenticated";
       supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>;
       user: User;
-      accessToken?: string;
     }
   | {
       status: "not_authenticated";
@@ -130,382 +220,33 @@ export const getAdminMembership = async (
 export const isAdminUser = async (userId: string) =>
   (await getAdminMembership(userId)).status === "admin";
 
-const extractBearerToken = (request?: Request) => {
-  const authorization =
-    request?.headers.get("authorization") ?? "";
-
-  const token =
-    authorization
-      .match(/^Bearer\s+(.+)$/i)?.[1]
-      ?.trim() || null;
-
-  if (
-    !token ||
-    token === "undefined" ||
-    token === "null"
-  ) {
-    return null;
-  }
-
-  return token;
-};
-
-type BearerUserResult =
-  | {
-      user: User;
-      error: null;
-      status: number;
-    }
-  | {
-      user: null;
-      error: string;
-      status: number | null;
-    };
-
-const getUserFromBearerToken = async (
-  accessToken: string,
-): Promise<BearerUserResult> => {
-  try {
-    const response = await fetch(
-      `${supabaseEnv.url}/auth/v1/user`,
-      {
-        method: "GET",
-        headers: {
-          apikey: supabaseEnv.anonKey,
-          Authorization: `Bearer ${accessToken}`,
-        },
-        cache: "no-store",
-      },
-    );
-
-    if (!response.ok) {
-      let error =
-        response.statusText || "BearerAuthError";
-
-      try {
-        const payload = (await response.json()) as {
-          error?: string;
-          error_code?: string;
-          msg?: string;
-          message?: string;
-        };
-
-        error =
-          payload.error_code ||
-          payload.error ||
-          payload.msg ||
-          payload.message ||
-          error;
-      } catch {
-        // Keep HTTP status text when response is not JSON.
-      }
-
-      return {
-        user: null,
-        error,
-        status: response.status,
-      };
-    }
-
-    const user = (await response.json()) as User;
-
-    if (!user?.id) {
-      return {
-        user: null,
-        error: "BearerUserMissing",
-        status: response.status,
-      };
-    }
-
-    return {
-      user,
-      error: null,
-      status: response.status,
-    };
-  } catch (error) {
-    return {
-      user: null,
-      error:
-        error instanceof Error
-          ? error.name
-          : "BearerAuthFetchError",
-      status: null,
-    };
-  }
-};
-
-const logAdminAuthDiagnostics = (details: {
-  method?: string;
-  pathname?: string;
-  hasBearerToken: boolean;
-  bearerTokenLength?: number;
-  bearerTokenStartsWithEy?: boolean;
-  cookieAuthSucceeded: boolean;
-  cookieAuthError?: string | null;
-  cookieAuthStatus?: number | null;
-  bearerAuthSucceeded: boolean;
-  bearerAuthError?: string | null;
-  bearerAuthStatus?: number | null;
-  finalAuthState: AdminAuthState["status"];
-}) => {
-  const event = "Admin auth diagnostics";
-
-  if (process.env.NODE_ENV === "production") {
-    if (
-      details.finalAuthState !== "authenticated"
-    ) {
-      console.warn(event, details);
-    }
-
-    return;
-  }
-
-  console.debug(event, details);
-};
-
 export const getAdminAuthState = async (
   request?: Request,
 ): Promise<AdminAuthState> => {
-  let cookieAuthSucceeded = false;
-  let bearerAuthSucceeded = false;
-
-  let cookieAuthError: string | null = null;
-  let cookieAuthStatus: number | null = null;
-
-  let bearerAuthError: string | null = null;
-  let bearerAuthStatus: number | null = null;
-
-  const requestUrl = request
-    ? new URL(request.url)
-    : null;
-
   try {
-    const supabase =
-      await createSupabaseServerClient(request);
+    const supabase = await createSupabaseServerClient(request);
+    const { data, error } = await supabase.auth.getUser();
+    const user = data.user;
 
-    const accessToken =
-      extractBearerToken(request);
-
-    let validatedAccessToken:
-      | string
-      | undefined;
-
-    let user: User | null = null;
-
-    /*
-     * First attempt:
-     * authenticate using Supabase SSR cookies.
-     */
-    const cookieResult =
-      await supabase.auth.getUser();
-
-    if (
-      !cookieResult.error &&
-      cookieResult.data.user
-    ) {
-      cookieAuthSucceeded = true;
-      user = cookieResult.data.user;
-    } else if (cookieResult.error) {
-      cookieAuthError =
-        cookieResult.error.name;
-
-      cookieAuthStatus =
-        cookieResult.error.status ?? null;
+    if (error || !user) {
+      return { status: "not_authenticated" };
     }
 
-    /*
-     * Fallback:
-     * validate the Bearer token directly against
-     * Supabase Auth REST.
-     */
-    if (!user && accessToken) {
-      const bearerResult =
-        await getUserFromBearerToken(
-          accessToken,
-        );
-
-      if (bearerResult.user) {
-        bearerAuthSucceeded = true;
-        validatedAccessToken = accessToken;
-        user = bearerResult.user;
-      } else {
-        bearerAuthError =
-          bearerResult.error;
-
-        bearerAuthStatus =
-          bearerResult.status;
-      }
+    const membership = await getAdminMembership(user.id);
+    if (membership.status === "server_error") {
+      return { status: "server_error" };
     }
-
-    if (!user) {
-      logAdminAuthDiagnostics({
-        method: request?.method,
-        pathname: requestUrl?.pathname,
-
-        hasBearerToken:
-          Boolean(accessToken),
-
-        bearerTokenLength:
-          accessToken?.length ?? 0,
-
-        bearerTokenStartsWithEy:
-          accessToken?.startsWith("ey") ??
-          false,
-
-        cookieAuthSucceeded,
-        cookieAuthError,
-        cookieAuthStatus,
-
-        bearerAuthSucceeded,
-        bearerAuthError,
-        bearerAuthStatus,
-
-        finalAuthState:
-          "not_authenticated",
-      });
-
-      return {
-        status: "not_authenticated",
-      };
+    if (membership.status === "not_admin") {
+      return { status: "not_admin", user };
     }
-
-    /*
-     * The Supabase user must also exist
-     * in public.admins.
-     */
-    const membership =
-      await getAdminMembership(user.id);
-
-    if (
-      membership.status === "server_error"
-    ) {
-      logAdminAuthDiagnostics({
-        method: request?.method,
-        pathname: requestUrl?.pathname,
-
-        hasBearerToken:
-          Boolean(accessToken),
-
-        bearerTokenLength:
-          accessToken?.length ?? 0,
-
-        bearerTokenStartsWithEy:
-          accessToken?.startsWith("ey") ??
-          false,
-
-        cookieAuthSucceeded,
-        cookieAuthError,
-        cookieAuthStatus,
-
-        bearerAuthSucceeded,
-        bearerAuthError,
-        bearerAuthStatus,
-
-        finalAuthState: "server_error",
-      });
-
-      return {
-        status: "server_error",
-      };
-    }
-
-    if (
-      membership.status === "not_admin"
-    ) {
-      logAdminAuthDiagnostics({
-        method: request?.method,
-        pathname: requestUrl?.pathname,
-
-        hasBearerToken:
-          Boolean(accessToken),
-
-        bearerTokenLength:
-          accessToken?.length ?? 0,
-
-        bearerTokenStartsWithEy:
-          accessToken?.startsWith("ey") ??
-          false,
-
-        cookieAuthSucceeded,
-        cookieAuthError,
-        cookieAuthStatus,
-
-        bearerAuthSucceeded,
-        bearerAuthError,
-        bearerAuthStatus,
-
-        finalAuthState: "not_admin",
-      });
-
-      return {
-        status: "not_admin",
-        user,
-      };
-    }
-
-    logAdminAuthDiagnostics({
-      method: request?.method,
-      pathname: requestUrl?.pathname,
-
-      hasBearerToken:
-        Boolean(accessToken),
-
-      bearerTokenLength:
-        accessToken?.length ?? 0,
-
-      bearerTokenStartsWithEy:
-        accessToken?.startsWith("ey") ??
-        false,
-
-      cookieAuthSucceeded,
-      cookieAuthError,
-      cookieAuthStatus,
-
-      bearerAuthSucceeded,
-      bearerAuthError,
-      bearerAuthStatus,
-
-      finalAuthState: "authenticated",
-    });
 
     return {
       status: "authenticated",
       supabase,
       user,
-      accessToken: validatedAccessToken,
     };
   } catch {
-    const accessToken =
-      extractBearerToken(request);
-
-    logAdminAuthDiagnostics({
-      method: request?.method,
-      pathname: requestUrl?.pathname,
-
-      hasBearerToken:
-        Boolean(accessToken),
-
-      bearerTokenLength:
-        accessToken?.length ?? 0,
-
-      bearerTokenStartsWithEy:
-        accessToken?.startsWith("ey") ??
-        false,
-
-      cookieAuthSucceeded,
-      cookieAuthError,
-      cookieAuthStatus,
-
-      bearerAuthSucceeded,
-      bearerAuthError,
-      bearerAuthStatus,
-
-      finalAuthState: "server_error",
-    });
-
-    return {
-      status: "server_error",
-    };
+    return { status: "server_error" };
   }
 };
 
@@ -544,10 +285,76 @@ export const getAdminSecurityPreference = async (
   };
 };
 
+export const normalizeDeviceUserAgent = (value: string) => {
+  const normalized = value.trim().toLowerCase();
+  const browser = normalized.includes("edg/")
+    ? "edge"
+    : normalized.includes("opr/") || normalized.includes("opera")
+      ? "opera"
+      : normalized.includes("firefox/")
+        ? "firefox"
+        : normalized.includes("chrome/") || normalized.includes("crios/")
+          ? "chrome"
+          : normalized.includes("safari/")
+            ? "safari"
+            : "other";
+  const platform = normalized.includes("android")
+    ? "android"
+    : /iphone|ipad|ios/.test(normalized)
+      ? "ios"
+      : normalized.includes("windows")
+        ? "windows"
+        : /macintosh|mac os/.test(normalized)
+          ? "macos"
+          : normalized.includes("linux")
+            ? "linux"
+            : "other";
+  const formFactor = /mobile|iphone|android/.test(normalized)
+    ? "mobile"
+    : "desktop";
+
+  return `${browser}:${platform}:${formFactor}`;
+};
+
+const normalizeNetworkAddress = (value: string) =>
+  value.trim().toLowerCase().slice(0, 128);
+
+const deviceContextHmac = (
+  label: "user-agent" | "network",
+  value: string,
+) => {
+  const secret = requireAdminDeviceHmacSecret();
+
+  return createHmac("sha256", secret)
+    .update(`${label}\0${value}`)
+    .digest("hex");
+};
+
+const hashesMatch = (left: string, right: string) => {
+  const leftBytes = Buffer.from(left);
+  const rightBytes = Buffer.from(right);
+  return (
+    leftBytes.length === rightBytes.length &&
+    timingSafeEqual(leftBytes, rightBytes)
+  );
+};
+
+const deviceContext = (request: Request) => ({
+  userAgentHash: deviceContextHmac(
+    "user-agent",
+    normalizeDeviceUserAgent(userAgent(request)),
+  ),
+  networkHash: deviceContextHmac(
+    "network",
+    normalizeNetworkAddress(clientIp(request)),
+  ),
+});
+
 export const validateRememberedDeviceToken =
   async (
     userId: string,
     token: string | null,
+    request: Request,
   ) => {
     if (
       !token ||
@@ -558,17 +365,13 @@ export const validateRememberedDeviceToken =
 
     const supabase =
       createSupabaseAdminClient();
-
-    const tokenHash =
-      sha256Hex(token);
-
     const { data, error } = await supabase
       .from("admin_remembered_devices")
       .select(
-        "id, expires_at, revoked_at",
+        "id, device_context_hash, network_context_hash, last_user_agent_hash, last_network_context_hash, expires_at, revoked_at",
       )
       .eq("user_id", userId)
-      .eq("token_hash", tokenHash)
+      .eq("token_hash", sha256Hex(token))
       .is("revoked_at", null)
       .gt(
         "expires_at",
@@ -576,17 +379,71 @@ export const validateRememberedDeviceToken =
       )
       .maybeSingle();
 
-    if (error || !data) {
+    if (error) {
+      throw new Error("Remembered device could not be verified.");
+    }
+    if (!data) {
       return false;
     }
 
-    await supabase
+    const context = deviceContext(request);
+    if (
+      !data.device_context_hash ||
+      !hashesMatch(data.device_context_hash, context.userAgentHash)
+    ) {
+      const { error: revokeError } = await supabase
+        .from("admin_remembered_devices")
+        .update({
+          revoked_at: new Date().toISOString(),
+          revocation_reason: data.device_context_hash
+            ? "context_mismatch"
+            : "legacy_context_missing",
+        })
+        .eq("id", data.id)
+        .eq("user_id", userId);
+
+      if (revokeError) {
+        throw new Error("Mismatched remembered device could not be revoked.");
+      }
+
+      await writeAdminAudit({
+        actorUserId: userId,
+        action: "remembered_device_context_mismatch",
+        entityId: data.id,
+        request,
+      });
+      return false;
+    }
+
+    const networkChanged = Boolean(
+      (data.last_network_context_hash || data.network_context_hash) &&
+      !hashesMatch(
+        data.last_network_context_hash || data.network_context_hash,
+        context.networkHash,
+      ),
+    );
+    const { error: updateError } = await supabase
       .from("admin_remembered_devices")
       .update({
-        last_used_at:
-          new Date().toISOString(),
+        last_used_at: new Date().toISOString(),
+        last_user_agent_hash: context.userAgentHash,
+        last_network_context_hash: context.networkHash,
       })
-      .eq("id", data.id);
+      .eq("id", data.id)
+      .eq("user_id", userId);
+
+    if (updateError) {
+      throw new Error("Remembered device usage could not be recorded.");
+    }
+
+    if (networkChanged) {
+      await writeAdminAudit({
+        actorUserId: userId,
+        action: "remembered_device_network_changed",
+        entityId: data.id,
+        request,
+      });
+    }
 
     return true;
   };
@@ -602,17 +459,28 @@ export const validateRememberedDeviceFromRequest =
         request,
         REMEMBER_DEVICE_COOKIE,
       ),
+      request,
     );
 
 export const validateRememberedDeviceFromCookies =
   async (userId: string) => {
     const cookieStore = await cookies();
+    const requestHeaders = await headers();
+    const copiedHeaders = new Headers();
+    requestHeaders.forEach((value, name) => {
+      copiedHeaders.set(name, value);
+    });
+    const request = new Request(
+      "http://remembered-device.internal",
+      { headers: copiedHeaders },
+    );
 
     return validateRememberedDeviceToken(
       userId,
       cookieStore.get(
         REMEMBER_DEVICE_COOKIE,
       )?.value ?? null,
+      request,
     );
   };
 
@@ -633,6 +501,30 @@ export const createRememberedDevice = async (
     return null;
   }
 
+  const existingToken = await cookieValueFromRequest(
+    request,
+    REMEMBER_DEVICE_COOKIE,
+  );
+  let existingDevice:
+    | { id: string; rotation_counter: number }
+    | null = null;
+  const supabase =
+    createSupabaseAdminClient();
+
+  if (existingToken) {
+    const { data, error } = await supabase
+      .from("admin_remembered_devices")
+      .select("id, rotation_counter")
+      .eq("user_id", userId)
+      .eq("token_hash", sha256Hex(existingToken))
+      .is("revoked_at", null)
+      .maybeSingle();
+    if (error) {
+      throw new Error("Existing remembered device could not be loaded.");
+    }
+    existingDevice = data;
+  }
+
   const token = randomToken(32);
 
   const expiresAt = new Date(
@@ -644,29 +536,46 @@ export const createRememberedDevice = async (
         1000,
   );
 
-  const supabase =
-    createSupabaseAdminClient();
-
-  const { error } = await supabase
+  const context = deviceContext(request);
+  const now = new Date().toISOString();
+  const { data: created, error } = await supabase
     .from("admin_remembered_devices")
     .insert({
       user_id: userId,
       token_hash: sha256Hex(token),
-
-      user_agent_hash: hashNullable(
-        userAgent(request),
-      ),
-
-      ip_hash: hashNullable(
-        clientIp(request),
-      ),
+      device_context_hash: context.userAgentHash,
+      network_context_hash: context.networkHash,
+      last_user_agent_hash: context.userAgentHash,
+      last_network_context_hash: context.networkHash,
+      rotated_at: existingDevice ? now : null,
+      rotation_counter:
+        (existingDevice?.rotation_counter ?? -1) + 1,
 
       expires_at:
         expiresAt.toISOString(),
-    });
+    })
+    .select("id")
+    .single();
 
-  if (error) {
-    return null;
+  if (error || !created) {
+    throw new Error("Remembered device could not be created.");
+  }
+
+  if (existingToken) {
+    try {
+      await revokeRememberedDeviceToken(
+        userId,
+        existingToken,
+        "rotated",
+      );
+    } catch {
+      await revokeRememberedDevice(
+        userId,
+        created.id,
+        "rotation_failed",
+      );
+      throw new Error("Remembered device could not be rotated.");
+    }
   }
 
   return {
@@ -708,41 +617,98 @@ export const clearRememberDeviceCookie = (
 export const revokeRememberedDevice = async (
   userId: string,
   id: string,
+  reason = "user_revoked",
 ) => {
   if (!isSupabaseAdminConfigured()) {
-    return;
+    throw new Error("Supabase admin client is not configured.");
   }
 
   const supabase =
     createSupabaseAdminClient();
 
-  await supabase
+  const { data, error } = await supabase
     .from("admin_remembered_devices")
     .update({
       revoked_at:
         new Date().toISOString(),
+      revocation_reason: reason,
     })
     .eq("id", id)
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .is("revoked_at", null)
+    .select("id")
+    .maybeSingle();
+
+  if (error || !data) {
+    throw new Error("Remembered device could not be revoked.");
+  }
 };
 
+export const revokeRememberedDeviceToken = async (
+  userId: string,
+  token: string | null,
+  reason = "token_revoked",
+) => {
+  if (!token) return;
+  if (!isSupabaseAdminConfigured()) {
+    throw new Error("Supabase admin client is not configured.");
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const { error } = await supabase
+    .from("admin_remembered_devices")
+    .update({
+      revoked_at: new Date().toISOString(),
+      revocation_reason: reason,
+    })
+    .eq("user_id", userId)
+    .eq("token_hash", sha256Hex(token))
+    .is("revoked_at", null);
+
+  if (error) {
+    throw new Error("Current remembered device could not be revoked.");
+  }
+};
+
+export const revokeRememberedDeviceFromRequest = async (
+  userId: string,
+  request: Request,
+  reason = "current_logout",
+) =>
+  revokeRememberedDeviceToken(
+    userId,
+    await cookieValueFromRequest(
+      request,
+      REMEMBER_DEVICE_COOKIE,
+    ),
+    reason,
+  );
+
 export const revokeAllRememberedDevices =
-  async (userId: string) => {
+  async (
+    userId: string,
+    reason = "revoked_all",
+  ) => {
     if (!isSupabaseAdminConfigured()) {
-      return;
+      throw new Error("Supabase admin client is not configured.");
     }
 
     const supabase =
       createSupabaseAdminClient();
 
-    await supabase
+    const { error } = await supabase
       .from("admin_remembered_devices")
       .update({
         revoked_at:
           new Date().toISOString(),
+        revocation_reason: reason,
       })
       .eq("user_id", userId)
       .is("revoked_at", null);
+
+    if (error) {
+      throw new Error("Remembered devices could not be revoked.");
+    }
   };
 
 type MfaFactors = {
@@ -811,28 +777,25 @@ export const getMfaContext = async (
   >,
   userId: string,
   request?: Request,
-  accessToken?: string,
   user?: User,
 ) => {
   const preference =
     await getAdminSecurityPreference(userId);
 
-  const factors =
-    mfaFactorsFromUser(user) ??
-    (
-      await supabase.auth.mfa.listFactors()
-    ).data ??
-    null;
+  let factors = mfaFactorsFromUser(user);
+  if (!factors) {
+    const factorResult = await supabase.auth.mfa.listFactors();
+    if (factorResult.error) {
+      throw new Error("MFA factors could not be verified.");
+    }
+    factors = factorResult.data ?? null;
+  }
 
-  const aalSupabase = accessToken
-    ? createSupabasePublicClient()
-    : supabase;
-
-  const aal =
-    await aalSupabase.auth.mfa
-      .getAuthenticatorAssuranceLevel(
-        accessToken,
-      );
+  const aal = await supabase.auth.mfa
+    .getAuthenticatorAssuranceLevel();
+  if (aal.error) {
+    throw new Error("MFA assurance level could not be verified.");
+  }
 
   const verifiedFactors =
     factors?.totp ?? [];
@@ -863,6 +826,10 @@ export const getMfaContext = async (
     rememberDeviceEnabled:
       preference.remember_device_enabled,
 
+    currentLevel,
+    freshMfaSatisfied:
+      currentLevel === "aal2",
+
     mfaSatisfied:
       currentLevel === "aal2" ||
       remembered,
@@ -887,7 +854,6 @@ export const getAuthenticatedAdmin = async (
     state.supabase,
     state.user.id,
     request,
-    state.accessToken,
     state.user,
   );
 
@@ -966,6 +932,7 @@ export const requireAdminApi = async (
   request: Request,
   options?: {
     requireMfa?: boolean;
+    requireFreshMfa?: boolean;
     sameOrigin?: boolean;
   },
 ) => {
@@ -980,6 +947,31 @@ export const requireAdminApi = async (
         "Request origin is not allowed.",
         403,
         "origin_not_allowed",
+      ),
+    };
+  }
+
+  if (
+    isMutationRequest(request) &&
+    !isCsrfTokenValid(request)
+  ) {
+    return {
+      ok: false as const,
+      response: jsonError(
+        "CSRF token is missing or invalid.",
+        403,
+        "csrf_invalid",
+      ),
+    };
+  }
+
+  if (!isSupabaseAdminConfigured()) {
+    return {
+      ok: false as const,
+      response: jsonError(
+        "Admin authentication is temporarily unavailable.",
+        503,
+        "auth_unavailable",
       ),
     };
   }
@@ -1023,24 +1015,25 @@ export const requireAdminApi = async (
 
         response: jsonError(
           "Admin authentication could not be verified.",
-          500,
-          "server_error",
+          503,
+          "auth_unavailable",
         ),
       };
     }
 
     const mfa =
-      options?.requireMfa ?? false
+      (options?.requireMfa ?? false) ||
+      (options?.requireFreshMfa ?? false)
         ? await getMfaContext(
             state.supabase,
             state.user.id,
             request,
-            state.accessToken,
             state.user,
           )
         : {
             mfaRequired: false,
             mfaSatisfied: true,
+            freshMfaSatisfied: false,
             verifiedFactors:
               [] as unknown[],
           };
@@ -1060,12 +1053,24 @@ export const requireAdminApi = async (
       };
     }
 
+    if (
+      options?.requireFreshMfa &&
+      !mfa.freshMfaSatisfied
+    ) {
+      return {
+        ok: false as const,
+        response: jsonError(
+          "Fresh MFA verification is required.",
+          403,
+          "fresh_mfa_required",
+        ),
+      };
+    }
+
     return {
       ok: true as const,
       supabase: state.supabase,
       user: state.user,
-      accessToken:
-        state.accessToken,
       mfaRequired:
         mfa.mfaRequired,
       mfaSatisfied:
@@ -1079,8 +1084,8 @@ export const requireAdminApi = async (
 
       response: jsonError(
         "Admin authentication could not be verified.",
-        500,
-        "server_error",
+        503,
+        "auth_unavailable",
       ),
     };
   }
@@ -1120,8 +1125,13 @@ export const writeAdminAudit = async (
   try {
     const supabase =
       createSupabaseAdminClient();
+    const privacySecret = adminDeviceHmacSecret();
+    const keyedHash = (value: string) =>
+      privacySecret
+        ? hmacSha256Hex(value, privacySecret)
+        : null;
 
-    await supabase
+    const { error } = await supabase
       .from("admin_audit_logs")
       .insert({
         actor_user_id:
@@ -1139,18 +1149,23 @@ export const writeAdminAudit = async (
           input.metadata ?? null,
 
         ip_hash: input.request
-          ? hashNullable(
-              clientIp(input.request),
-            )
+          ? keyedHash(clientIp(input.request))
           : null,
 
         user_agent_hash: input.request
-          ? hashNullable(
-              userAgent(input.request),
+          ? keyedHash(
+              normalizeDeviceUserAgent(userAgent(input.request)),
             )
           : null,
       });
+    if (error) {
+      console.error("Admin audit write failed.", {
+        incidentId: "ADMIN-AUDIT-WRITE",
+      });
+    }
   } catch {
-    // Audit logging is best-effort.
+    console.error("Admin audit write failed.", {
+      incidentId: "ADMIN-AUDIT-WRITE",
+    });
   }
 };

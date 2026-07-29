@@ -39,64 +39,51 @@ NEXT_PUBLIC_GITHUB_USERNAME=mhiriaziz13-gif
 GITHUB_TOKEN=
 NEXT_PUBLIC_CAPTCHA_PROVIDER=hcaptcha
 NEXT_PUBLIC_CAPTCHA_SITE_KEY=
+HCAPTCHA_SECRET_KEY=
+RATE_LIMIT_HMAC_SECRET=
+PRIVACY_HMAC_SECRET=
+ADMIN_DEVICE_HMAC_SECRET=
+RESEND_API_KEY=
+CONTACT_NOTIFICATION_TO=
+CONTACT_NOTIFICATION_FROM=
 NEXT_PUBLIC_GA_MEASUREMENT_ID=G-W7WJF6YR9X
 ```
 
 Keep `REQUIRE_ADMIN_MFA=false` until `/admin/security` enrollment works.
 
-The CAPTCHA site key is public. Keep the matching hCaptcha secret only in hCaptcha and Supabase **Authentication > Bot and Abuse Protection**; do not add it to Vercel or the repository. Redeploy after changing either `NEXT_PUBLIC_CAPTCHA_*` value.
+Generate `RATE_LIMIT_HMAC_SECRET`, `PRIVACY_HMAC_SECRET`, and
+`ADMIN_DEVICE_HMAC_SECRET` as three independent values of at least 32 random
+bytes each. The admin secret has no fallback and must not reuse a Supabase key
+or any other application credential.
+
+The CAPTCHA site key is public. Store the matching secret in Supabase
+**Authentication > Bot and Abuse Protection** for auth and in Vercel as the
+server-only `HCAPTCHA_SECRET_KEY` for contact-form verification. Never expose it
+through `NEXT_PUBLIC_*` or commit it. Redeploy after changing CAPTCHA values.
+
+An accepted contact message is durably persisted before the request makes one
+immediate notification-delivery attempt. A failed attempt remains visible and
+must currently be retried manually from the admin CMS.
+`next_delivery_attempt_at` supports reconciliation and possible future queue
+automation; no background worker or automatic retry scheduler is deployed.
 
 ## 3. Supabase SQL
 
-Because the old database mixed legacy and new column names, use this single clean reset file:
+The earlier instruction to run `supabase/00_CLEAN_RESET_AND_SEED.sql` is retired.
+That file drops and recreates portfolio tables. It must never be run against the
+existing production project, even though it does not delete `auth.users`.
+
+Production migration history and the repository's historical sequence diverge.
+Do not run `supabase db push`, `supabase migration up`, CI auto-migrations, or any
+apply-all workflow. Use the exact single-file process, backup gates, verification,
+and non-destructive rollback in:
 
 ```text
-supabase/00_CLEAN_RESET_AND_SEED.sql
+docs/SUPABASE_PORTFOLIO_HARDENING_V1_RUNBOOK.md
 ```
 
-Run it once in Supabase SQL Editor. Do not run the older seed after it. The file resets only the portfolio CMS tables in `public`; it does not delete `auth.users`.
-
-After running it, verify counts:
-
-```sql
-select 'profile' as table_name, count(*) from public.profile
-union all select 'hero', count(*) from public.hero
-union all select 'about', count(*) from public.about
-union all select 'skills', count(*) from public.skills
-union all select 'projects', count(*) from public.projects
-union all select 'experience', count(*) from public.experience
-union all select 'education', count(*) from public.education
-union all select 'certifications', count(*) from public.certifications
-union all select 'resumes', count(*) from public.resumes
-union all select 'social_links', count(*) from public.social_links
-union all select 'admins', count(*) from public.admins;
-```
-
-Expected approximate result:
-
-```text
-profile          1
-hero             1
-about            1
-skills           39
-projects         5
-experience       6
-education        2
-certifications   1
-resumes          4
-social_links     3
-admins           0 or 1
-```
-
-If `admins = 0`, create the user in Supabase Auth first, then run:
-
-```sql
-insert into public.admins (user_id, email)
-select id, email
-from auth.users
-where email = 'mhiriaziz13@gmail.com'
-on conflict do nothing;
-```
+The clean-reset file is retained only as a historical/disposable artifact; it is
+not a current bootstrap or recovery method.
 
 ## 4. Supabase URL configuration
 
@@ -190,7 +177,9 @@ Workflow:
 6. Enter the 6-digit code.
 7. Click `Require MFA` only after successful verification.
 8. Test logout/login again.
-9. Only after everything works, optionally set `REQUIRE_ADMIN_MFA=true` and redeploy.
+9. After enrollment succeeds, set `REQUIRE_ADMIN_MFA=true`, redeploy, and repeat
+   the logout/login test. This is a mandatory production cutover step; keep
+   `false` only during the controlled bootstrap window.
 
 ## 8. Redeploy
 

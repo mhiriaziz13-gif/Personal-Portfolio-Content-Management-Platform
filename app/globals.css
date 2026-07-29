@@ -131,6 +131,29 @@ body {
   color-scheme: dark;
 }
 
+:where(a, button, input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid #67e8f9;
+  outline-offset: 3px;
+}
+
+.skip-link {
+  background: #ecfeff;
+  border-radius: 0.5rem;
+  color: #030014;
+  font-weight: 700;
+  left: 1rem;
+  padding: 0.75rem 1rem;
+  position: fixed;
+  top: 0.75rem;
+  transform: translateY(-160%);
+  transition: transform 160ms ease;
+  z-index: 100;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
 /* Keep below-the-fold content in the document/accessibility tree while
    avoiding its layout and paint cost until it approaches the viewport. */
 .render-deferred {
@@ -153,6 +176,11 @@ body {
   display: flex;
   flex-direction: column;
   will-change: transform;
+}
+
+.rotating-title-reduced-motion-fallback {
+  display: none;
+  white-space: nowrap;
 }
 
 .rotating-title-item {
@@ -236,8 +264,11 @@ body {
   }
 
   .rotating-title-track {
-    animation: none;
-    transform: none;
+    display: none;
+  }
+
+  .rotating-title-reduced-motion-fallback {
+    display: inline;
   }
 
   .button-primary,

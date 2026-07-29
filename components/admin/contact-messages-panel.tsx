@@ -1,8 +1,17 @@
 "use client";
 
-import { FiArchive, FiEye, FiMail, FiTrash2 } from "react-icons/fi";
+import { useEffect, useState } from "react";
+import {
+  FiArchive,
+  FiEye,
+  FiMail,
+  FiRefreshCw,
+  FiTrash2,
+} from "react-icons/fi";
 
 import type { ContactMessage, MessageAction } from "@/lib/cms-types";
+
+const STALE_DELIVERY_CLAIM_MS = 5 * 60 * 1_000;
 
 type ContactMessagesPanelProps = {
   messages: ContactMessage[];
@@ -28,6 +37,16 @@ export function ContactMessagesPanel({
   onAction,
   onDelete,
 }: ContactMessagesPanelProps) {
+  const [currentTime, setCurrentTime] = useState(0);
+
+  useEffect(() => {
+    const interval = window.setInterval(
+      () => setCurrentTime(Date.now()),
+      30_000,
+    );
+    return () => window.clearInterval(interval);
+  }, []);
+
   const inbox = messages
     .filter((message) => message.status === "new" || message.status === "read")
     .sort((left, right) => Date.parse(right.created_at) - Date.parse(left.created_at));
@@ -46,6 +65,19 @@ export function ContactMessagesPanel({
         {inbox.map((message) => {
           const isNew = message.status === "new";
           const isPending = pendingMessageId === message.id;
+          const lastAttemptTimestamp = message.last_delivery_attempt_at
+            ? Date.parse(message.last_delivery_attempt_at)
+            : Number.NaN;
+          const hasStaleDeliveryClaim =
+            message.delivery_status === "sending"
+            && (
+              !Number.isFinite(lastAttemptTimestamp)
+              || (
+                currentTime > 0
+                && currentTime - lastAttemptTimestamp
+                    >= STALE_DELIVERY_CLAIM_MS
+              )
+            );
           return (
             <article
               key={message.id}
@@ -67,6 +99,17 @@ export function ContactMessagesPanel({
                   <time dateTime={message.created_at} className="mt-1 block text-xs text-gray-500">
                     {formatDateTime(message.created_at)}
                   </time>
+                  <span
+                    className={
+                      message.delivery_status === "sent"
+                        ? "mt-1 block text-xs text-emerald-300"
+                        : message.delivery_status === "failed"
+                          ? "mt-1 block text-xs text-amber-300"
+                          : "mt-1 block text-xs text-gray-500"
+                    }
+                  >
+                    Notification: {message.delivery_status.replaceAll("_", " ")}
+                  </span>
                 </div>
               </div>
 
@@ -103,6 +146,19 @@ export function ContactMessagesPanel({
                   <FiArchive aria-hidden="true" />
                   Archive
                 </button>
+                {(message.delivery_status === "failed" || hasStaleDeliveryClaim) && (
+                  <button
+                    type="button"
+                    disabled={isPending}
+                    onClick={() => void onAction(message.id, "resend_notification")}
+                    className="inline-flex items-center gap-2 rounded-lg border border-amber-300/20 bg-amber-500/10 px-3 py-2 text-sm text-amber-100 hover:bg-amber-500/20 disabled:cursor-wait disabled:opacity-50"
+                  >
+                    <FiRefreshCw aria-hidden="true" />
+                    {hasStaleDeliveryClaim
+                      ? "Reconcile notification"
+                      : "Retry notification"}
+                  </button>
+                )}
                 <button
                   type="button"
                   disabled={isPending}

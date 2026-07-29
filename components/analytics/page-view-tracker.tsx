@@ -1,46 +1,50 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 
 import { useAnalyticsConsent } from "@/components/analytics/analytics-consent-provider";
 import {
-  isProductionAnalyticsLocation,
-  isPublicAnalyticsPath,
+  isCurrentAnalyticsCollectionAllowed,
 } from "@/lib/analytics/consent";
+import { pushDataLayerEvent } from "@/lib/analytics/events";
+import {
+  createVirtualPageView,
+  nextVirtualPageView,
+} from "@/lib/analytics/page-view";
 
 export const PageViewTracker = ({ enabled }: { enabled: boolean }) => {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const { consent } = useAnalyticsConsent();
-  const lastPageViewSignature = useRef<string | null>(null);
-  const search = searchParams.toString();
+  const lastPageViewPathname = useRef<string | null>(null);
 
   useEffect(() => {
-    if (consent !== "granted") {
-      lastPageViewSignature.current = null;
-      return;
-    }
     if (
-      !enabled ||
-      !isProductionAnalyticsLocation() ||
-      !isPublicAnalyticsPath(pathname) ||
-      !window.dataLayer
+      consent !== "granted" ||
+      !isCurrentAnalyticsCollectionAllowed(enabled, consent, pathname)
     ) {
+      lastPageViewPathname.current = null;
       return;
     }
-    const pagePath = `${pathname}${search ? `?${search}` : ""}`;
-    const signature = `${pagePath}|${document.title}`;
-    if (lastPageViewSignature.current === signature) return;
 
-    window.dataLayer.push({
-      event: "virtual_page_view",
-      page_path: pagePath,
-      page_location: window.location.href,
-      page_title: document.title,
+    const animationFrame = window.requestAnimationFrame(() => {
+      const candidate = createVirtualPageView({
+        pathname,
+        origin: window.location.origin,
+        title: document.title,
+      });
+      const next = nextVirtualPageView(
+        lastPageViewPathname.current,
+        candidate,
+      );
+      if (!next) return;
+
+      lastPageViewPathname.current = next.nextPathname;
+      pushDataLayerEvent(next.event);
     });
-    lastPageViewSignature.current = signature;
-  }, [consent, enabled, pathname, search]);
+
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, [consent, enabled, pathname]);
 
   return null;
 };

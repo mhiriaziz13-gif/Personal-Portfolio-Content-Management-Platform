@@ -71,7 +71,7 @@ const DownloadAction = ({
       href={href}
       download
       analyticsEvent={{
-        event: "cv_download",
+        event: "resume_download",
         cv_variant: variant,
         file_format: fileFormat,
         cta_location: ctaLocation,
@@ -141,14 +141,18 @@ export const ResumeSection = ({
           </p>
         </div>
         {preview && (
-          <Link
+          <TrackedLink
             href="/resume"
             aria-label="View CV"
+            analyticsEvent={{
+              event: "resume_view_click",
+              cta_location: "homepage",
+            }}
             className="button-primary inline-flex w-fit items-center justify-center gap-2 rounded-lg px-5 py-3 text-white transition hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-cyan-300"
           >
             <ArrowDownTrayIcon className="h-5 w-5" aria-hidden="true" />
             View CV
-          </Link>
+          </TrackedLink>
         )}
       </div>
       <div

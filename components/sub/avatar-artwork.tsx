@@ -1,7 +1,6 @@
 import Image from "next/image";
 
 import type { ProfileContent } from "@/lib/cms-types";
-import { isHttpsUrl } from "@/lib/utils";
 
 export const AvatarArtwork = ({ profile }: { profile: ProfileContent }) => {
   const showAvatar = Boolean(profile.avatarPath);
@@ -22,7 +21,6 @@ export const AvatarArtwork = ({ profile }: { profile: ProfileContent }) => {
         fill
         sizes="328px"
         className="object-cover"
-        unoptimized={isHttpsUrl(profile.avatarPath)}
         data-image-fallback="hide"
       />
       <span

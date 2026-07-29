@@ -4,7 +4,11 @@ import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { isProductionAnalyticsLocation, isPublicAnalyticsPath } from "@/lib/analytics/consent";
+import { useAnalyticsConsent } from "@/components/analytics/analytics-consent-provider";
+import {
+  isCurrentAnalyticsCollectionAllowed,
+} from "@/lib/analytics/consent";
+import { filterOptionalTelemetry } from "@/lib/analytics/optional-telemetry";
 
 const Analytics = dynamic(
   () => import("@vercel/analytics/next").then((module) => module.Analytics),
@@ -30,6 +34,7 @@ const ANALYTICS_DEFER_MS = 12000;
 
 export const DeferredAnalytics = ({ enabled }: { enabled: boolean }) => {
   const pathname = usePathname();
+  const { consent } = useAnalyticsConsent();
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -85,16 +90,14 @@ export const DeferredAnalytics = ({ enabled }: { enabled: boolean }) => {
   }, []);
 
   if (
-    !enabled ||
     !ready ||
-    !isPublicAnalyticsPath(pathname) ||
-    !isProductionAnalyticsLocation()
+    !isCurrentAnalyticsCollectionAllowed(enabled, consent, pathname)
   ) return null;
 
   return (
     <>
-      <Analytics />
-      <SpeedInsights />
+      <Analytics beforeSend={filterOptionalTelemetry} />
+      <SpeedInsights beforeSend={filterOptionalTelemetry} />
     </>
   );
 };

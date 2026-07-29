@@ -67,10 +67,19 @@ Rules implemented:
 - raw token stored only in an HttpOnly cookie
 - Secure cookie in production
 - SameSite=Lax
-- default expiry controlled by `ADMIN_MFA_REMEMBER_DAYS`, default 10 days
+- default expiry controlled by `ADMIN_MFA_REMEMBER_DAYS`, default 10 days (configurable from 1–30 days)
 - remembered devices skip only MFA, never password/OAuth login
 - admin can revoke devices from `/admin/security`
 - password reset revokes remembered devices
+
+`ADMIN_DEVICE_HMAC_SECRET` must contain at least 32 non-whitespace UTF-8 bytes
+of randomly generated, server-only secret material, independently from
+`RATE_LIMIT_HMAC_SECRET`,
+`PRIVACY_HMAC_SECRET`, Supabase keys, and every other credential. It has no
+fallback; missing or invalid production configuration fails closed for recovery
+state signing and remembered-device binding. Best-effort admin audit metadata
+hashing never falls back to another key and omits the keyed hash when the
+admin secret is unavailable.
 
 ## Forgot And Reset Password
 

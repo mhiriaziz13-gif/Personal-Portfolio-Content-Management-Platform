@@ -1,15 +1,35 @@
 import Image from "next/image";
 
+import type { CmsLayoutVariant } from "@/lib/cms-block-registry";
 import type { VolunteeringContent } from "@/lib/cms-types";
-import { isHttpsUrl } from "@/lib/utils";
 
-export function VolunteeringSection({ entries, title = "Volunteering", subtitle }: { entries: VolunteeringContent[]; title?: string; subtitle?: string }) {
+export function VolunteeringSection({
+  entries,
+  title = "Volunteering",
+  subtitle,
+  variant = "default",
+}: {
+  entries: VolunteeringContent[];
+  title?: string;
+  subtitle?: string;
+  variant?: CmsLayoutVariant;
+}) {
   if (!entries.length) return null;
   return (
-    <section id="volunteering" className="relative z-20 mx-auto w-full max-w-7xl px-6 py-24">
+    <section
+      id="volunteering"
+      data-layout-variant={variant}
+      className={`relative z-20 mx-auto w-full max-w-7xl px-6 ${
+        variant === "compact" ? "py-14" : "py-24"
+      }`}
+    >
       {subtitle && <p className="Welcome-text text-sm">{subtitle}</p>}
-      <h2 className="mt-3 text-4xl font-bold text-white">{title}</h2>
-      <div className="mt-10 grid gap-6">
+      {title && <h2 className="mt-3 text-4xl font-bold text-white">{title}</h2>}
+      <div
+        className={`mt-10 grid gap-6 ${
+          variant === "grid-2" ? "lg:grid-cols-2" : ""
+        }`}
+      >
         {entries.map((entry) => (
           <article key={`${entry.organisation}-${entry.role}`} className="rounded-lg border border-white/10 bg-[#100b24]/90 p-6">
             <div className="flex items-start gap-4">
@@ -21,7 +41,6 @@ export function VolunteeringSection({ entries, title = "Volunteering", subtitle 
                     fill
                     sizes="56px"
                     className="object-contain p-1"
-                    unoptimized={isHttpsUrl(entry.logoUrl)}
                   />
                 </div>
               )}

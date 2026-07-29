@@ -10,10 +10,17 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 NEXT_PUBLIC_CAPTCHA_PROVIDER=hcaptcha
 NEXT_PUBLIC_CAPTCHA_SITE_KEY=
+HCAPTCHA_SECRET_KEY=
+RATE_LIMIT_HMAC_SECRET=
+PRIVACY_HMAC_SECRET=
+ADMIN_DEVICE_HMAC_SECRET=
+RESEND_API_KEY=
+CONTACT_NOTIFICATION_TO=
+CONTACT_NOTIFICATION_FROM=
 NEXT_PUBLIC_SITE_URL=https://your-production-domain.vercel.app
 APP_URL=https://your-production-domain.vercel.app
 ALLOWED_ORIGINS=https://your-production-domain.vercel.app
-REQUIRE_ADMIN_MFA=false
+REQUIRE_ADMIN_MFA=true
 ADMIN_MFA_REMEMBER_DAYS=10
 ```
 
@@ -28,10 +35,23 @@ GITHUB_TOKEN=
 
 - `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are browser-safe.
 - `NEXT_PUBLIC_CAPTCHA_PROVIDER` and `NEXT_PUBLIC_CAPTCHA_SITE_KEY` are browser-visible widget configuration.
-- `SUPABASE_SERVICE_ROLE_KEY` is server-only.
+- `SUPABASE_SERVICE_ROLE_KEY`, `HCAPTCHA_SECRET_KEY`, the HMAC secrets, and
+  `RESEND_API_KEY` are server-only.
+- Generate the three HMAC secrets independently with at least 32 non-whitespace
+  UTF-8 bytes of randomly generated material each. `ADMIN_DEVICE_HMAC_SECRET`
+  has no fallback and must not reuse an application secret or Supabase key.
 - Never expose the service role key as `NEXT_PUBLIC_*`.
-- Keep the hCaptcha secret in hCaptcha and Supabase Auth. This application does not need it in Vercel.
+- Configure the same hCaptcha secret in Supabase Auth for login/recovery and as
+  Vercel's server-only `HCAPTCHA_SECRET_KEY` for `/api/contact`.
 - Do not paste secrets into source files.
+
+## Contact Notification Delivery
+
+After `/api/contact` durably persists an accepted message, the request makes one
+immediate notification-delivery attempt. A failed attempt remains visible and
+can be retried manually from the admin CMS. `next_delivery_attempt_at` supports
+reconciliation and possible future queue automation; the current deployment has
+no background worker or automatic retry scheduler.
 
 ## Production Domain
 
@@ -50,11 +70,18 @@ Preview deployments have different hostnames. Add preview origins only if you in
 
 ## hCaptcha
 
-This application uses hCaptcha only on the email/password login and password-recovery request forms. Set the two public variables above for every Vercel environment where those forms must work, then redeploy because `NEXT_PUBLIC_*` values and the CSP are fixed at build time.
+This application uses hCaptcha on the email/password login, password-recovery,
+and public contact forms. Set the two public variables and the server-only
+`HCAPTCHA_SECRET_KEY` for every environment where those forms must work, then
+redeploy because `NEXT_PUBLIC_*` values and the CSP are fixed at build time.
 
 In hCaptcha, allow the production hostname. Add trusted Vercel preview hostnames only when preview authentication is required. For local testing, use hCaptcha's documented test site key; its matching secret must be configured in a non-production Supabase project.
 
-In Supabase project `qflchsmvszbesfnomdeo`, open **Authentication > Bot and Abuse Protection**, select **hCaptcha**, enter the hCaptcha secret, enable CAPTCHA protection, and save. Do not copy that secret into this repository or a `NEXT_PUBLIC_*` Vercel variable.
+In the production Supabase project, open **Authentication > Bot and Abuse
+Protection**, select **hCaptcha**, enter the hCaptcha secret, enable CAPTCHA
+protection, and save. Store that secret separately as the server-only Vercel
+`HCAPTCHA_SECRET_KEY` for contact verification; never put it in the repository
+or a `NEXT_PUBLIC_*` variable.
 
 GitHub OAuth, MFA verification, password updates after recovery, and logout do not use the CAPTCHA token.
 
@@ -67,7 +94,13 @@ After changing environment variables:
 1. Save variables.
 2. Redeploy from Vercel.
 3. Confirm `/`, `/admin/login`, `/admin/forgot-password`, `/auth/callback` and `/api/contact` load.
-4. Confirm hCaptcha loads on the two password-based entry forms and is absent from the homepage.
+4. Confirm hCaptcha loads on the two password-based entry forms and `/contact`,
+   but is not loaded during the initial above-the-fold homepage render.
+
+For a controlled first-time bootstrap only, `REQUIRE_ADMIN_MFA` may temporarily
+be `false` while the owner enrolls and verifies TOTP at `/admin/security`.
+Production acceptance is not complete until `REQUIRE_ADMIN_MFA=true` is saved
+and the production deployment is redeployed and retested.
 
 ## Old Domain Removal
 

@@ -12,19 +12,30 @@ const hasSupabaseAuthCookie = (request: NextRequest) =>
     .getAll()
     .some(({ name }) => name.startsWith("sb-") && name.includes("auth-token"));
 
+const isPrivatePath = (pathname: string) =>
+  ["/admin", "/auth", "/api"].some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+
+const preventCaching = (response: NextResponse) => {
+  response.headers.set("Cache-Control", "private, no-store, max-age=0");
+  response.headers.set("Pragma", "no-cache");
+  return response;
+};
+
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
+  const privatePath = isPrivatePath(request.nextUrl.pathname);
 
   if (!isSupabaseConfigured()) {
-    return response;
+    return privatePath ? preventCaching(response) : response;
   }
 
   // This mirrors the working portfolio: do not call Supabase /auth/v1/user when
   // the request has no Supabase auth cookie. That avoids stale session_not_found
   // checks on login, OAuth start, static routes, and fresh anonymous visits.
   if (!hasSupabaseAuthCookie(request)) {
-    response.headers.set("Cache-Control", "private, no-store, max-age=0");
-    return response;
+    return privatePath ? preventCaching(response) : response;
   }
 
   const supabase = createServerClient(supabaseEnv.url, supabaseEnv.anonKey, {
@@ -51,8 +62,7 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  await supabase.auth.getClaims();
+  await supabase.auth.getUser();
 
-  response.headers.set("Cache-Control", "private, no-store, max-age=0");
-  return response;
+  return preventCaching(response);
 }

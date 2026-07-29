@@ -6,7 +6,11 @@ import {
   requireAdminApi,
   writeAdminAudit,
 } from "@/lib/security/admin-auth";
-import { jsonError, jsonHeaders } from "@/lib/security/http";
+import { clientIp, jsonError, jsonHeaders } from "@/lib/security/http";
+import {
+  consumeRateLimit,
+  rateLimitResponse,
+} from "@/lib/security/rate-limit";
 import { mfaVerifySchema } from "@/lib/security/validation";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +18,19 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request) {
   const admin = await requireAdminApi(request, { requireMfa: false });
   if (!admin.ok) return admin.response;
+
+  const limited = await consumeRateLimit({
+    scope: "admin-mfa-verify",
+    identifiers: [admin.user.id, clientIp(request)],
+    limit: 8,
+    windowMs: 10 * 60 * 1000,
+  });
+  if (!limited.allowed) {
+    return rateLimitResponse(
+      limited,
+      "Too many authenticator attempts. Please try again later.",
+    );
+  }
 
   const parsed = mfaVerifySchema.safeParse(await request.json());
   if (!parsed.success) {
@@ -36,10 +53,18 @@ export async function POST(request: Request) {
   );
 
   if (parsed.data.rememberDevice) {
-    const remembered = await createRememberedDevice(admin.user.id, request);
-    if (remembered) {
-      setRememberDeviceCookie(response, remembered.token, remembered.expiresAt);
-      await writeAdminAudit({ actorUserId: admin.user.id, action: "remembered_device_created", request });
+    try {
+      const remembered = await createRememberedDevice(admin.user.id, request);
+      if (remembered) {
+        setRememberDeviceCookie(response, remembered.token, remembered.expiresAt);
+        await writeAdminAudit({ actorUserId: admin.user.id, action: "remembered_device_created", request });
+      }
+    } catch {
+      return jsonError(
+        "The authenticator was verified, but this device could not be remembered.",
+        500,
+        "server_error",
+      );
     }
   }
 

@@ -14,13 +14,14 @@
 
 ## Important manual step
 
-Run only this SQL file in Supabase SQL Editor:
+The former clean-reset instruction is historical and unsafe for the existing
+production project. Do not run `supabase/00_CLEAN_RESET_AND_SEED.sql`,
+`202607100001_clean_reset_and_seed.sql`, or an apply-all migration command.
 
-```text
-supabase/00_CLEAN_RESET_AND_SEED.sql
-```
-
-Do not run the older seed file afterward.
+Use the controlled single-file process in
+`docs/SUPABASE_PORTFOLIO_HARDENING_V1_RUNBOOK.md`. It requires a verified backup,
+captures live policy/ACL evidence, applies only the reviewed additive migration,
+and verifies the result without deleting portfolio data.
 
 ## Test note
 

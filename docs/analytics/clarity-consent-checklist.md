@@ -8,6 +8,9 @@ Manual dashboard check still required:
 2. Confirm Consent Mode is enabled.
 3. Confirm cookies are disabled by default where applicable.
 4. Confirm there is no second installation through GTM.
-5. Validate one initialization after acceptance and denied Consent V2 after revocation.
+5. Validate one initialization after acceptance and denied Consent V2 after
+   revocation.
+6. Confirm the withdrawal reload removes the loaded collector and `_clck` /
+   `_clsk` cookies before browsing continues.
 
 These external dashboard settings were not changed by this implementation.
