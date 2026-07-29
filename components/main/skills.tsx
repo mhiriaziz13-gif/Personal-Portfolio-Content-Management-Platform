@@ -3,8 +3,15 @@ import { SkillDataProvider } from "@/components/sub/skill-data-provider";
 import { SkillText } from "@/components/sub/skill-text";
 import { fallbackPortfolioContent } from "@/data/fallback-portfolio";
 import type { SkillCategory } from "@/constants/portfolio";
+import type { CmsLayoutVariant } from "@/lib/cms-block-registry";
 
-export const Skills = ({ skillCategories = fallbackPortfolioContent.skillCategories }: { skillCategories?: SkillCategory[] }) => {
+export const Skills = ({
+  skillCategories = fallbackPortfolioContent.skillCategories,
+  variant = "default",
+}: {
+  skillCategories?: SkillCategory[];
+  variant?: CmsLayoutVariant;
+}) => {
   const visibleCategories = skillCategories.filter(
     (category) => category.title && category.skills.length > 0,
   );
@@ -13,11 +20,22 @@ export const Skills = ({ skillCategories = fallbackPortfolioContent.skillCategor
   return (
     <section
       id="skills"
-      className="render-deferred relative flex h-full flex-col items-center justify-center gap-6 overflow-hidden px-6 py-24"
+      data-layout-variant={variant}
+      className={`render-deferred relative flex h-full flex-col items-center justify-center gap-6 overflow-hidden px-6 ${
+        variant === "compact" ? "py-14" : "py-24"
+      }`}
     >
       <SkillText />
 
-      <div className="relative z-[20] mx-auto grid w-full max-w-6xl gap-6">
+      <div
+        className={`relative z-[20] mx-auto grid w-full max-w-6xl gap-6 ${
+          variant === "grid-2"
+            ? "lg:grid-cols-2"
+            : variant === "grid-3"
+              ? "lg:grid-cols-3"
+              : ""
+        }`}
+      >
         {visibleCategories.map((category) => (
           <div
             key={category.title}

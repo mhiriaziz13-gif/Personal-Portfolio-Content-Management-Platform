@@ -1,3 +1,5 @@
+import { createHmac } from "node:crypto";
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
@@ -55,6 +57,7 @@ describe("contact persistence and delivery semantics", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.RATE_LIMIT_HMAC_SECRET = "x".repeat(32);
+    process.env.PRIVACY_HMAC_SECRET = "p".repeat(32);
     state.insert.mockReturnValue({
       select: () => ({
         single: async () => ({
@@ -94,10 +97,46 @@ describe("contact persistence and delivery semantics", () => {
 
     expect(response.status).toBe(202);
     expect(state.insert).toHaveBeenCalledTimes(1);
+    expect(state.insert).toHaveBeenCalledWith(expect.objectContaining({
+      ip_hash: createHmac("sha256", "p".repeat(32))
+        .update("192.0.2.10")
+        .digest("hex"),
+      user_agent_hash: createHmac("sha256", "p".repeat(32))
+        .update("Test Browser")
+        .digest("hex"),
+    }));
     expect(state.deliver).toHaveBeenCalledTimes(1);
     await expect(response.json()).resolves.toMatchObject({
       ok: true,
       message: "Message received. Thank you.",
     });
+  });
+
+  it("fails closed instead of reusing the rate-limit secret", async () => {
+    process.env.PRIVACY_HMAC_SECRET = "";
+    process.env.RATE_LIMIT_HMAC_SECRET = "r".repeat(64);
+    const { POST } = await import("@/app/api/contact/route");
+    const response = await POST(new Request("https://portfolio.test/api/contact", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: "https://portfolio.test",
+      },
+      body: JSON.stringify({
+        name: "Analyst",
+        email: "analyst@example.com",
+        message: "I would like to discuss a commercial analytics project.",
+        company: "",
+        captchaToken: "verified-token",
+        submissionId: "9b300c77-6cc0-45d6-8ff2-e423fd4e92d4",
+      }),
+    }));
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: false,
+      code: "privacy_configuration_unavailable",
+    });
+    expect(state.insert).not.toHaveBeenCalled();
   });
 });

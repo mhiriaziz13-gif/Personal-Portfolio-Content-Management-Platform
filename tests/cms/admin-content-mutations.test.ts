@@ -147,6 +147,7 @@ vi.mock("@/lib/supabase/admin", () => ({
 
 const id = "0d2e84ea-3b4e-4d19-969f-27269be950b9";
 const expectedUpdatedAt = "2026-07-27T10:00:00.000Z";
+const idempotencyKey = "6d2e84ea-3b4e-4d19-969f-27269be950b9";
 
 const saveRequest = (includeExpectedTimestamp = true) =>
   new Request("https://portfolio.test/api/admin/content", {
@@ -338,6 +339,199 @@ describe("versioned CMS content mutations", () => {
     });
     expect(state.writeAdminAudit).not.toHaveBeenCalled();
     expect(state.revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("duplicates a builder section through one revision-backed RPC", async () => {
+    const copiedId = "1d2e84ea-3b4e-4d19-969f-27269be950b9";
+    state.rpcResult = {
+      data: {
+        action: "duplicate",
+        table: "page_sections",
+        idempotencyKey,
+        replayed: false,
+        rows: [{
+          id: copiedId,
+          page_id: "2d2e84ea-3b4e-4d19-969f-27269be950b9",
+          section_key: "overview-copy-a1b2c3d4",
+          updated_at: "2026-07-27T10:02:00.000Z",
+        }],
+        childTable: "page_section_items",
+        children: [],
+        revisionRecorded: true,
+        revisionIds: ["revision-parent"],
+        requestIds: ["request-parent"],
+      },
+      error: null,
+    };
+    const { POST } = await import("@/app/api/admin/content/route");
+    const response = await POST(new Request(
+      "https://portfolio.test/api/admin/content",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action: "duplicate",
+          table: "page_sections",
+          id,
+          expectedUpdatedAt,
+          idempotencyKey,
+        }),
+      },
+    ));
+
+    expect(response.status).toBe(200);
+    expect(state.rpcCalls).toEqual([[
+      "mutate_cms_builder_action",
+      {
+        p_action: "duplicate",
+        p_table: "page_sections",
+        p_record_id: id,
+        p_expected_updated_at: expectedUpdatedAt,
+        p_related_record_id: null,
+        p_related_expected_updated_at: null,
+        p_direction: null,
+        p_actor_user_id: "admin-user",
+        p_idempotency_key: idempotencyKey,
+      },
+    ]]);
+    expect(state.writeAdminAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "cms_builder_section_duplicated",
+        metadata: expect.objectContaining({
+          revisionRecorded: true,
+          revisionIds: ["revision-parent"],
+          idempotencyKey,
+        }),
+      }),
+    );
+    await expect(response.json()).resolves.toMatchObject({
+      rows: [{ id: copiedId }],
+      childTable: "page_section_items",
+      children: [],
+      replayed: false,
+    });
+  });
+
+  it("replays a duplicate result without recording a second audit", async () => {
+    const copiedId = "1d2e84ea-3b4e-4d19-969f-27269be950b9";
+    state.rpcResult = {
+      data: {
+        action: "duplicate",
+        table: "page_sections",
+        idempotencyKey,
+        replayed: true,
+        rows: [{ id: copiedId }],
+        childTable: "page_section_items",
+        children: [],
+        revisionRecorded: true,
+        revisionIds: ["revision-parent"],
+        requestIds: ["request-parent"],
+      },
+      error: null,
+    };
+    const { POST } = await import("@/app/api/admin/content/route");
+    const response = await POST(new Request(
+      "https://portfolio.test/api/admin/content",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action: "duplicate",
+          table: "page_sections",
+          id,
+          expectedUpdatedAt,
+          idempotencyKey,
+        }),
+      },
+    ));
+
+    expect(response.status).toBe(200);
+    expect(state.rpcCalls[0]?.[1]).toMatchObject({
+      p_idempotency_key: idempotencyKey,
+      p_expected_updated_at: expectedUpdatedAt,
+    });
+    expect(state.writeAdminAudit).not.toHaveBeenCalled();
+    expect(state.revalidatePath).toHaveBeenCalled();
+    await expect(response.json()).resolves.toMatchObject({
+      rows: [{ id: copiedId }],
+      replayed: true,
+    });
+  });
+
+  it("rejects duplicate requests without a caller idempotency key", async () => {
+    const { POST } = await import("@/app/api/admin/content/route");
+    const response = await POST(new Request(
+      "https://portfolio.test/api/admin/content",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action: "duplicate",
+          table: "page_sections",
+          id,
+          expectedUpdatedAt,
+        }),
+      },
+    ));
+
+    expect(response.status).toBe(400);
+    expect(state.rpcCalls).toHaveLength(0);
+    expect(state.writeAdminAudit).not.toHaveBeenCalled();
+  });
+
+  it("maps an atomic two-row builder move conflict without auditing", async () => {
+    const relatedId = "2d2e84ea-3b4e-4d19-969f-27269be950b9";
+    state.rpcResult = {
+      data: null,
+      error: { code: "CMS02", message: "cms_edit_conflict" },
+    };
+    const { POST } = await import("@/app/api/admin/content/route");
+    const response = await POST(new Request(
+      "https://portfolio.test/api/admin/content",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action: "move",
+          table: "project_sections",
+          id,
+          expectedUpdatedAt,
+          relatedId,
+          relatedExpectedUpdatedAt: expectedUpdatedAt,
+          direction: "down",
+        }),
+      },
+    ));
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "edit_conflict",
+    });
+    expect(state.rpcCalls).toHaveLength(1);
+    expect(state.writeAdminAudit).not.toHaveBeenCalled();
+    expect(state.revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("rejects a builder move without both optimistic-lock timestamps", async () => {
+    const { POST } = await import("@/app/api/admin/content/route");
+    const response = await POST(new Request(
+      "https://portfolio.test/api/admin/content",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action: "move",
+          table: "page_sections",
+          id,
+          expectedUpdatedAt,
+          relatedId: "2d2e84ea-3b4e-4d19-969f-27269be950b9",
+          direction: "up",
+        }),
+      },
+    ));
+
+    expect(response.status).toBe(400);
+    expect(state.rpcCalls).toHaveLength(0);
   });
 
   it("rejects a CMS save that references known non-active upload metadata", async () => {

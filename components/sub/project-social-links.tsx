@@ -26,7 +26,7 @@ export const ProjectSocialLinks = ({
           rel="noopener noreferrer"
           aria-label={`View ${projectTitle} on GitHub`}
           title="View on GitHub"
-          className="text-2xl text-gray-300 transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-300"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-2xl text-gray-300 transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
         >
           <FaGithub aria-hidden="true" />
         </TrackedLink>
@@ -39,7 +39,7 @@ export const ProjectSocialLinks = ({
           rel="noopener noreferrer"
           aria-label={`View ${projectTitle} on LinkedIn`}
           title="View on LinkedIn"
-          className="text-2xl text-gray-300 transition hover:text-[#0A66C2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-300"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-2xl text-gray-300 transition hover:text-[#0A66C2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
         >
           <FaLinkedin aria-hidden="true" />
         </TrackedLink>

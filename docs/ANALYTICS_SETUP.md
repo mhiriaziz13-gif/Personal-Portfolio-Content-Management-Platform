@@ -11,7 +11,11 @@ Set `NEXT_PUBLIC_GTM_ID` and `NEXT_PUBLIC_CLARITY_PROJECT_ID` in the Vercel Prod
 
 GA4 must be configured inside GTM. Do not add a direct `gtag.js` script to the application. Clarity remains managed by its NPM package and must not be duplicated in GTM.
 
-Google Analytics and Clarity are gated by the visitor's analytics consent. Vercel Web Analytics and Speed Insights remain separate, production-public-route telemetry. Custom events must use the typed `pushAnalyticsEvent()` helper from `lib/analytics/events.ts`; never send visitor-entered text to the Data Layer.
+Google Analytics, Clarity, Vercel Web Analytics and Speed Insights are all
+optional and use the same analytics choice. They remain absent until consent on
+a production public route. Custom events must use the typed
+`pushAnalyticsEvent()` helper from `lib/analytics/events.ts`; never send
+visitor-entered text to the Data Layer.
 
 ## GTM event mapping
 
@@ -39,13 +43,23 @@ GTM and may use a recommended event where one fits.
 | `outbound_github_click` | `outbound_github_click` | Reserved; not currently emitted |
 | `contact_fallback_mailto` | `contact_fallback_mailto` | Reserved; not currently emitted |
 
-Disable the Google tag's automatic page view (`send_page_view: false`) so that
-`virtual_page_view` is the single source of GA4 `page_view` events. Forward only
+Disable the Google tag's automatic page view (`send_page_view: false`) and GA4
+browser-history page views so that `virtual_page_view` is the single source of
+GA4 `page_view` events. Its URL fields contain the pathname only, never a query
+string or fragment. Forward only
 the controlled parameters declared by the `AnalyticsEvent` type. Do not create
 a second lead tag from a generic `contact_submit` event; the application emits
 only `contact_submit_success` for a successful contact conversion. Do not
 configure Clarity in GTM.
 
-After deployment, enable Web Analytics and Speed Insights in the Vercel project dashboard. The Content Security Policy permits Google Tag Manager, Google Analytics and Vercel vitals endpoints.
+After deployment, enable Web Analytics and Speed Insights in the Vercel project
+dashboard. Their `beforeSend` gates re-check stored consent and strip query
+strings, including after either component has loaded.
 
-Consent is stored under `aam_analytics_consent_v1` as versioned JSON containing only the analytics choice and update timestamp. The consent bootstrap runs before the interactive GTM loader. See `docs/analytics/gtm-production-configuration.md` for the external container contract and `docs/analytics/consent-manual-test-plan.md` for browser acceptance.
+Consent is stored under `aam_analytics_consent_v1` as versioned JSON containing
+only the analytics choice and update timestamp. The consent bootstrap runs
+before the interactive GTM loader. Withdrawal sends denied consent, clears
+known first-party analytics cookies and reloads once so previously loaded
+optional collectors are no longer present. See
+`docs/ANALYTICS_PLATFORM_CHECKLIST.md` for the external platform contract and
+`docs/analytics/consent-manual-test-plan.md` for browser acceptance.

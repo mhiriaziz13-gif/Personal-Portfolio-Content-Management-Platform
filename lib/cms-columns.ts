@@ -29,7 +29,7 @@ const columns: Record<EditableCmsTable, readonly string[]> = {
   ],
   project_sections: [
     ...common, "project_id", "section_type", "title", "body", "bullets",
-    "sort_order", "is_visible", "is_archived",
+    "sort_order", "is_visible", "is_archived", "layout_variant",
   ],
   experience: [
     ...common, "company", "role", "location", "start_date", "end_date",
@@ -54,7 +54,8 @@ const columns: Record<EditableCmsTable, readonly string[]> = {
   pages: [
     ...common, "page_key", "title", "slug", "seo_title", "seo_description",
     "open_graph_title", "open_graph_description", "open_graph_image",
-    "is_published",
+    "navigation_label", "navigation_order", "show_in_navigation",
+    "show_in_footer", "is_published",
   ],
   page_sections: [
     ...common, "page_id", "section_key", "section_type", "title", "subtitle",

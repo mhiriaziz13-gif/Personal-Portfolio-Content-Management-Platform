@@ -2,11 +2,14 @@ export const revalidate = 60;
 
 import type { Metadata } from "next";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 
+import { CmsPageSections } from "@/components/main/cms-page-sections";
 import { Skills } from "@/components/main/skills";
 import { Breadcrumbs } from "@/components/seo/breadcrumbs";
 import { PageIntro } from "@/components/seo/page-intro";
 import { getPortfolioContent } from "@/lib/cms";
+import { resolveCmsPageRoute } from "@/lib/cms-page-routing";
 import type { ProjectContent, SkillCategory } from "@/lib/cms-types";
 import { createCmsPageMetadata } from "@/lib/seo/metadata";
 
@@ -27,6 +30,30 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function ExpertisePage() {
   const content = await getPortfolioContent();
+  const route = resolveCmsPageRoute(content, "expertise");
+
+  if (route.mode === "not-found") notFound();
+
+  if (route.mode === "cms") {
+    return (
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="min-h-screen pt-24"
+      >
+        <div className="relative z-20 mx-auto max-w-7xl px-6">
+          <Breadcrumbs
+            items={[
+              { name: "Home", href: "/" },
+              { name: "Expertise", href: "/expertise" },
+            ]}
+          />
+        </div>
+        <CmsPageSections content={content} pageKey="expertise" />
+      </main>
+    );
+  }
+
   const page = content.pages.find((item) => item.pageKey === "expertise");
 
   return (

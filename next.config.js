@@ -31,6 +31,28 @@ const supabaseOrigin = (() => {
     return "";
   }
 })();
+const supabaseImagePatterns = (() => {
+  try {
+    const url = new URL(supabaseUrl);
+    if (url.protocol !== "https:") return [];
+    return [
+      {
+        protocol: "https",
+        hostname: url.hostname,
+        port: url.port,
+        pathname: "/storage/v1/object/public/**",
+      },
+      {
+        protocol: "https",
+        hostname: url.hostname,
+        port: url.port,
+        pathname: "/storage/v1/render/image/public/**",
+      },
+    ];
+  } catch {
+    return [];
+  }
+})();
 
 const connectSources = [
   "'self'",
@@ -144,6 +166,7 @@ const nextConfig = {
     // The portfolio's fill images top out near 405px. Adding a 384px device
     // candidate prevents small cards/avatars from jumping straight to 640px.
     deviceSizes: [384, 640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+    remotePatterns: supabaseImagePatterns,
   },
   outputFileTracingIncludes: {
     "/api/admin/upload": [

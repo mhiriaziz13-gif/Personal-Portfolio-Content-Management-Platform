@@ -4,12 +4,20 @@ import type {
   ResumeAsset as StaticResumeAsset,
   SkillCategory,
 } from "@/constants/portfolio";
+import type {
+  CmsBlockType,
+  CmsLayoutVariant,
+} from "@/lib/cms-block-registry";
 
 export type { SkillCategory };
 
 export type NavLink = {
   title: string;
   href: string;
+  navigationOrder: number;
+  showInNavigation: boolean;
+  showInFooter: boolean;
+  kind?: "link" | "resume";
 };
 
 export type ProfileContent = {
@@ -59,7 +67,8 @@ export type ProjectSectionContent = {
   items: ProjectSectionItemContent[];
   media: ProjectMediaContent[];
   sortOrder: number;
-  sectionType?: string;
+  sectionType?: "rich_text" | "media_gallery";
+  layoutVariant?: CmsLayoutVariant;
   isVisible?: boolean;
 };
 
@@ -123,7 +132,7 @@ export type PageSectionItemContent = {
 export type PageSectionContent = {
   id: string;
   pageKey: string;
-  sectionType: string;
+  sectionType: CmsBlockType;
   title: string;
   subtitle: string;
   description: string;
@@ -132,7 +141,7 @@ export type PageSectionContent = {
   secondaryCtaLabel: string;
   secondaryCtaHref: string;
   displayOrder: number;
-  layoutVariant: string;
+  layoutVariant: CmsLayoutVariant;
   items: PageSectionItemContent[];
   updatedAt: string;
 };
@@ -147,6 +156,10 @@ export type PageContent = {
   openGraphTitle: string;
   openGraphDescription: string;
   openGraphImage: string;
+  navigationLabel: string;
+  navigationOrder: number;
+  showInNavigation: boolean;
+  showInFooter: boolean;
   isPublished: boolean;
   updatedAt: string;
   sections: PageSectionContent[];

@@ -11,7 +11,8 @@ export const CookiePreferencesButton = () => {
     <button
       type="button"
       onClick={consent.openPreferences}
-      className="transition hover:text-cyan-100"
+      data-analytics-preferences-trigger
+      className="min-h-[44px] rounded px-1 transition hover:text-cyan-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-200"
     >
       Analytics preferences
     </button>

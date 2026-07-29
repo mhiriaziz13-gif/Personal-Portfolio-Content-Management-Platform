@@ -80,6 +80,7 @@ test("mobile navigation traps focus and restores it on Escape", async ({
   await trigger.click();
   const menu = page.locator("#mobile-navigation");
   await expect(menu).toBeVisible();
+  await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
   const links = menu.getByRole("link");
   await expect(links.first()).toBeFocused();
 
@@ -91,6 +92,45 @@ test("mobile navigation traps focus and restores it on Escape", async ({
 
   await expect(menu).toBeHidden();
   await expect(trigger).toBeFocused();
+  await expect(page.locator("body")).not.toHaveCSS("overflow", "hidden");
+
+  await trigger.click();
+  const backdrop = page.getByRole("button", { name: "Close navigation" });
+  await expect(backdrop).toBeVisible();
+  const backdropBox = await backdrop.boundingBox();
+  expect(backdropBox).not.toBeNull();
+  await backdrop.click({
+    position: {
+      x: Math.max(1, backdropBox!.width - 8),
+      y: Math.max(1, backdropBox!.height - 8),
+    },
+  });
+  await expect(menu).toBeHidden();
+  await expect(trigger).toBeFocused();
+});
+
+test("identity schema is global and ProfilePage belongs to About", async ({
+  page,
+}) => {
+  await page.goto("/about");
+  const schemas = await page
+    .locator('script[type="application/ld+json"]')
+    .allTextContents();
+  const schemaText = schemas.join("\n");
+
+  expect(schemaText).toContain('"@type":"Person"');
+  expect(schemaText).toContain('"@type":"WebSite"');
+  expect(schemaText).toContain('"@type":"ProfilePage"');
+  expect(schemaText).toContain(
+    "https://ahmedaziz-portfolio.vercel.app/about",
+  );
+
+  await page.goto("/");
+  const homeSchemas = (
+    await page.locator('script[type="application/ld+json"]').allTextContents()
+  ).join("\n");
+  expect(homeSchemas).toContain('"@type":"Person"');
+  expect(homeSchemas).not.toContain('"@type":"ProfilePage"');
 });
 
 test("crawler controls exclude private surfaces", async ({ request }) => {

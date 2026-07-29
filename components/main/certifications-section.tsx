@@ -7,11 +7,13 @@ import {
 import Link from "next/link";
 
 import { CertificationArtwork } from "@/components/sub/certification-artwork";
+import type { CmsLayoutVariant } from "@/lib/cms-block-registry";
 import type { CertificationContent } from "@/lib/cms-types";
 
 type CertificationsSectionProps = {
   certifications: CertificationContent[];
   preview?: boolean;
+  variant?: CmsLayoutVariant;
 };
 
 const CertificationCard = ({
@@ -110,6 +112,7 @@ const CertificationCard = ({
 export const CertificationsSection = ({
   certifications,
   preview = false,
+  variant = "default",
 }: CertificationsSectionProps) => {
   const visibleCertifications = [...certifications]
     .sort((first, second) => first.sortOrder - second.sortOrder)
@@ -120,7 +123,10 @@ export const CertificationsSection = ({
   return (
     <section
       id="certifications"
-      className={`render-deferred relative z-[20] mx-auto flex w-full max-w-7xl flex-col px-6 ${preview ? "py-16" : "py-24"}`}
+      data-layout-variant={variant}
+      className={`render-deferred relative z-[20] mx-auto flex w-full max-w-7xl flex-col px-6 ${
+        preview || variant === "compact" ? "py-16" : "py-24"
+      }`}
     >
       <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
         <div>
@@ -145,7 +151,13 @@ export const CertificationsSection = ({
         )}
       </div>
 
-      <div className="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+      <div
+        className={`mt-10 grid gap-6 ${
+          variant === "grid-2"
+            ? "md:grid-cols-2"
+            : "md:grid-cols-2 xl:grid-cols-3"
+        }`}
+      >
         {visibleCertifications.map((certification) => (
           <CertificationCard
             key={`${certification.sortOrder}-${certification.issuer}-${certification.name}`}

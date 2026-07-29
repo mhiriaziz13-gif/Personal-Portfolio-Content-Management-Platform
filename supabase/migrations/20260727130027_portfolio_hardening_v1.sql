@@ -70,6 +70,8 @@ begin
       ('contact_messages', 'status'),
       ('contact_messages', 'created_at'),
       ('contact_messages', 'updated_at'),
+      ('contact_messages', 'read_at'),
+      ('contact_messages', 'archived_at'),
       ('admin_audit_logs', 'actor_user_id'),
       ('admin_remembered_devices', 'user_id'),
       ('admin_remembered_devices', 'expires_at'),
@@ -559,6 +561,7 @@ begin
       ('admins', 'Admins can read admins'),
       ('admins', 'Admins can manage admins'),
       ('site_settings', 'Public site settings are readable'),
+      ('site_settings', 'Authenticated read site settings'),
       ('site_settings', 'Admins manage site settings'),
       ('contact_messages', 'Admins read contact messages'),
       ('contact_messages', 'Admins update contact messages'),
@@ -2157,8 +2160,8 @@ update public.projects
 set
   title = 'VERMEG AI-Ready E-Learning Prototype',
   type = 'AI Prototype · Full-Stack · Team Project',
-  summary = 'Two-person internship prototype for an AI-ready e-learning experience. Ahmed''s contribution focused on chatbot functionality and selected application services; the prototype was not deployed to production.',
-  description = 'A demonstrable, two-person internship prototype. Ahmed contributed chatbot functionality and selected application services using Angular, Spring Boot, Ollama and RAG concepts, with supporting work on integration, secure access, event-driven communication, containerisation and observability. Prototype only; not deployed to production.',
+  summary = 'Two-person internship prototype for an AI-ready e-learning experience. Ahmed contributed the chatbot and selected application services; it was not sole-authored and was not presented as a production deployment.',
+  description = 'A demonstrable two-person internship prototype. Ahmed contributed the chatbot and selected application services. The system was not sole-authored and was not presented as a production deployment.',
   tags = array[
     'AI Prototype',
     'Team Project',
@@ -2169,7 +2172,7 @@ set
   ],
   tools = array['Angular', 'Spring Boot', 'Ollama', 'RAG'],
   seo_title = 'VERMEG AI-Ready E-Learning Prototype',
-  seo_description = 'Two-person internship prototype for an AI-ready e-learning experience, with Ahmed''s contribution bounded to chatbot functionality and selected application services. Not deployed to production.',
+  seo_description = 'Two-person internship prototype with Ahmed''s contribution bounded to the chatbot and selected application services. Not sole-authored and not presented as a production deployment.',
   updated_at = pg_catalog.now()
 where slug in (
   'vermeg-ai-ready-e-learning-platform',
@@ -2179,8 +2182,8 @@ where slug in (
 update public.experience
 set
   points = array[
-    'Co-developed a demonstrable AI-ready e-learning prototype in a two-person team; focused on chatbot functionality and selected application services.',
-    'Applied Angular, Spring Boot, Ollama and RAG concepts and contributed to integration, secure access, event-driven communication, containerisation and observability concepts. Prototype only; not deployed to production.'
+    'Contributed the chatbot and selected application services within a two-person internship prototype.',
+    'The system was not sole-authored and was not presented as a production deployment.'
   ],
   updated_at = pg_catalog.now()
 where company ilike 'VERMEG%';
@@ -2394,8 +2397,23 @@ create policy "Admins can read admins"
 
 drop policy if exists "Public site settings are readable"
   on public.site_settings;
+drop policy if exists "Authenticated read site settings"
+  on public.site_settings;
 drop policy if exists "Admins manage site settings"
   on public.site_settings;
+create policy "Public site settings are readable"
+  on public.site_settings
+  for select
+  to anon
+  using (coalesce(value ->> 'public', 'false') = 'true');
+create policy "Authenticated read site settings"
+  on public.site_settings
+  for select
+  to authenticated
+  using (
+    coalesce(value ->> 'public', 'false') = 'true'
+    or (select private.is_admin())
+  );
 
 drop policy if exists "Admins read contact messages"
   on public.contact_messages;
@@ -2517,11 +2535,15 @@ from public, anon, authenticated, service_role;
 
 grant select on table
   public.admins,
+  public.site_settings,
   public.contact_messages,
   public.admin_audit_logs,
   public.admin_security_preferences,
   public.admin_remembered_devices
 to authenticated;
+
+grant select on table public.site_settings
+  to anon;
 
 grant select, insert, update, delete on table
   public.admins,
@@ -2631,6 +2653,30 @@ do $portfolio_hardening_postflight$
 declare
   v_problem text;
 begin
+  with required_timestamp_columns(column_name) as (
+    values ('updated_at'), ('read_at'), ('archived_at')
+  )
+  select pg_catalog.string_agg(
+    required.column_name,
+    ', '
+    order by required.column_name
+  )
+  into v_problem
+  from required_timestamp_columns as required
+  left join information_schema.columns as columns
+    on columns.table_schema = 'public'
+   and columns.table_name = 'contact_messages'
+   and columns.column_name = required.column_name
+   and columns.udt_name = 'timestamptz'
+  where columns.column_name is null;
+
+  if v_problem is not null then
+    raise exception using
+      errcode = 'P0001',
+      message = 'Portfolio hardening postflight failed: contact timestamp compatibility is incomplete',
+      detail = v_problem;
+  end if;
+
   if exists (
     select projects_page_order
     from public.projects
@@ -2785,9 +2831,11 @@ begin
     )
       and (
         title not ilike '%prototype%'
-        or summary not ilike '%two-person%'
-        or summary not ilike '%not deployed to production%'
-        or description not ilike '%prototype%'
+        or summary not ilike '%two-person internship prototype%'
+        or summary not ilike '%chatbot%'
+        or summary not ilike '%selected application services%'
+        or summary not ilike '%not sole-authored%'
+        or summary not ilike '%not presented as a production deployment%'
       )
   )
   or exists (
@@ -2795,10 +2843,15 @@ begin
     from public.experience
     where company ilike 'VERMEG%'
       and (
-        pg_catalog.array_to_string(points, ' ') not ilike '%prototype%'
-        or pg_catalog.array_to_string(points, ' ') not ilike '%two-person%'
+        pg_catalog.array_to_string(points, ' ')
+            not ilike '%two-person internship prototype%'
+        or pg_catalog.array_to_string(points, ' ') not ilike '%chatbot%'
         or pg_catalog.array_to_string(points, ' ')
-            not ilike '%not deployed to production%'
+            not ilike '%selected application services%'
+        or pg_catalog.array_to_string(points, ' ')
+            not ilike '%not sole-authored%'
+        or pg_catalog.array_to_string(points, ' ')
+            not ilike '%not presented as a production deployment%'
       )
   ) then
     raise exception using
@@ -3241,6 +3294,7 @@ begin
       'project_sections',
       'projects',
       'resumes',
+      'site_settings',
       'skills',
       'social_links',
       'volunteering'
@@ -3292,7 +3346,7 @@ begin
     select 1
     from pg_catalog.pg_policies as policy
     where policy.schemaname = 'public'
-      and policy.tablename in ('site_settings', 'uploads', 'cms_content_revisions')
+      and policy.tablename in ('uploads', 'cms_content_revisions')
   ) then
     raise exception using
       errcode = 'P0001',

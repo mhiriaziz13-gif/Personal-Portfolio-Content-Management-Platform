@@ -252,8 +252,8 @@ Important security rules:
   variable.
 - Generate `RATE_LIMIT_HMAC_SECRET`, `PRIVACY_HMAC_SECRET`, and
   `ADMIN_DEVICE_HMAC_SECRET` independently with at least 32 non-whitespace
-  UTF-8 bytes of randomly generated material each; the admin HMAC has no
-  fallback to another credential.
+  UTF-8 bytes of randomly generated material each; the privacy and admin HMACs
+  have no fallback to another credential.
 - Preview deployments must remain non-indexable.
 - Production canonical URLs must never be generated from an untrusted request host.
 

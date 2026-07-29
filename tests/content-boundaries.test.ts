@@ -9,7 +9,10 @@ import { projectSchema } from "@/lib/seo/schema";
 const boundaryCopyIsExplicit = (value: string) =>
   /prototype/i.test(value)
   && /(two-person|two person|team)/i.test(value)
-  && /(not deployed|non-production|not a production)/i.test(value);
+  && /chatbot/i.test(value)
+  && /selected (application )?services/i.test(value)
+  && /not presented as a production deployment/i.test(value)
+  && /(not sole-authored|not presented .*sole-authored system)/i.test(value);
 
 describe("public content boundaries", () => {
   it("keeps the VERMEG project and experience bounded to a team prototype", () => {

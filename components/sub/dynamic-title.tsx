@@ -12,7 +12,13 @@ export const DynamicTitle = ({ titles = fallbackPortfolioContent.hero.dynamicTit
     <span
       className="rotating-title-window min-w-full sm:min-w-[29rem]"
     >
-      <span className="sr-only">{safeTitles.join(", ")}</span>
+      <span className="sr-only">{safeTitles[0]}</span>
+      <span
+        className="rotating-title-reduced-motion-fallback"
+        aria-hidden="true"
+      >
+        {safeTitles[0]}
+      </span>
       <span className="rotating-title-track" style={style} aria-hidden="true">
         {[...safeTitles, ...safeTitles].map((title, index) => (
           <span className="rotating-title-item" key={`${index}-${title}`}>

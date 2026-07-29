@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+import {
+  cmsBlockTypes,
+  cmsLayoutVariants,
+  variantsForBlock,
+} from "@/lib/cms-block-registry";
 import { isSafeInternalPath } from "@/lib/security/redirects";
 
 export const emailSchema = z.string().trim().email().max(254);
@@ -62,6 +67,52 @@ export const contentMutationSchema = z.object({
   id: z.string().optional(),
   expectedUpdatedAt: z.string().datetime({ offset: true }).optional(),
 }).strict();
+
+export const builderCompoundMutationSchema = z.object({
+  action: z.enum(["duplicate", "move"]),
+  table: z.enum(["page_sections", "project_sections"]),
+  id: z.string().uuid(),
+  expectedUpdatedAt: z.string().datetime({ offset: true }),
+  idempotencyKey: z.string().uuid().optional(),
+  relatedId: z.string().uuid().optional(),
+  relatedExpectedUpdatedAt: z
+    .string()
+    .datetime({ offset: true })
+    .optional(),
+  direction: z.enum(["up", "down"]).optional(),
+}).strict().superRefine((value, context) => {
+  if (value.action === "duplicate") {
+    if (!value.idempotencyKey) {
+      context.addIssue({
+        code: "custom",
+        path: ["idempotencyKey"],
+        message: "A duplicate request key is required.",
+      });
+    }
+    return;
+  }
+  if (!value.relatedId) {
+    context.addIssue({
+      code: "custom",
+      path: ["relatedId"],
+      message: "The neighboring block is required.",
+    });
+  }
+  if (!value.relatedExpectedUpdatedAt) {
+    context.addIssue({
+      code: "custom",
+      path: ["relatedExpectedUpdatedAt"],
+      message: "Reload the neighboring block before moving.",
+    });
+  }
+  if (!value.direction) {
+    context.addIssue({
+      code: "custom",
+      path: ["direction"],
+      message: "The move direction is required.",
+    });
+  }
+});
 
 export const messageStatusSchema = z.enum(["new", "read", "archived"]);
 
@@ -170,14 +221,30 @@ const cmsRowSchemas: Record<EditableCmsTable, z.ZodType<Record<string, unknown>>
   about: z.object({ ...base, title: optionalText(), body: optionalText(10000), highlights: stringList, avatar_url: assetLink, published }),
   skills: z.object({ ...base, name: requiredText(), category: requiredText(), icon_key: optionalText(), description: optionalText(2000), sort_order: sortOrder, published }),
   projects: z.object({ ...base, slug: requiredText(200).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Use a lowercase URL slug."), title: requiredText(), type: optionalText(), summary: optionalText(5000), description: optionalText(20000), cover_image_url: assetLink, card_image_url: assetLink, open_graph_image: assetLink, tags: stringList, tools: stringList, github_url: nullableExternalLink, linkedin_url: nullableExternalLink, demo_url: nullableExternalLink, case_study_url: nullableExternalLink, seo_title: optionalText(), seo_description: optionalText(5000), project_group: optionalText(), organisation: optionalText(), status: z.enum(["draft","preparation","published","archived"]).default("draft"), home_featured_order: z.number().int().nullable().optional(), projects_page_order: sortOrder, featured: z.boolean().optional().default(false), published, sort_order: sortOrder }),
-  project_sections: z.object({ ...base, project_id: z.string().uuid(), section_type: optionalText(), title: requiredText(), body: optionalText(20000), bullets: stringList, sort_order: sortOrder, is_visible: z.boolean().optional().default(true), is_archived: z.boolean().optional().default(false) }),
+  project_sections: z.object({ ...base, project_id: z.string().uuid(), section_type: z.enum(["rich_text", "media_gallery"]), layout_variant: z.enum(cmsLayoutVariants).optional().default("default"), title: requiredText(), body: optionalText(20000), bullets: stringList, sort_order: sortOrder, is_visible: z.boolean().optional().default(true), is_archived: z.boolean().optional().default(false) }).superRefine((value, context) => {
+    if (!variantsForBlock(value.section_type).includes(value.layout_variant)) {
+      context.addIssue({
+        code: "custom",
+        path: ["layout_variant"],
+        message: "Choose a layout supported by this section type.",
+      });
+    }
+  }),
   experience: z.object({ ...base, company: requiredText(), role: requiredText(), location: optionalText(), start_date: optionalText(), end_date: optionalText(), date_label: optionalText(), logo_url: assetLink, logo_alt: optionalText(), points: stringList, tools: stringList, sort_order: sortOrder, published }),
   education: z.object({ ...base, institution: requiredText(), degree: requiredText(), start_date: optionalText(), end_date: optionalText(), status: optionalText(), location: optionalText(), sort_order: sortOrder, published }),
   certifications: z.object({ ...base, name: requiredText(), issuer: optionalText(), date: optionalText(), credential_url: externalLink, credential_id: optionalText(), image_url: assetLink, description: optionalText(5000), tags: stringList, sort_order: sortOrder, published }),
   resumes: z.object({ ...base, label: requiredText(), variant: requiredText(), pdf_url: assetLink, docx_url: assetLink, sort_order: sortOrder, published }),
   social_links: z.object({ ...base, label: requiredText(), url: socialLink.refine((value) => Boolean(value), "URL is required."), icon_key: optionalText(), sort_order: sortOrder, published }),
-  pages: z.object({ ...base, page_key: requiredText(100).regex(/^[a-z0-9-]+$/), title: requiredText(), slug: requiredText(300), seo_title: optionalText(), seo_description: optionalText(5000), open_graph_title: optionalText(), open_graph_description: optionalText(5000), open_graph_image: assetLink, is_published: z.boolean().optional().default(true) }),
-  page_sections: z.object({ ...base, page_id: z.string().uuid(), section_key: requiredText(100).regex(/^[a-z0-9-]+$/), section_type: z.enum(["hero","rich_text","featured_projects","projects_grid","experience_list","certifications_grid","volunteering","skills","cta","stats","media_gallery","custom_cards"]), title: optionalText(), subtitle: optionalText(), description: optionalText(20000), cta_label: optionalText(), cta_href: siteLink, secondary_cta_label: optionalText(), secondary_cta_href: siteLink, display_order: sortOrder, is_visible: z.boolean().optional().default(true), is_archived: z.boolean().optional().default(false), layout_variant: optionalText() }),
+  pages: z.object({ ...base, page_key: requiredText(100).regex(/^[a-z0-9-]+$/), title: requiredText(), slug: requiredText(300), seo_title: optionalText(), seo_description: optionalText(5000), open_graph_title: optionalText(), open_graph_description: optionalText(5000), open_graph_image: assetLink, navigation_label: optionalText(100), navigation_order: sortOrder, show_in_navigation: z.boolean().optional().default(false), show_in_footer: z.boolean().optional().default(false), is_published: z.boolean().optional().default(true) }),
+  page_sections: z.object({ ...base, page_id: z.string().uuid(), section_key: requiredText(100).regex(/^[a-z0-9-]+$/), section_type: z.enum(cmsBlockTypes), title: optionalText(), subtitle: optionalText(), description: optionalText(20000), cta_label: optionalText(), cta_href: siteLink, secondary_cta_label: optionalText(), secondary_cta_href: siteLink, display_order: sortOrder, is_visible: z.boolean().optional().default(true), is_archived: z.boolean().optional().default(false), layout_variant: z.enum(cmsLayoutVariants).optional().default("default") }).superRefine((value, context) => {
+    if (!variantsForBlock(value.section_type).includes(value.layout_variant)) {
+      context.addIssue({
+        code: "custom",
+        path: ["layout_variant"],
+        message: "Choose a layout supported by this block type.",
+      });
+    }
+  }),
   page_section_items: z.object({ ...base, page_section_id: z.string().uuid(), title: optionalText(), subtitle: optionalText(), description: optionalText(10000), link_label: optionalText(), link_url: siteLink, media_url: assetLink, media_alt: optionalText(), display_order: sortOrder, is_visible: z.boolean().optional().default(true) }),
   project_section_items: z.object({ ...base, project_section_id: z.string().uuid(), label: optionalText(), value: optionalText(), description: optionalText(10000), display_order: sortOrder, is_visible: z.boolean().optional().default(true) }),
   project_media: z.object({ ...base, project_id: z.string().uuid(), media_url: assetLink.refine(Boolean, "Media is required."), alt_text: requiredText(), caption: optionalText(2000), media_type: z.enum(["image","video","document"]).default("image"), display_order: sortOrder, is_visible: z.boolean().optional().default(true) }),

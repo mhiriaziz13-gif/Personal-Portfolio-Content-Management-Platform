@@ -14,6 +14,7 @@ import {
   parsePublicStorageReference,
 } from "@/lib/security/upload-lifecycle";
 import {
+  builderCompoundMutationSchema,
   contentMutationSchema,
   type EditableCmsTable,
   isEditableCmsTable,
@@ -92,9 +93,109 @@ type AtomicCmsMutation = {
   requestId: string;
 };
 
+type AtomicBuilderMutation = {
+  action: "duplicate" | "move";
+  table: "page_sections" | "project_sections";
+  idempotencyKey: string | null;
+  replayed: boolean;
+  rows: Array<Record<string, unknown>>;
+  childTable: "page_section_items" | "project_section_items" | null;
+  children: Array<Record<string, unknown>>;
+  revisionRecorded: true;
+  revisionIds: string[];
+  requestIds: string[];
+};
+
 type SupabaseMutationError = {
   code?: string | null;
   message?: string | null;
+};
+
+const parseAtomicBuilderMutation = (
+  value: unknown,
+): AtomicBuilderMutation | null => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const result = value as Record<string, unknown>;
+  const rows = Array.isArray(result.rows)
+    ? result.rows.filter(
+      (row): row is Record<string, unknown> =>
+        Boolean(row) && typeof row === "object" && !Array.isArray(row),
+    )
+    : [];
+  const children = Array.isArray(result.children)
+    ? result.children.filter(
+      (row): row is Record<string, unknown> =>
+        Boolean(row) && typeof row === "object" && !Array.isArray(row),
+    )
+    : [];
+  const revisionIds = Array.isArray(result.revisionIds)
+    ? result.revisionIds.filter(
+      (id): id is string => typeof id === "string" && Boolean(id),
+    )
+    : [];
+  const requestIds = Array.isArray(result.requestIds)
+    ? result.requestIds.filter(
+      (id): id is string => typeof id === "string" && Boolean(id),
+    )
+    : [];
+  if (
+    !["duplicate", "move"].includes(String(result.action))
+    || !["page_sections", "project_sections"].includes(String(result.table))
+    || typeof result.replayed !== "boolean"
+    || !Array.isArray(result.rows)
+    || !Array.isArray(result.children)
+    || !Array.isArray(result.revisionIds)
+    || !Array.isArray(result.requestIds)
+    || rows.length === 0
+    || result.revisionRecorded !== true
+    || revisionIds.length === 0
+    || revisionIds.length !== requestIds.length
+    || revisionIds.length !== result.revisionIds.length
+    || requestIds.length !== result.requestIds.length
+    || !(
+      result.childTable === null
+      || result.childTable === "page_section_items"
+      || result.childTable === "project_section_items"
+    )
+    || rows.length !== result.rows.length
+    || children.length !== result.children.length
+    || (
+      result.action === "duplicate"
+      && (
+        rows.length !== 1
+        || typeof result.idempotencyKey !== "string"
+        || (
+          result.childTable !== "page_section_items"
+          && result.childTable !== "project_section_items"
+        )
+      )
+    )
+    || (
+      result.action === "move"
+      && (
+        rows.length !== 2
+        || result.childTable !== null
+        || result.idempotencyKey !== null
+        || result.replayed
+      )
+    )
+  ) {
+    return null;
+  }
+
+  return {
+    action: result.action as AtomicBuilderMutation["action"],
+    table: result.table as AtomicBuilderMutation["table"],
+    idempotencyKey:
+      result.idempotencyKey as AtomicBuilderMutation["idempotencyKey"],
+    replayed: result.replayed,
+    rows,
+    childTable: result.childTable as AtomicBuilderMutation["childTable"],
+    children,
+    revisionRecorded: true,
+    revisionIds,
+    requestIds,
+  };
 };
 
 const parseAtomicCmsMutation = (
@@ -156,6 +257,12 @@ const atomicMutationErrorResponse = (error: SupabaseMutationError) => {
     case "22P02":
     case "23514":
       return jsonError("Invalid CMS mutation.", 400, "validation_error");
+    case "CMS08":
+      return jsonError(
+        "This duplicate request key was already used for a different action. Reload the CMS and try again.",
+        409,
+        "idempotency_conflict",
+      );
     case "CMS01":
       if (error.message === "cms_optimistic_lock_required") {
         return jsonError(
@@ -696,6 +803,33 @@ const uploadAvailabilityIssue = async (
   return null;
 };
 
+const duplicatedPageItemsUploadIssue = async (
+  sectionId: string,
+): Promise<UploadAvailabilityIssue | null> => {
+  const supabase = createSupabaseAdminClient();
+  const result = await supabase
+    .from("page_section_items")
+    .select(cmsSelectColumns("page_section_items"))
+    .eq("page_section_id", sectionId)
+    .limit(500);
+  if (result.error) {
+    return {
+      message: "Supporting items could not be verified before duplication.",
+      status: 503,
+      code: "content_check_unavailable",
+    };
+  }
+
+  for (const item of result.data ?? []) {
+    const issue = await uploadAvailabilityIssue(
+      "page_section_items",
+      item as unknown as Record<string, unknown>,
+    );
+    if (issue) return issue;
+  }
+  return null;
+};
+
 export async function GET(request: Request) {
   const admin = await requireAdminApi(request, {
     requireMfa: true,
@@ -739,12 +873,101 @@ export async function POST(request: Request) {
     );
   }
 
-  const limited = await mutationLimit(request, admin.user.id, "save");
+  const body = await request.json().catch(() => null);
+  const builderMutation = builderCompoundMutationSchema.safeParse(body);
+  const limited = await mutationLimit(
+    request,
+    admin.user.id,
+    builderMutation.success ? "builder" : "save",
+  );
   if (!limited.allowed) return rateLimitResponse(limited);
 
-  const parsed = contentMutationSchema.safeParse(
-    await request.json().catch(() => null),
-  );
+  if (builderMutation.success) {
+    if (!(await ensureRevisionStore())) {
+      return jsonError(
+        "The CMS hardening migration must be applied before content can change.",
+        503,
+        "migration_required",
+      );
+    }
+    if (
+      builderMutation.data.action === "duplicate"
+      && builderMutation.data.table === "page_sections"
+    ) {
+      const uploadError = await duplicatedPageItemsUploadIssue(
+        builderMutation.data.id,
+      );
+      if (uploadError) {
+        return jsonError(
+          uploadError.message,
+          uploadError.status,
+          uploadError.code,
+        );
+      }
+    }
+
+    const supabase = createSupabaseAdminClient();
+    const mutationResult = await supabase.rpc("mutate_cms_builder_action", {
+      p_action: builderMutation.data.action,
+      p_table: builderMutation.data.table,
+      p_record_id: builderMutation.data.id,
+      p_expected_updated_at: builderMutation.data.expectedUpdatedAt,
+      p_related_record_id: builderMutation.data.relatedId ?? null,
+      p_related_expected_updated_at:
+        builderMutation.data.relatedExpectedUpdatedAt ?? null,
+      p_direction: builderMutation.data.direction ?? null,
+      p_actor_user_id: admin.user.id,
+      p_idempotency_key: builderMutation.data.idempotencyKey ?? null,
+    });
+    if (mutationResult.error) {
+      return atomicMutationErrorResponse(mutationResult.error);
+    }
+
+    const mutation = parseAtomicBuilderMutation(mutationResult.data);
+    if (
+      !mutation
+      || mutation.action !== builderMutation.data.action
+      || mutation.table !== builderMutation.data.table
+      || (
+        mutation.action === "duplicate"
+        && mutation.idempotencyKey !== builderMutation.data.idempotencyKey
+      )
+    ) {
+      return jsonError(
+        "Could not verify the atomic builder mutation.",
+        500,
+        "server_error",
+      );
+    }
+
+    if (!mutation.replayed) {
+      await writeAdminAudit({
+        actorUserId: admin.user.id,
+        action: mutation.action === "duplicate"
+          ? "cms_builder_section_duplicated"
+          : "cms_builder_sections_reordered",
+        entityType: mutation.table,
+        entityId: builderMutation.data.id,
+        metadata: {
+          revisionRecorded: true,
+          revisionIds: mutation.revisionIds,
+          requestIds: mutation.requestIds,
+          relatedRecordId: builderMutation.data.relatedId ?? null,
+          idempotencyKey: mutation.idempotencyKey,
+        },
+        request,
+      });
+    }
+    revalidatePublicContent();
+    return jsonOk({
+      rows: mutation.rows,
+      childTable: mutation.childTable,
+      children: mutation.children,
+      replayed: mutation.replayed,
+    });
+  }
+
+  const parsed = contentMutationSchema.safeParse(body);
   if (
     !parsed.success
     || !parsed.data.values

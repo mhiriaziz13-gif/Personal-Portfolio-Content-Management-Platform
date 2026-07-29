@@ -3,12 +3,14 @@
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 
+import { useAnalyticsConsent } from "@/components/analytics/analytics-consent-provider";
 import {
-  isProductionAnalyticsLocation,
-  isPublicAnalyticsPath,
+  isCurrentAnalyticsCollectionAllowed,
 } from "@/lib/analytics/consent";
-
-const GTM_SCRIPT_ID = "google-tag-manager";
+import {
+  isGoogleTagManagerId,
+  loadGoogleTagManager,
+} from "@/lib/analytics/google-tag-manager";
 
 export const GoogleTagManagerLoader = ({
   enabled,
@@ -18,29 +20,18 @@ export const GoogleTagManagerLoader = ({
   containerId?: string;
 }) => {
   const pathname = usePathname();
+  const { consent } = useAnalyticsConsent();
 
   useEffect(() => {
     if (
-      !enabled ||
-      !containerId ||
-      !/^GTM-[A-Z0-9]+$/.test(containerId) ||
-      !isProductionAnalyticsLocation() ||
-      !isPublicAnalyticsPath(pathname) ||
-      window.googleTagManagerLoaded ||
-      document.getElementById(GTM_SCRIPT_ID)
+      !isGoogleTagManagerId(containerId) ||
+      !isCurrentAnalyticsCollectionAllowed(enabled, consent, pathname)
     ) {
       return;
     }
 
-    window.dataLayer = window.dataLayer || [];
-    window.dataLayer.push({ "gtm.start": Date.now(), event: "gtm.js" });
-    const script = document.createElement("script");
-    script.id = GTM_SCRIPT_ID;
-    script.async = true;
-    script.src = `https://www.googletagmanager.com/gtm.js?id=${encodeURIComponent(containerId)}`;
-    document.head.appendChild(script);
-    window.googleTagManagerLoaded = true;
-  }, [containerId, enabled, pathname]);
+    loadGoogleTagManager(containerId);
+  }, [consent, containerId, enabled, pathname]);
 
   return null;
 };

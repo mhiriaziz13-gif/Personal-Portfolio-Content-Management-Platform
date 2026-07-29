@@ -1,12 +1,15 @@
 export const revalidate = 60;
 
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 
 import { CertificationsSection } from "@/components/main/certifications-section";
+import { CmsPageSections } from "@/components/main/cms-page-sections";
 import { Breadcrumbs } from "@/components/seo/breadcrumbs";
 import { JsonLd } from "@/components/seo/json-ld";
 import { PageIntro } from "@/components/seo/page-intro";
 import { getPortfolioContent } from "@/lib/cms";
+import { resolveCmsPageRoute } from "@/lib/cms-page-routing";
 import { createCmsPageMetadata } from "@/lib/seo/metadata";
 import { credentialSchema } from "@/lib/seo/schema";
 
@@ -16,6 +19,35 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function CertificationsPage() {
   const content = await getPortfolioContent();
+  const route = resolveCmsPageRoute(content, "certifications");
+
+  if (route.mode === "not-found") notFound();
+
+  if (route.mode === "cms") {
+    return (
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="min-h-screen pt-24"
+      >
+        <JsonLd
+          data={content.certifications.map((certification, index) =>
+            credentialSchema(certification, index),
+          )}
+        />
+        <div className="relative z-20 mx-auto max-w-7xl px-6">
+          <Breadcrumbs
+            items={[
+              { name: "Home", href: "/" },
+              { name: "Certifications", href: "/certifications" },
+            ]}
+          />
+        </div>
+        <CmsPageSections content={content} pageKey="certifications" />
+      </main>
+    );
+  }
+
   const page = content.pages.find((item) => item.pageKey === "certifications");
 
   return (

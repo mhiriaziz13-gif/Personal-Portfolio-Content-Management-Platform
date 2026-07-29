@@ -178,6 +178,11 @@ body {
   will-change: transform;
 }
 
+.rotating-title-reduced-motion-fallback {
+  display: none;
+  white-space: nowrap;
+}
+
 .rotating-title-item {
   flex: 0 0 1.75rem;
   height: 1.75rem;
@@ -259,8 +264,11 @@ body {
   }
 
   .rotating-title-track {
-    animation: none;
-    transform: none;
+    display: none;
+  }
+
+  .rotating-title-reduced-motion-fallback {
+    display: inline;
   }
 
   .button-primary,

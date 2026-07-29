@@ -9,6 +9,7 @@ type QueryRecord = {
 const state = vi.hoisted(() => ({
   rows: {} as Record<string, Row[]>,
   queries: [] as QueryRecord[],
+  failures: new Set<string>(),
 }));
 
 vi.mock("next/cache", () => ({
@@ -51,12 +52,21 @@ vi.mock("@/lib/supabase/server", () => ({
             return query;
           },
           then: (
-            resolve: (result: { data: Row[]; error: null }) => unknown,
+            resolve: (result: {
+              data: Row[] | null;
+              error: { message: string } | null;
+            }) => unknown,
           ) => {
             state.queries.push({
               table,
               filters: [...filters],
             });
+            if (state.failures.has(table)) {
+              return Promise.resolve({
+                data: null,
+                error: { message: "simulated read failure" },
+              }).then(resolve);
+            }
             let rows = [...(state.rows[table] ?? [])].filter((row) =>
               filters.every(([column, value]) => row[column] === value),
             );
@@ -86,6 +96,7 @@ describe("public CMS publication boundary", () => {
     vi.unstubAllEnvs();
     vi.stubEnv("E2E_USE_FIXTURES", "false");
     state.queries.length = 0;
+    state.failures.clear();
     state.rows = {
       projects: [
         {
@@ -224,5 +235,44 @@ describe("public CMS publication boundary", () => {
       ["is_visible", true],
       ["is_archived", false],
     ]));
+  });
+
+  it("falls back to legacy routes when page sections cannot be confirmed", async () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    state.failures.add("page_sections");
+
+    const { getPortfolioContent } = await import("@/lib/cms");
+    const { resolveCmsPageRoute } = await import("@/lib/cms-page-routing");
+
+    const content = await getPortfolioContent();
+
+    expect(content.pages.map((page) => page.pageKey)).toEqual(["projects"]);
+    expect(content.delivery.pages).toBe("failed");
+    expect(resolveCmsPageRoute(content, "projects")).toEqual({
+      mode: "legacy-fallback",
+      page: null,
+    });
+    expect(warning).toHaveBeenCalledWith("Public CMS read failed.", {
+      incidentId: "CMS-PUBLIC-PAGE-SECTIONS-READ",
+    });
+  });
+
+  it("gives every confirmed E2E canonical page meaningful controlled content", async () => {
+    vi.stubEnv("E2E_USE_FIXTURES", "true");
+    vi.stubEnv("VERCEL", "0");
+
+    const { getPortfolioContent } = await import("@/lib/cms");
+    const content = await getPortfolioContent();
+
+    expect(content.delivery.pages).toBe("ok");
+    expect(content.pages).toHaveLength(9);
+    for (const fixturePage of content.pages) {
+      expect(fixturePage.sections).toHaveLength(1);
+      expect(fixturePage.sections[0]?.description.trim()).not.toBe("");
+    }
+    expect(
+      content.pages.find((fixturePage) => fixturePage.pageKey === "home")
+        ?.sections[0]?.sectionType,
+    ).toBe("hero");
   });
 });

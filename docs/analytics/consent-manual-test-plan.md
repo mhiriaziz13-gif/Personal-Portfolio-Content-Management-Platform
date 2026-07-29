@@ -60,9 +60,10 @@ Use production plus GTM Tag Assistant. Browser validation is required; the stati
 4. Reject analytics.
 5. Verify consent update to denied.
 6. Verify first-party GA and Clarity cookies are removed.
-7. Verify future events do not fire.
-8. Verify auth/security cookies remain.
-9. Verify no page reload is required.
+7. Verify the page reloads once and GTM, Clarity, Vercel Analytics and Speed
+   Insights remain absent afterward.
+8. Verify future events do not fire.
+9. Verify auth/security cookies remain.
 
 ## Scenario F — Events
 

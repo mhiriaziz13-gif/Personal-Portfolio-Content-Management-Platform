@@ -421,8 +421,10 @@ select
       and (
         title not ilike '%prototype%'
         or summary not ilike '%two-person%'
-        or summary not ilike '%not deployed to production%'
-        or description not ilike '%prototype%'
+        or summary not ilike '%chatbot%'
+        or summary not ilike '%selected application services%'
+        or summary not ilike '%not presented as a production deployment%'
+        or description not ilike '%not sole-authored%'
       )
   )
   and not exists (
@@ -432,8 +434,12 @@ select
       and (
         array_to_string(points, ' ') not ilike '%prototype%'
         or array_to_string(points, ' ') not ilike '%two-person%'
+        or array_to_string(points, ' ') not ilike '%chatbot%'
         or array_to_string(points, ' ')
-            not ilike '%not deployed to production%'
+            not ilike '%selected application services%'
+        or array_to_string(points, ' ')
+            not ilike '%not presented as a production deployment%'
+        or array_to_string(points, ' ') not ilike '%not sole-authored%'
       )
   ) as vermeg_prototype_attribution_bounded;
 
@@ -585,6 +591,100 @@ select
 from pg_class as relation
 where relation.oid = 'public.cms_content_revisions'::regclass;
 
+-- Builder duplicate idempotency state must remain reachable only through the
+-- service-role compound RPC. Every boolean should be true.
+select
+  relation.relrowsecurity as rls_enabled,
+  not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'cms_builder_action_requests'
+  ) as no_browser_policies,
+  not (
+    has_table_privilege(
+      'anon',
+      'public.cms_builder_action_requests',
+      'select'
+    )
+    or has_table_privilege(
+      'anon',
+      'public.cms_builder_action_requests',
+      'insert'
+    )
+    or has_table_privilege(
+      'anon',
+      'public.cms_builder_action_requests',
+      'update'
+    )
+    or has_table_privilege(
+      'anon',
+      'public.cms_builder_action_requests',
+      'delete'
+    )
+  ) as anon_has_no_direct_access,
+  not (
+    has_table_privilege(
+      'authenticated',
+      'public.cms_builder_action_requests',
+      'select'
+    )
+    or has_table_privilege(
+      'authenticated',
+      'public.cms_builder_action_requests',
+      'insert'
+    )
+    or has_table_privilege(
+      'authenticated',
+      'public.cms_builder_action_requests',
+      'update'
+    )
+    or has_table_privilege(
+      'authenticated',
+      'public.cms_builder_action_requests',
+      'delete'
+    )
+  ) as authenticated_has_no_direct_access,
+  not (
+    has_table_privilege(
+      'service_role',
+      'public.cms_builder_action_requests',
+      'select'
+    )
+    or has_table_privilege(
+      'service_role',
+      'public.cms_builder_action_requests',
+      'insert'
+    )
+    or has_table_privilege(
+      'service_role',
+      'public.cms_builder_action_requests',
+      'update'
+    )
+    or has_table_privilege(
+      'service_role',
+      'public.cms_builder_action_requests',
+      'delete'
+    )
+  ) as service_role_must_use_rpc,
+  has_function_privilege(
+    'service_role',
+    'public.mutate_cms_builder_action(text,text,uuid,timestamp with time zone,uuid,timestamp with time zone,text,uuid,uuid)',
+    'execute'
+  ) as service_role_can_execute_builder_rpc,
+  not has_function_privilege(
+    'anon',
+    'public.mutate_cms_builder_action(text,text,uuid,timestamp with time zone,uuid,timestamp with time zone,text,uuid,uuid)',
+    'execute'
+  ) as anon_cannot_execute_builder_rpc,
+  not has_function_privilege(
+    'authenticated',
+    'public.mutate_cms_builder_action(text,text,uuid,timestamp with time zone,uuid,timestamp with time zone,text,uuid,uuid)',
+    'execute'
+  ) as authenticated_cannot_execute_builder_rpc
+from pg_class as relation
+where relation.oid = 'public.cms_builder_action_requests'::regclass;
+
 -- Rate-limit storage and RPC shape. Table ACLs should show no rows for
 -- PUBLIC/anon/authenticated/service_role; the function ACLs should grant only
 -- service_role (besides the owner).
@@ -719,6 +819,7 @@ where (
       'admin_security_preferences',
       'admins',
       'certifications',
+      'cms_builder_action_requests',
       'cms_content_revisions',
       'contact_messages',
       'education',
@@ -774,6 +875,7 @@ with expanded_policies as (
           'admin_security_preferences',
           'admins',
           'certifications',
+          'cms_builder_action_requests',
           'cms_content_revisions',
           'contact_messages',
           'education',
@@ -822,6 +924,7 @@ with target_tables(table_name) as (
     'admin_security_preferences',
     'admins',
     'certifications',
+    'cms_builder_action_requests',
     'cms_content_revisions',
     'contact_messages',
     'education',

@@ -4,6 +4,23 @@ import {
   isPublicAnalyticsPath,
 } from "@/lib/analytics/consent";
 
+export type VirtualPageViewEvent = {
+  event: "virtual_page_view";
+  page_path: string;
+  page_location: string;
+  page_title: string;
+};
+
+export type AnalyticsConsentUpdatedEvent = {
+  event: "analytics_consent_updated";
+  analytics_consent: "granted" | "denied";
+};
+
+export type GoogleTagManagerStartEvent = {
+  event: "gtm.js";
+  "gtm.start": number;
+};
+
 export type AnalyticsEvent =
   | {
       event: "project_view";
@@ -71,6 +88,19 @@ export type AnalyticsEvent =
       link_location: "project_card" | "project_page" | "navbar" | "footer" | "contact" | "about";
     };
 
+export type AnalyticsDataLayerEvent =
+  | AnalyticsEvent
+  | AnalyticsConsentUpdatedEvent
+  | GoogleTagManagerStartEvent
+  | VirtualPageViewEvent;
+
+export type AnalyticsDataLayerItem = AnalyticsDataLayerEvent | IArguments;
+
+export const pushDataLayerEvent = (event: AnalyticsDataLayerEvent) => {
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push(event);
+};
+
 export const pushAnalyticsEvent = (event: AnalyticsEvent) => {
   if (
     typeof window === "undefined" ||
@@ -80,7 +110,6 @@ export const pushAnalyticsEvent = (event: AnalyticsEvent) => {
   ) {
     return false;
   }
-  window.dataLayer = window.dataLayer || [];
-  window.dataLayer.push(event);
+  pushDataLayerEvent(event);
   return true;
 };

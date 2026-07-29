@@ -3,6 +3,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseAdminConfigured } from "@/lib/supabase/config";
 import { hmacSha256Hex } from "@/lib/security/crypto";
 import { assertSameOrigin, clientIp, jsonError, jsonOk, userAgent } from "@/lib/security/http";
+import { privacyHmacSecret } from "@/lib/security/privacy";
 import { consumeRateLimit, rateLimitResponse } from "@/lib/security/rate-limit";
 import { verifyCaptcha } from "@/lib/security/captcha";
 import { contactSchema } from "@/lib/security/validation";
@@ -55,14 +56,16 @@ export async function POST(request: Request) {
     }
 
     const supabase = createSupabaseAdminClient();
-    const privacySecret =
-      process.env.PRIVACY_HMAC_SECRET?.trim()
-      || process.env.RATE_LIMIT_HMAC_SECRET?.trim()
-      || "";
+    const privacySecret = privacyHmacSecret();
+    if (!privacySecret) {
+      return jsonError(
+        "Message delivery is temporarily unavailable.",
+        503,
+        "privacy_configuration_unavailable",
+      );
+    }
     const hash = (value: string | null) =>
-      value && privacySecret.length >= 32
-        ? hmacSha256Hex(value, privacySecret)
-        : null;
+      value ? hmacSha256Hex(value, privacySecret) : null;
 
     const inserted = await supabase
       .from("contact_messages")

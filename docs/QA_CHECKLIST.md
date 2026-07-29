@@ -118,4 +118,5 @@ delete and revision history, plus upload pending-grace/reconciled deletion.
 - [ ] Recovery email reaches `/admin/reset-password` and remembered devices are revoked.
 - [ ] TOTP enrollment, verification, required-login challenge and revocation work.
 - [ ] LinkedIn icon is visible in the footer.
-- [ ] Vercel Analytics, Speed Insights and one GA tag appear in production.
+- [ ] Vercel Analytics, Speed Insights and one GA tag appear only after
+      analytics consent on public production routes.

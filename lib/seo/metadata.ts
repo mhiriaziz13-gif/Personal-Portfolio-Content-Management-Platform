@@ -106,12 +106,36 @@ export const createPageMetadata = ({
 export const getPublicPageDefinition = (pageKey: PublicPageKey) =>
   publicPageDefinitions.find((definition) => definition.pageKey === pageKey)!;
 
+export const getPublishedPublicPages = (content: PortfolioContent) => {
+  if (
+    content.delivery.source !== "cms" ||
+    content.delivery.pages !== "ok"
+  ) {
+    return [];
+  }
+
+  const pagesByKey = new Map(
+    content.pages
+      .filter((page) => page.isPublished)
+      .map((page) => [page.pageKey, page]),
+  );
+
+  return publicPageDefinitions.flatMap((definition) => {
+    const page = pagesByKey.get(definition.pageKey);
+    return page ? [{ definition, page }] : [];
+  });
+};
+
 export const createCmsPageMetadata = (
   content: PortfolioContent,
   pageKey: PublicPageKey,
 ) => {
   const definition = getPublicPageDefinition(pageKey);
-  const page = content.pages.find((candidate) => candidate.pageKey === pageKey);
+  const page = content.pages.find(
+    (candidate) =>
+      candidate.pageKey === pageKey &&
+      candidate.isPublished,
+  );
   const pageRegistryUnavailable =
     content.delivery.source === "fallback" || content.delivery.pages === "failed";
 

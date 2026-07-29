@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { readPublicCmsRows } from "@/lib/cms";
+import { mapCmsNavigation, readPublicCmsRows } from "@/lib/cms";
 
 describe("public CMS partial failures", () => {
   afterEach(() => {
@@ -58,5 +58,24 @@ describe("public CMS partial failures", () => {
       { rows: [{ title: "CMS title" }], ok: true },
       { rows: [], ok: false },
     ]);
+  });
+
+  it("does not restore unpublished routes when section controls fail", () => {
+    const links = mapCmsNavigation(
+      [
+        {
+          id: "page-home",
+          page_key: "home",
+          title: "Home",
+          navigation_label: "Home",
+          navigation_order: 0,
+          show_in_navigation: true,
+          show_in_footer: true,
+        },
+      ],
+      [],
+    );
+
+    expect(links.map((link) => link.href)).toEqual(["/"]);
   });
 });

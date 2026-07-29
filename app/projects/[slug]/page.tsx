@@ -16,10 +16,10 @@ import type {
   ProjectMediaContent,
   ProjectSectionContent,
 } from "@/lib/cms-types";
+import { getProjectSectionLayout } from "@/lib/project-section-layout";
 import { getRelatedProjects } from "@/lib/related-projects";
 import { createPageMetadata } from "@/lib/seo/metadata";
 import { projectSchema } from "@/lib/seo/schema";
-import { isHttpsUrl } from "@/lib/utils";
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -64,6 +64,14 @@ export default async function ProjectDetailPage({ params }: PageProps) {
   const unattachedMedia = project.media.filter(
     (media) => !attachedMediaIds.has(media.id),
   );
+  const projectRole = getProjectRole(project.slug, sections);
+  const tools = project.tools?.length ? project.tools : project.tags;
+  const evidenceSummary =
+    sections.length > 0
+      ? `${sections.length} documented case-study ${
+          sections.length === 1 ? "section" : "sections"
+        }${project.media.length > 0 ? ` and ${project.media.length} media item${project.media.length === 1 ? "" : "s"}` : ""}`
+      : "Published project summary";
 
   return (
     <main
@@ -89,7 +97,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
         />
         <Link
           href="/projects"
-          className="button-secondary inline-flex w-fit items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold"
+          className="button-secondary inline-flex min-h-11 w-fit items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold"
         >
           <span aria-hidden="true">←</span> Back to projects
         </Link>
@@ -108,6 +116,21 @@ export default async function ProjectDetailPage({ params }: PageProps) {
             projectTitle={project.title}
             className="mt-5"
           />
+          {project.demoUrl ? (
+            <TrackedLink
+              href={project.demoUrl}
+              analyticsEvent={{
+                event: "project_demo_click",
+                project_title: project.title,
+                cta_location: "project_page",
+              }}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="button-secondary mt-5 inline-flex min-h-11 items-center rounded-lg px-4 py-2.5 text-sm font-semibold"
+            >
+              View project demo
+            </TrackedLink>
+          ) : null}
         </header>
 
         <div className="relative aspect-[16/9] overflow-hidden rounded-lg border border-[#2A0E61] bg-[#08021c]/70 shadow-lg shadow-[#2A0E61]/20">
@@ -117,11 +140,32 @@ export default async function ProjectDetailPage({ params }: PageProps) {
             fill
             sizes="(min-width: 1024px) 960px, 100vw"
             className="object-cover opacity-90"
-            unoptimized={isHttpsUrl(project.image)}
             data-image-fallback="swap"
             data-fallback-src="/projects/project-1.png"
           />
         </div>
+
+        <section
+          aria-labelledby="project-at-a-glance"
+          className="rounded-lg border border-cyan-300/20 bg-cyan-300/[0.06] p-5"
+        >
+          <h2
+            id="project-at-a-glance"
+            className="text-xl font-bold text-white"
+          >
+            At a glance
+          </h2>
+          <dl className="mt-4 grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
+            <ProjectFact label="Type" value={project.type || "Case study"} />
+            <ProjectFact label="Role" value={projectRole} />
+            <ProjectFact label="Status" value="Published case study" />
+            <ProjectFact
+              label="Tools"
+              value={tools.length > 0 ? tools.join(", ") : "Not publicly specified"}
+            />
+            <ProjectFact label="Evidence" value={evidenceSummary} />
+          </dl>
+        </section>
 
         {project.tags.length > 0 && (
           <ul className="flex flex-wrap gap-2" aria-label="Project topics">
@@ -137,11 +181,12 @@ export default async function ProjectDetailPage({ params }: PageProps) {
         )}
 
         {sections.length > 0 && (
-          <div className="grid gap-5">
-            {sections.map((section) => (
+          <div className="divide-y divide-white/10 border-y border-white/10">
+            {sections.map((section, index) => (
               <CaseStudySection
                 key={section.id ?? `${project.slug}-${section.title}`}
                 section={section}
+                prominent={index === 0}
               />
             ))}
           </div>
@@ -157,8 +202,8 @@ export default async function ProjectDetailPage({ params }: PageProps) {
           </section>
         )}
 
-        {related.length > 0 && (
-          <section className="rounded-lg border border-white/10 bg-[#100b24]/90 p-6">
+        {related.length > 0 ? (
+          <section>
             <h2 className="text-2xl font-bold text-white">Related work</h2>
             <div className="mt-4 flex flex-col gap-3">
               {related.map((item) => (
@@ -171,39 +216,43 @@ export default async function ProjectDetailPage({ params }: PageProps) {
                     project_title: item.title,
                     cta_location: "related_projects",
                   }}
-                  className="action-link w-fit"
+                  className="action-link inline-flex min-h-11 w-fit items-center"
                 >
                   View the {item.title} case study
                 </TrackedLink>
               ))}
             </div>
-            <div className="mt-7 flex flex-wrap gap-3">
-              <Link
-                href="/expertise"
-                className="button-secondary rounded-lg px-4 py-2.5 text-sm font-semibold"
-              >
-                Explore relevant expertise
-              </Link>
-              <Link
-                href="/experience"
-                className="button-secondary rounded-lg px-4 py-2.5 text-sm font-semibold"
-              >
-                Review professional experience
-              </Link>
-              <TrackedLink
-                href="/contact"
-                analyticsEvent={{
-                  event: "contact_cta_click",
-                  cta_location: "project_page",
-                  cta_label: "project_contact",
-                }}
-                className="button-primary rounded-lg px-4 py-2.5 text-sm font-semibold text-white"
-              >
-                Discuss a related opportunity
-              </TrackedLink>
-            </div>
           </section>
-        )}
+        ) : null}
+
+        <nav
+          aria-label="Project next steps"
+          className="flex flex-wrap gap-3 border-t border-white/10 pt-7"
+        >
+          <Link
+            href="/expertise"
+            className="button-secondary inline-flex min-h-11 items-center rounded-lg px-4 py-2.5 text-sm font-semibold"
+          >
+            Explore relevant expertise
+          </Link>
+          <Link
+            href="/experience"
+            className="button-secondary inline-flex min-h-11 items-center rounded-lg px-4 py-2.5 text-sm font-semibold"
+          >
+            Review professional experience
+          </Link>
+          <TrackedLink
+            href="/contact"
+            analyticsEvent={{
+              event: "contact_cta_click",
+              cta_location: "project_page",
+              cta_label: "project_contact",
+            }}
+            className="button-primary inline-flex min-h-11 items-center rounded-lg px-4 py-2.5 text-sm font-semibold text-white"
+          >
+            Discuss a related opportunity
+          </TrackedLink>
+        </nav>
       </article>
     </main>
   );
@@ -211,36 +260,57 @@ export default async function ProjectDetailPage({ params }: PageProps) {
 
 function CaseStudySection({
   section,
+  prominent,
 }: {
   section: ProjectSectionContent;
+  prominent: boolean;
 }) {
-  return (
-    <section
-      data-project-section
-      className="rounded-lg border border-white/10 bg-[#100b24]/90 p-6 shadow-xl shadow-[#2A0E61]/20 backdrop-blur-md"
-    >
+  const paragraphs = section.body
+    .split(/\r?\n+/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+  const sectionType =
+    section.sectionType === "media_gallery" ? "media_gallery" : "rich_text";
+  const layout = getProjectSectionLayout(
+    sectionType,
+    section.layoutVariant,
+  );
+  const hasSupportingContent =
+    section.items.length > 0 || section.media.length > 0;
+  const splitContent = layout.splitContent && hasSupportingContent;
+
+  const copy = (
+    <div className={layout.contentClassName}>
       {section.title && (
         <h2 className="text-2xl font-bold text-white">{section.title}</h2>
       )}
-      {section.body && (
-        <p className="mt-4 whitespace-pre-line text-sm leading-7 text-gray-300">
-          {section.body}
-        </p>
-      )}
+      {paragraphs.length > 0 ? (
+        <div className="mt-4 space-y-4 text-sm leading-7 text-gray-300">
+          {paragraphs.map((paragraph) => (
+            <p key={paragraph}>{paragraph}</p>
+          ))}
+        </div>
+      ) : null}
       {section.bullets.length > 0 && (
-        <ul className="mt-4 ml-4 list-disc space-y-2 text-sm leading-6 text-gray-300">
+        <ul className="mt-5 ml-5 list-disc space-y-2 text-sm leading-7 text-gray-300">
           {section.bullets.map((bullet) => (
             <li key={bullet}>{bullet}</li>
           ))}
         </ul>
       )}
+    </div>
+  );
+
+  const supportingContent = (
+    <>
       {section.items.length > 0 && (
-        <dl className="mt-5 grid gap-4 md:grid-cols-2">
+        <dl
+          className={`grid gap-4 ${
+            splitContent ? "" : "mt-6"
+          } ${layout.itemGridClassName}`}
+        >
           {section.items.map((item) => (
-            <div
-              key={item.id}
-              className="rounded-md border border-white/10 bg-black/10 p-4"
-            >
+            <div key={item.id} className={layout.itemClassName}>
               {item.label && (
                 <dt className="text-sm font-semibold text-cyan-100">
                   {item.label}
@@ -256,29 +326,67 @@ function CaseStudySection({
         </dl>
       )}
       {section.media.length > 0 && (
-        <ProjectMediaGallery media={section.media} />
+        <ProjectMediaGallery
+          media={section.media}
+          gridClassName={layout.mediaGridClassName}
+          figureClassName={layout.mediaFigureClassName}
+          flush={splitContent}
+        />
+      )}
+    </>
+  );
+
+  return (
+    <section
+      data-project-section
+      data-layout-variant={section.layoutVariant}
+      className={`${layout.sectionClassName} ${
+        prominent ? "border-l-2 border-l-cyan-300/60 pl-5 sm:pl-7" : ""
+      }`}
+    >
+      {splitContent ? (
+        <div className="grid gap-7 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:gap-10">
+          {copy}
+          <div>{supportingContent}</div>
+        </div>
+      ) : (
+        <>
+          {copy}
+          {supportingContent}
+        </>
       )}
     </section>
   );
 }
 
-function ProjectMediaGallery({ media }: { media: ProjectMediaContent[] }) {
+function ProjectMediaGallery({
+  media,
+  gridClassName = "max-w-4xl grid-cols-1",
+  figureClassName = "",
+  flush = false,
+}: {
+  media: ProjectMediaContent[];
+  gridClassName?: string;
+  figureClassName?: string;
+  flush?: boolean;
+}) {
   return (
-    <div className="mt-5 grid gap-5 md:grid-cols-2">
+    <div
+      className={`${flush ? "" : "mt-5"} grid gap-5 ${gridClassName}`}
+    >
       {media.map((item) => (
         <figure
           key={item.id}
-          className="overflow-hidden rounded-lg border border-white/10 bg-[#08021c]/70"
+          className={`overflow-hidden rounded-lg border border-white/10 bg-[#08021c]/70 ${figureClassName}`}
         >
           {item.mediaType === "image" ? (
             <div className="relative aspect-video">
               <Image
                 src={item.mediaUrl}
-                alt={item.altText}
+                alt={item.altText || "Project evidence"}
                 fill
                 sizes="(min-width: 768px) 460px, 100vw"
                 className="object-cover"
-                unoptimized={isHttpsUrl(item.mediaUrl)}
                 data-image-fallback="swap"
                 data-fallback-src="/projects/project-1.png"
               />
@@ -311,4 +419,56 @@ function ProjectMediaGallery({ media }: { media: ProjectMediaContent[] }) {
       ))}
     </div>
   );
+}
+
+function ProjectFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-xs font-semibold uppercase tracking-wider text-cyan-200">
+        {label}
+      </dt>
+      <dd className="mt-1 text-sm leading-6 text-gray-200">{value}</dd>
+    </div>
+  );
+}
+
+const normalizeFactLabel = (value: string) =>
+  value.trim().toLowerCase().replace(/[^a-z]+/g, " ");
+
+function getProjectRole(
+  slug: string,
+  sections: ProjectSectionContent[],
+) {
+  const roleItem = sections
+    .flatMap((section) => section.items)
+    .find((item) => {
+      const label = normalizeFactLabel(item.label);
+      return (
+        label === "role" ||
+        label === "contribution" ||
+        label === "project role"
+      );
+    });
+
+  if (roleItem) return roleItem.value || roleItem.description;
+  if (
+    slug === "sunshine-rpa-commercial-rules-automation" ||
+    slug === "rpa-invoice-control-booking-reconciliation"
+  ) {
+    return "Sole contributor";
+  }
+  if (
+    slug === "vermeg-ai-ready-e-learning-platform" ||
+    slug === "ai-ready-elearning-platform"
+  ) {
+    return "Contributor in a two-person internship prototype";
+  }
+  if (
+    sections.some((section) =>
+      /role|scope|contribution/i.test(section.title),
+    )
+  ) {
+    return "Described in Role and scope below";
+  }
+  return "Not stated publicly";
 }

@@ -2,6 +2,10 @@ import { unstable_cache } from "next/cache";
 import { cache } from "react";
 
 import { fallbackPortfolioContent, primaryNavigation } from "@/data/fallback-portfolio";
+import {
+  normalizeCmsBlockType,
+  normalizeCmsLayoutVariant,
+} from "@/lib/cms-block-registry";
 import { cmsSelectColumns } from "@/lib/cms-columns";
 import { hasMeaningfulProjectSection } from "@/lib/content-completeness";
 import type {
@@ -21,6 +25,7 @@ import type {
   ResumeContent,
   SkillCategory,
 } from "@/lib/cms-types";
+import { createVolunteeringFooterLink } from "@/lib/navigation";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseAdminConfigured, isSupabaseConfigured } from "@/lib/supabase/config";
 import { createSupabasePublicClient } from "@/lib/supabase/server";
@@ -84,7 +89,7 @@ const publicColumns = {
   projects:
     "id,slug,title,type,summary,description,cover_image_url,placeholder_image_url,card_image_url,tags,tools,github_url,linkedin_url,demo_url,featured,published,status,project_group,home_featured_order,projects_page_order,sort_order,seo_title,seo_description,open_graph_image,created_at,updated_at",
   projectSections:
-    "id,project_id,title,body,bullets,sort_order,section_type,is_visible,is_archived,created_at,updated_at",
+    "id,project_id,title,body,bullets,sort_order,section_type,layout_variant,is_visible,is_archived,created_at,updated_at",
   projectSectionItems:
     "id,project_section_id,label,value,description,display_order,is_visible,updated_at",
   projectMedia:
@@ -98,7 +103,7 @@ const publicColumns = {
   resumes: "id,label,variant,pdf_url,docx_url,sort_order,published,updated_at",
   socialLinks: "id,label,url,icon_key,sort_order,published,updated_at",
   pages:
-    "id,page_key,title,slug,seo_title,seo_description,open_graph_title,open_graph_description,open_graph_image,is_published,updated_at",
+    "id,page_key,title,slug,seo_title,seo_description,open_graph_title,open_graph_description,open_graph_image,navigation_label,navigation_order,show_in_navigation,show_in_footer,is_published,updated_at",
   pageSections:
     "id,page_id,section_type,title,subtitle,description,cta_label,cta_href,secondary_cta_label,secondary_cta_href,display_order,layout_variant,is_visible,is_archived,updated_at",
   pageSectionItems:
@@ -154,6 +159,109 @@ const readStringArray = (value: unknown): string[] =>
 const readTimestamp = (value: unknown) => {
   const candidate = readText(value);
   return candidate && Number.isFinite(Date.parse(candidate)) ? candidate : "";
+};
+
+const readBoolean = (value: unknown, fallback: boolean) =>
+  typeof value === "boolean" ? value : fallback;
+
+const canonicalPageKeyByHref: Record<string, string> = {
+  "/": "home",
+  "/projects": "projects",
+  "/experience": "experience",
+  "/expertise": "expertise",
+  "/about": "about",
+  "/contact": "contact",
+  "/resume": "resume",
+  "/education": "education",
+  "/certifications": "certifications",
+};
+
+export const mapCmsNavigation = (
+  pageRows: CmsRow[],
+  pageSectionRows?: CmsRow[],
+) => {
+  const byPageKey = new Map(
+    pageRows.map((row) => [readText(row.page_key), row]),
+  );
+  const pageKeyById = new Map(
+    pageRows.map((row) => [readText(row.id), readText(row.page_key)]),
+  );
+  const volunteeringControl = pageSectionRows
+    ? [...pageSectionRows]
+        .filter(
+          (row) =>
+            readText(row.section_type) === "volunteering" &&
+            readBoolean(row.is_visible, true) &&
+            !readBoolean(row.is_archived, false) &&
+            pageKeyById.has(readText(row.page_id)),
+        )
+        .sort((left, right) => {
+          const sourceRank = (row: CmsRow) => {
+            const pageKey = pageKeyById.get(readText(row.page_id));
+            if (pageKey === "about") return 0;
+            if (pageKey === "home") return 1;
+            return 2;
+          };
+
+          return (
+            sourceRank(left) - sourceRank(right) ||
+            Number(left.display_order ?? 0) -
+              Number(right.display_order ?? 0)
+          );
+        })[0]
+    : undefined;
+
+  return primaryNavigation
+    .map((fallback) => {
+      if (fallback.href === "/about#volunteering") {
+        if (!pageSectionRows) return { ...fallback };
+        if (!volunteeringControl || !byPageKey.has("about")) return null;
+
+        const sourcePage = byPageKey.get("about");
+
+        return createVolunteeringFooterLink({
+          label: readText(volunteeringControl.title),
+          aboutNavigationOrder: Number(
+            sourcePage?.navigation_order ?? 40,
+          ),
+          blockDisplayOrder: Number(
+            volunteeringControl.display_order ?? 50,
+          ),
+          isVisible: true,
+        });
+      }
+
+      const pageKey = canonicalPageKeyByHref[fallback.href];
+      const row = pageKey ? byPageKey.get(pageKey) : undefined;
+      if (!row) {
+        return pageSectionRows ? null : { ...fallback };
+      }
+
+      return {
+        ...fallback,
+        title:
+          readText(row.navigation_label) ||
+          readText(row.title) ||
+          fallback.title,
+        navigationOrder: Number.isFinite(Number(row.navigation_order))
+          ? Number(row.navigation_order)
+          : fallback.navigationOrder,
+        showInNavigation: readBoolean(
+          row.show_in_navigation,
+          fallback.showInNavigation,
+        ),
+        showInFooter: readBoolean(
+          row.show_in_footer,
+          fallback.showInFooter,
+        ),
+      };
+    })
+    .filter(
+      (link): link is NonNullable<typeof link> => link !== null,
+    )
+    .sort(
+      (left, right) => left.navigationOrder - right.navigationOrder,
+    );
 };
 
 const latestTimestamp = (...values: string[]) =>
@@ -309,6 +417,35 @@ const loadProfileRows = unstable_cache(
   },
   ["public-cms-profile-v2"],
   { revalidate: PUBLIC_REVALIDATE_SECONDS, tags: ["public-cms-profile"] },
+);
+
+const loadNavigationRows = unstable_cache(
+  async () => {
+    const supabase = createSupabasePublicClient();
+    const [pages, pageSections] = await Promise.all([
+      readPublicRows(
+        "CMS-PUBLIC-NAVIGATION-READ",
+        supabase
+          .from("pages")
+          .select(publicColumns.pages)
+          .eq("is_published", true)
+          .order("navigation_order", { ascending: true }),
+      ),
+      readPublicRows(
+        "CMS-PUBLIC-NAVIGATION-SECTIONS-READ",
+        supabase
+          .from("page_sections")
+          .select(publicColumns.pageSections)
+          .eq("is_visible", true)
+          .eq("is_archived", false)
+          .order("display_order", { ascending: true }),
+      ),
+    ]);
+
+    return { pages, pageSections };
+  },
+  ["public-cms-navigation-v2"],
+  { revalidate: PUBLIC_REVALIDATE_SECONDS, tags: ["public-cms-presentation"] },
 );
 
 const loadPresentationRows = unstable_cache(
@@ -602,7 +739,7 @@ const mapPages = (
       return {
         id: readText(section.id),
         pageKey: readText(row.page_key),
-        sectionType: readText(section.section_type) || "rich_text",
+        sectionType: normalizeCmsBlockType(section.section_type),
         title: readText(section.title),
         subtitle: readText(section.subtitle),
         description: readText(section.description),
@@ -611,7 +748,10 @@ const mapPages = (
         secondaryCtaLabel: readText(section.secondary_cta_label),
         secondaryCtaHref: readText(section.secondary_cta_href),
         displayOrder: Number(section.display_order ?? 0),
-        layoutVariant: readText(section.layout_variant),
+        layoutVariant: normalizeCmsLayoutVariant(
+          normalizeCmsBlockType(section.section_type),
+          section.layout_variant,
+        ),
         items: sectionItems,
         updatedAt: latestTimestamp(
           readTimestamp(section.updated_at),
@@ -635,6 +775,11 @@ const mapPages = (
       openGraphTitle: readText(row.open_graph_title),
       openGraphDescription: readText(row.open_graph_description),
       openGraphImage: normalizeCmsAssetPath(row.open_graph_image),
+      navigationLabel:
+        readText(row.navigation_label) || readText(row.title),
+      navigationOrder: Number(row.navigation_order ?? 0),
+      showInNavigation: readBoolean(row.show_in_navigation, false),
+      showInFooter: readBoolean(row.show_in_footer, false),
       isPublished: true,
       updatedAt: latestTimestamp(
         readTimestamp(row.updated_at),
@@ -701,7 +846,10 @@ const mapProjects = (
         ),
       )
         .map((section): ProjectSectionContent => {
-          const sectionType = readText(section.section_type) || "rich_text";
+          const sectionType =
+            readText(section.section_type) === "media_gallery"
+              ? "media_gallery"
+              : "rich_text";
           return {
           id: readText(section.id),
           projectSlug: slug,
@@ -712,12 +860,15 @@ const mapProjects = (
             (item) => item.projectSectionId === readText(section.id),
           ),
           media:
-            sectionType === "media_gallery" ||
-            sectionType === "media"
+            sectionType === "media_gallery"
               ? projectMedia
               : [],
           sortOrder: Number(section.sort_order ?? 0),
           sectionType,
+          layoutVariant: normalizeCmsLayoutVariant(
+            sectionType,
+            section.layout_variant,
+          ),
           isVisible: true,
           };
         })
@@ -803,8 +954,19 @@ const getPortfolioChromeContentImpl =
       };
     }
 
-    const profile = await loadProfileRows();
-    return { profile: mapProfile(profile), navLinks: primaryNavigation };
+    const [profile, navigation] = await Promise.all([
+      loadProfileRows(),
+      loadNavigationRows(),
+    ]);
+    return {
+      profile: mapProfile(profile),
+      navLinks: navigation.pages.ok
+        ? mapCmsNavigation(
+            navigation.pages.rows,
+            navigation.pageSections.ok ? navigation.pageSections.rows : [],
+          )
+        : primaryNavigation,
+    };
   };
 
 export const getPortfolioChromeContent = cache(
@@ -864,6 +1026,29 @@ const e2eFixtureContent = (): PortfolioContent => {
     ["resume", "CV", "/resume"],
     ["contact", "Contact", "/contact"],
   ] as const;
+  const fixturePageSection = (
+    pageKey: (typeof pageDefinitions)[number][0],
+    title: string,
+  ): PageSectionContent => ({
+    id: `e2e-page-section-${pageKey}`,
+    pageKey,
+    sectionType: pageKey === "home" ? "hero" : "rich_text",
+    title:
+      pageKey === "home"
+        ? fallbackPortfolioContent.hero.title
+        : title,
+    subtitle: "",
+    description:
+      `Controlled ${title} content used only by isolated browser validation.`,
+    ctaLabel: "",
+    ctaHref: "",
+    secondaryCtaLabel: "",
+    secondaryCtaHref: "",
+    displayOrder: 0,
+    layoutVariant: pageKey === "home" ? "compact" : "default",
+    items: [],
+    updatedAt,
+  });
 
   return {
     ...fallbackPortfolioContent,
@@ -881,9 +1066,13 @@ const e2eFixtureContent = (): PortfolioContent => {
       openGraphDescription:
         `${title} page for the isolated portfolio browser fixture.`,
       openGraphImage: "/opengraph-image",
+      navigationLabel: title === "CV" ? "Resume" : title,
+      navigationOrder: 0,
+      showInNavigation: !["education", "certifications"].includes(pageKey),
+      showInFooter: true,
       isPublished: true,
       updatedAt,
-      sections: [],
+      sections: [fixturePageSection(pageKey, title)],
     })),
     delivery: {
       source: "cms",
@@ -955,6 +1144,8 @@ const getPortfolioContentImpl = async (): Promise<PortfolioContent> => {
     projectsGroup.projectSectionItems.rows,
     projectsGroup.projectMedia.rows,
   );
+  const pageRegistryReadOk =
+    presentation.pages.ok && presentation.pageSections.ok;
 
   const experience: ExperienceContent[] = sortByOrder(
     career.experience.rows,
@@ -1041,11 +1232,18 @@ const getPortfolioContentImpl = async (): Promise<PortfolioContent> => {
         sortOrder: Number(row.sort_order ?? index),
       }),
     ),
-    navLinks: primaryNavigation,
+    navLinks: presentation.pages.ok
+      ? mapCmsNavigation(
+          presentation.pages.rows,
+          presentation.pageSections.ok
+            ? presentation.pageSections.rows
+            : [],
+        )
+      : primaryNavigation,
     delivery: {
       source: "cms",
       profile: profileResult.ok ? "ok" : "failed",
-      pages: presentation.pages.ok ? "ok" : "failed",
+      pages: pageRegistryReadOk ? "ok" : "failed",
       presentation: groupStatus(Object.values(presentation)),
       projects: groupStatus(Object.values(projectsGroup)),
       career: groupStatus(Object.values(career)),

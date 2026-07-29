@@ -2,29 +2,41 @@
 
 ## Status and non-negotiable safety rule
 
-Migration:
+Apply these exact reviewed migrations, one at a time, in this order:
 
-`supabase/migrations/20260727130027_portfolio_hardening_v1.sql`
+1. `supabase/migrations/20260727130026_contact_messages_compatibility.sql`
+2. `supabase/migrations/20260727130027_portfolio_hardening_v1.sql`
+3. `supabase/migrations/20260729120000_final_cms_content_alignment.sql`
 
 Verification:
 
 `supabase/security_advisor_verification.sql`
 
-This migration has **not** been applied to production by this repository change.
+These migrations have **not** been applied to production by this repository change.
 Production migration history diverges from the local historical sequence. Never
 run `supabase db push`, `supabase migration up`, a branch auto-migration, or any
 other apply-all-pending workflow against the existing project. In particular,
 `202607100001_clean_reset_and_seed.sql` drops and rebuilds portfolio tables and
 must never run against production.
 
-Apply only the exact reviewed hardening file in a controlled window. The file is
-transactional, takes a migration-scoped advisory lock, and aborts on unknown
-policy, function, index, or trigger drift. A failed preflight rolls back the whole
-transaction.
+Apply only the three exact reviewed files above in a controlled window. Each file
+is transactional, takes a migration-scoped advisory lock, and rolls back fully on
+a preflight, DDL, content-alignment, or postflight failure. Stop immediately if
+any file fails; do not continue to the next migration or edit around a guard.
 
-## What the migration changes
+## What the migrations change
 
-The migration is additive except for intentional privilege and policy tightening:
+`20260727130026_contact_messages_compatibility.sql`:
+
+- safely adds and backfills `updated_at`, `read_at`, and `archived_at`;
+- enforces only `new`, `read`, and `archived` message states;
+- installs the pinned status-timestamp function, exact triggers, constraint, and
+  status/creation index;
+- aborts on an unknown same-name function, trigger, constraint, or index and does
+  not change RLS, grants, Realtime, or Storage.
+
+`20260727130027_portfolio_hardening_v1.sql` is additive except for intentional
+privilege and policy tightening:
 
 - adds the three production-confirmed missing full foreign-key indexes:
   `admin_audit_logs.actor_user_id`,
@@ -40,7 +52,8 @@ The migration is additive except for intentional privilege and policy tightening
   ownership;
 - corrects only the known Summer 2027 profile/home-CTA strings to October 2027;
 - bounds the known VERMEG project and experience copy to a two-person internship
-  prototype, Ahmed's specific contribution, and its non-production status;
+  prototype, Ahmed's specific contribution, non-sole-authorship, and the fact
+  that it was not presented as a production deployment;
 - verifies or creates the expected `updated_at` triggers without replacing an
   incompatible live trigger;
 - consolidates public content reads to one anonymous and one authenticated
@@ -49,7 +62,23 @@ The migration is additive except for intentional privilege and policy tightening
   mutations are server-mediated;
 - adds explicit table and function grants.
 
-The migration deliberately does **not** add `admin_login_audit`,
+`20260729120000_final_cms_content_alignment.sql`:
+
+- adds CMS-controlled navigation labels/order/footer visibility while canonical
+  routes remain code-owned;
+- constrains page/project blocks and variants to the application registry;
+- makes compound block duplication retry-safe with a caller idempotency key,
+  an RPC-only request record, and atomic result replay;
+- fills only missing published SEO/social fields and uses project covers before
+  the global Open Graph fallback;
+- inserts only missing `expertise`, `education`, and `contact` registry rows
+  after rejecting conflicting key/slug ownership;
+- hides and archives empty/title-only project sections, adds concise
+  repository-evidenced case-study sections, preserves October 2027 availability,
+  keeps the Master project unpublished/in preparation, and enforces the approved
+  RPA and VERMEG attribution boundaries.
+
+The hardening sequence deliberately does **not** add `admin_login_audit`,
 `contact_messages.replied_by`, or actor foreign keys to `volunteering`; those
 objects were not present in the verified production shape. It does not remove
 rows, Storage objects, buckets, or existing columns.
@@ -114,13 +143,17 @@ Never send a raw IP address, email address, session token, or user agent to the
 RPC. Secret rotation changes derived keys and therefore starts fresh buckets;
 rotate intentionally, not during an incident investigation.
 
-Configure a separate high-entropy `PRIVACY_HMAC_SECRET` for persisted
-`ip_hash`/`user_agent_hash` values so those digests are not linkable to limiter
-keys. Configure a third independent `ADMIN_DEVICE_HMAC_SECRET` for remembered
-device context binding, password-recovery state signing, and admin audit hashes.
-Each secret must contain at least 32 random bytes. The admin secret has no
-fallback and must never reuse either other HMAC secret, a Supabase key, or any
-other application credential. Rotating that secret invalidates existing context
+Configure `PRIVACY_HMAC_SECRET` as the only secret used for persisted contact
+`ip_hash`/`user_agent_hash` values. It must contain at least 32 non-whitespace
+UTF-8 bytes and must never fall back to `RATE_LIMIT_HMAC_SECRET`, a Supabase key,
+or another credential. This separation prevents contact privacy digests from
+being linked to limiter keys.
+
+Configure a third independent `ADMIN_DEVICE_HMAC_SECRET` for remembered-device
+context binding, password-recovery state signing, and admin audit hashes. It
+must also contain at least 32 non-whitespace UTF-8 bytes, has no fallback, and
+must never reuse either other HMAC secret, a Supabase key, or any other
+application credential. Rotating that secret invalidates existing context
 hashes; plan a fresh administrator MFA challenge and token reissue as part of
 any rotation.
 
@@ -216,6 +249,46 @@ Also save row counts for contact messages, uploads, remembered devices, audit
 logs, and every CMS table. The counts are comparison evidence, not a reason to
 update or delete rows.
 
+Preview the exact conservative selector used to suppress the possible future
+El Mouradi/Sunshine software role:
+
+```sql
+select
+  id,
+  company,
+  role,
+  start_date,
+  end_date,
+  date_label,
+  published
+from public.experience
+where published
+  and role ilike '%software%'
+  and (
+    company ilike '%El Mouradi%'
+    or company ilike '%Sunshine%'
+  )
+  and (
+    (
+      company ilike '%El Mouradi%'
+      and company ilike '%Sunshine%'
+    )
+    or concat_ws(
+         ' ',
+         start_date,
+         end_date,
+         date_label,
+         array_to_string(points, ' ')
+       ) ~* '(future|planned|prospective|upcoming|2027|2028|2029)'
+  )
+order by company, role, id;
+```
+
+Expected: zero rows when the prospective entry is absent/already unpublished, or
+one row that is unambiguously the prospective entry. Stop if more than one row is
+returned or if the result includes a verified current role; do not broaden or
+edit the migration predicate during the production window.
+
 ### 4. Reconfirm migration drift
 
 Run only the read-only command:
@@ -230,33 +303,43 @@ application of every historical file.
 
 ## Controlled apply
 
-Use an approved mechanism that executes **only**
-`20260727130027_portfolio_hardening_v1.sql`. Because the repository's older local
+Use an approved mechanism that executes **only the three files listed at the top
+of this runbook, in that exact order**. Because the repository's older local
 history is not aligned with production, generic CLI push/up commands are not an
 approved mechanism for this release.
 
 One controlled option is:
 
 1. Open the production SQL editor during the maintenance window.
-2. Paste the exact reviewed migration file without edits.
-3. Confirm the first statement is `begin;` and the last is `commit;`.
-4. Execute once.
-5. Save the complete output, including any exception detail.
+2. Paste `20260727130026_contact_messages_compatibility.sql` without edits,
+   confirm its first statement is `begin;` and its last is `commit;`, execute it
+   once, and save the complete output.
+3. Only after step 2 succeeds, repeat for
+   `20260727130027_portfolio_hardening_v1.sql`.
+4. Only after step 3 succeeds, repeat for
+   `20260729120000_final_cms_content_alignment.sql`.
+5. Save each file's SHA-256 and complete output, including notices or exception
+   detail, with the release record.
 
-If preflight raises an exception, stop. Do not delete a guard, rename a policy, or
-retry with an edited migration. Capture the live object named by the exception,
-reconcile it in review, and issue a new migration if needed.
+If any preflight, statement, or postflight raises an exception, stop without
+running the next file. Do not delete a guard, rename a policy, or retry with an
+edited migration. Capture the live object named by the exception, reconcile it in
+review, and issue a new migration if needed.
 
 Applying through the SQL editor does not update migration history. First run the
-verification file; at this point only `migration_recorded` may be false. If every
-other invariant is correct and the exact migration output/hash is archived, an
-authorized operator may reconcile **only this version**:
+verification file; ledger-only checks for the three manually executed versions
+may still be false, but every schema/data invariant must pass. If all invariants
+are correct and all three exact migration outputs/hashes are
+archived, an authorized operator may reconcile **only these three versions**:
 
 ```powershell
+supabase migration repair 20260727130026 --status applied --linked
 supabase migration repair 20260727130027 --status applied --linked
+supabase migration repair 20260729120000 --status applied --linked
 ```
 
-`migration repair` changes the ledger only; it does not execute SQL. Never use it
+`migration repair` changes the ledger only; it does not execute SQL. Run each
+command separately and stop on an error. Never use it
 to claim an unverified schema state. See the
 [Supabase CLI migration reference](https://supabase.com/docs/reference/cli/v0/supabase-migration).
 
@@ -274,11 +357,24 @@ It starts a read-only transaction and rolls it back. Review every result set:
 - the limiter functions are owned by `postgres`, are `SECURITY DEFINER`, have
   `search_path=""`, and are executable only by `service_role`;
 - `private.rate_limit_buckets` has no direct browser or service-role table access;
-- contact delivery columns/defaults/checks and unique `submission_id` are present;
+- contact `updated_at`, `read_at`, and `archived_at`, the exact status/update
+  triggers, delivery columns/defaults/checks, and unique `submission_id` are
+  present;
 - all nine canonical page keys have their exact slug and are published, with no
   known Summer 2027 profile/home-CTA string remaining;
+- `site_settings` has one anon public-value SELECT policy and one authenticated
+  public-or-admin SELECT policy, with no overlapping write policy;
+- page navigation columns and block/variant compatibility constraints are
+  present; navigation order is Home, Projects, Experience, Expertise, About,
+  Contact, then the Resume CTA, with Education and Certifications footer-only;
+- published pages/projects have non-empty SEO/social defaults, and project cover
+  images are the first Open Graph fallback;
+- no visible published project section is title-only; the Master project is
+  unpublished/in preparation; the RPA section text contains only the approved
+  40-hotel, four-agency, batch, timing, human-review, and sole-contributor facts;
 - VERMEG project and experience copy states the team-prototype,
-  bounded-contribution, and non-production boundary;
+  bounded-contribution, non-sole-authorship, and production-presentation
+  boundary;
 - all three production-observed FK indexes report `full_index_present = true`;
 - the revision table has RLS, no policies, and append-only service-role ACLs;
 - no duplicate permissive policy query returns a row;
@@ -385,11 +481,13 @@ reconciliation, and application 4xx/5xx rates.
 
 ## Non-destructive rollback and recovery
 
-### If the migration itself fails
+### If a migration itself fails
 
-The file is one PostgreSQL transaction. A preflight, DDL, or postflight exception
-rolls back all changes. Save the error and leave the live schema alone. Do not run
-the clean reset and do not mark the migration applied.
+Each file is one PostgreSQL transaction. A preflight, DDL, content-alignment, or
+postflight exception rolls back that file. Save the error, do not run the next
+file, and leave the live schema alone. A previously committed earlier file
+remains applied and should not be manually reversed during diagnosis. Do not run
+the clean reset and do not mark the failed migration applied.
 
 ### If the new application fails after a successful migration
 
@@ -427,9 +525,9 @@ contain the evidence/state needed for recovery. Do not delete limiter buckets to
 make a rate-limit issue disappear; pause the caller or revoke RPC execution while
 investigating.
 
-Do not mark version `20260727130027` reverted unless the database definitions have
-actually been reverted to an approved state. A ledger edit is not a schema
-rollback.
+Do not mark versions `20260727130026`, `20260727130027`, or `20260729120000`
+reverted unless that version's definitions have actually been reverted to an
+approved state. A ledger edit is not a schema rollback.
 
 ### Full reversal
 

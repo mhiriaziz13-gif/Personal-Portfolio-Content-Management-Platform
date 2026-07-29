@@ -1,4 +1,6 @@
 const FALLBACK_SITE_URL = "https://ahmedaziz-portfolio.vercel.app";
+const FALLBACK_GITHUB_URL = "https://github.com/mhiriaziz13-gif";
+const FALLBACK_LINKEDIN_URL = "https://linkedin.com/in/ahmed-aziz-mhiri";
 
 const normalizeSiteUrl = (value: string | undefined) => {
   try {
@@ -12,16 +14,44 @@ const normalizeSiteUrl = (value: string | undefined) => {
   }
 };
 
-export const siteSeo = {
+const normalizeProfileUrl = (
+  value: string | undefined,
+  fallback: string,
+) => {
+  try {
+    const url = new URL(value?.trim() || fallback);
+    return url.protocol === "https:"
+      ? url.toString().replace(/\/$/, "")
+      : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const githubUsername = process.env.NEXT_PUBLIC_GITHUB_USERNAME?.trim();
+const configuredGithubUrl =
+  process.env.NEXT_PUBLIC_GITHUB_PROFILE_URL ||
+  (githubUsername ? `https://github.com/${githubUsername}` : undefined);
+
+export const publicIdentity = {
   name: "Ahmed Aziz Mhiri",
-  siteName: "Ahmed Aziz Mhiri — Data-Driven Marketing & Commercial Analytics",
+  githubUrl: normalizeProfileUrl(configuredGithubUrl, FALLBACK_GITHUB_URL),
+  linkedInUrl: normalizeProfileUrl(
+    process.env.NEXT_PUBLIC_LINKEDIN_PROFILE_URL,
+    FALLBACK_LINKEDIN_URL,
+  ),
+} as const;
+
+export const siteSeo = {
+  name: publicIdentity.name,
+  siteName: `${publicIdentity.name} — Data-Driven Marketing & Commercial Analytics`,
   url: normalizeSiteUrl(process.env.NEXT_PUBLIC_SITE_URL),
   locale: "en_US",
-  titleTemplate: "%s | Ahmed Aziz Mhiri",
-  description: "Ahmed Aziz Mhiri connects marketing and commercial analytics, business intelligence, customer insight and auditable process automation.",
-  creator: "Ahmed Aziz Mhiri",
+  titleTemplate: `%s | ${publicIdentity.name}`,
+  description: `${publicIdentity.name} connects marketing and commercial analytics, business intelligence, customer insight and auditable process automation.`,
+  creator: publicIdentity.name,
   socialImage: "/opengraph-image",
-  sameAs: ["https://linkedin.com/in/ahmed-aziz-mhiri", "https://github.com/mhiriaziz13-gif"],
+  sameAs: [publicIdentity.linkedInUrl, publicIdentity.githubUrl],
 } as const;
 
 export const isProductionDeployment = process.env.VERCEL_ENV

@@ -1,3 +1,5 @@
+import type { AnalyticsDataLayerItem } from "@/lib/analytics/events";
+
 export {};
 
 type ConsentState = "granted" | "denied";
@@ -9,7 +11,7 @@ type ClarityFunction = {
 
 declare global {
   interface Window {
-    dataLayer: Array<Record<string, unknown> | IArguments>;
+    dataLayer: AnalyticsDataLayerItem[];
     googleTagManagerLoaded?: boolean;
     microsoftClarityInitialized?: boolean;
     clarity?: ClarityFunction;

@@ -8,15 +8,55 @@ type StoredAnalyticsConsent = {
 
 export const ANALYTICS_CONSENT_STORAGE_KEY = "aam_analytics_consent_v1";
 export const PRODUCTION_ANALYTICS_HOSTNAME = "ahmedaziz-portfolio.vercel.app";
+export const ANALYTICS_EXCLUDED_PATH_PREFIXES = ["/admin", "/auth", "/api"] as const;
 
 export const isPublicAnalyticsPath = (pathname: string) =>
-  !["/admin", "/auth", "/api"].some(
+  !ANALYTICS_EXCLUDED_PATH_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
 
+export const isProductionAnalyticsHostname = (hostname: string) =>
+  hostname.toLowerCase() === PRODUCTION_ANALYTICS_HOSTNAME;
+
 export const isProductionAnalyticsLocation = () =>
   typeof window !== "undefined" &&
-  window.location.hostname === PRODUCTION_ANALYTICS_HOSTNAME;
+  isProductionAnalyticsHostname(window.location.hostname);
+
+export const isAnalyticsCollectionAllowed = ({
+  enabled,
+  consent,
+  hostname,
+  pathname,
+}: {
+  enabled: boolean;
+  consent: AnalyticsConsentValue;
+  hostname: string;
+  pathname: string;
+}) =>
+  enabled &&
+  consent === "granted" &&
+  isProductionAnalyticsHostname(hostname) &&
+  isPublicAnalyticsPath(pathname);
+
+export const isCurrentAnalyticsCollectionAllowed = (
+  enabled: boolean,
+  consent: AnalyticsConsentValue,
+  pathname: string,
+) =>
+  typeof window !== "undefined" &&
+  isAnalyticsCollectionAllowed({
+    enabled,
+    consent,
+    hostname: window.location.hostname,
+    pathname,
+  });
+
+export const clarityConsentState = (
+  analyticsStorage: Exclude<AnalyticsConsentValue, "unknown">,
+) => ({
+  ad_Storage: "denied" as const,
+  analytics_Storage: analyticsStorage,
+});
 
 export const readStoredAnalyticsConsent = (): AnalyticsConsentValue => {
   if (typeof window === "undefined") return "unknown";
@@ -75,7 +115,7 @@ export const isAnalyticsConsentGranted = () =>
 
 const expireCookie = (name: string, domain?: string) => {
   const domainAttribute = domain ? `; domain=${domain}` : "";
-  document.cookie = `${name}=; Max-Age=0; path=/; SameSite=Lax${domainAttribute}`;
+  document.cookie = `${name}=; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax${domainAttribute}`;
 };
 
 export const clearAnalyticsCookies = () => {
@@ -87,6 +127,10 @@ export const clearAnalyticsCookies = () => {
       (name) =>
         name === "_ga" ||
         name.startsWith("_ga_") ||
+        name === "_gid" ||
+        name === "_gat" ||
+        name.startsWith("_gat_") ||
+        name.startsWith("_gac_") ||
         name === "_clck" ||
         name === "_clsk",
     );

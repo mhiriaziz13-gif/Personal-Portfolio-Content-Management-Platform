@@ -11,6 +11,12 @@ import {
 } from "react";
 import { FiEdit2, FiPlus, FiSave, FiTrash2 } from "react-icons/fi";
 
+import {
+  cmsBlockOptions,
+  cmsBlockRegistry,
+  normalizeCmsBlockType,
+  variantsForBlock,
+} from "@/lib/cms-block-registry";
 import type {
   AdminContentSnapshot,
   CmsTableName,
@@ -36,6 +42,11 @@ import {
   pdfMimeTypes,
 } from "./cms-field-input";
 import { ContactMessagesPanel } from "./contact-messages-panel";
+import {
+  type BuilderTable,
+  PageBuilder,
+  ProjectBuilder,
+} from "./content-builder";
 import { MediaLibrary } from "./media-library";
 import { RevisionHistory } from "./revision-history";
 import { SettingsPanel } from "./settings-panel";
@@ -49,18 +60,29 @@ type Section = {
   fields: CmsField[];
   singleton?: boolean;
 };
-type View = "overview" | EditableTable | "contact_messages" | "uploads" | "settings";
-
-const primarySectionTables: EditableTable[] = [
-  "profile", "hero", "about", "projects", "project_sections", "experience",
-  "volunteering", "certifications", "skills", "education", "resumes",
-  "social_links",
-];
+type View =
+  | "overview"
+  | "page_builder"
+  | "project_builder"
+  | EditableTable
+  | "contact_messages"
+  | "uploads"
+  | "settings";
 
 const navigationGroups: { label: string; tables: EditableTable[] }[] = [
   { label: "Main content", tables: ["profile", "hero", "about"] },
   { label: "Career & portfolio", tables: ["projects", "project_sections", "experience", "volunteering", "certifications"] },
   { label: "Details", tables: ["skills", "education", "resumes", "social_links"] },
+  {
+    label: "Builder data",
+    tables: [
+      "pages",
+      "page_sections",
+      "page_section_items",
+      "project_section_items",
+      "project_media",
+    ],
+  },
 ];
 
 const imageAccept = ".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp";
@@ -200,7 +222,20 @@ const sections: Section[] = [
         key: "section_type",
         label: "Section type",
         kind: "select",
-        options: ["rich_text", "media_gallery", "media"],
+        options: [
+          { label: cmsBlockRegistry.rich_text.label, value: "rich_text" },
+          {
+            label: cmsBlockRegistry.media_gallery.label,
+            value: "media_gallery",
+          },
+        ],
+        required: true,
+      },
+      {
+        key: "layout_variant",
+        label: "Layout",
+        kind: "select",
+        options: cmsBlockRegistry.rich_text.variants,
         required: true,
       },
       { key: "title", label: "Title", required: true },
@@ -214,7 +249,7 @@ const sections: Section[] = [
   {
     table: "project_section_items", label: "Project Section Items", description: "Ordered labels, metrics and supporting details inside case-study sections.",
     fields: [
-      { key: "project_section_id", label: "Project section ID", required: true }, { key: "label", label: "Label" },
+      { key: "project_section_id", label: "Project section", kind: "select", required: true }, { key: "label", label: "Label" },
       { key: "value", label: "Value" }, { key: "description", label: "Description", kind: "textarea" },
       { key: "display_order", label: "Display order", kind: "number" }, { key: "is_visible", label: "Visible", kind: "checkbox" },
     ],
@@ -334,23 +369,29 @@ const sections: Section[] = [
   {
     table: "pages", label: "Page settings", description: "Page titles, publication and search/social preview information.",
     fields: [
-      { key: "page_key", label: "Stable page key", required: true }, { key: "title", label: "Title", required: true },
-      { key: "slug", label: "Path", required: true }, { key: "seo_title", label: "SEO title" },
-      { key: "seo_description", label: "SEO description", kind: "textarea" }, { key: "open_graph_title", label: "Open Graph title" },
-      { key: "open_graph_description", label: "Open Graph description", kind: "textarea" },
-      { key: "open_graph_image", label: "Open Graph image", kind: "asset-image", bucket: "public-assets", accept: imageAccept, allowedMimeTypes: imageMimeTypes },
-      { key: "is_published", label: "Published", kind: "checkbox" },
+      { key: "title", label: "Page title", required: true, group: "Page settings" },
+      { key: "slug", label: "Canonical path", required: true, readOnly: true, helpText: "Routes are code-owned so links cannot be broken from the CMS.", group: "Page settings" },
+      { key: "is_published", label: "Published", kind: "checkbox", group: "Page settings" },
+      { key: "seo_title", label: "SEO title", group: "SEO & social preview" },
+      { key: "seo_description", label: "SEO description", kind: "textarea", group: "SEO & social preview" }, { key: "open_graph_title", label: "Social preview title", group: "SEO & social preview" },
+      { key: "open_graph_description", label: "Social preview description", kind: "textarea", group: "SEO & social preview" },
+      { key: "open_graph_image", label: "Social preview image", kind: "asset-image", bucket: "public-assets", accept: imageAccept, allowedMimeTypes: imageMimeTypes, group: "SEO & social preview" },
+      { key: "navigation_label", label: "Navigation label", helpText: "Keep this short; the page route remains canonical.", group: "Navigation" },
+      { key: "navigation_order", label: "Navigation order", kind: "number", group: "Navigation" },
+      { key: "show_in_navigation", label: "Show in primary navigation", kind: "checkbox", group: "Navigation" },
+      { key: "show_in_footer", label: "Show in footer", kind: "checkbox", group: "Navigation" },
+      { key: "page_key", label: "Stable page key", required: true, readOnly: true, advanced: true, helpText: "Internal identifier used by templates and migrations.", group: "Advanced identifiers" },
     ],
   },
   {
     table: "page_sections", label: "Page layout", description: "Control the visible sections and text on each page.",
     fields: [
-      { key: "page_id", label: "Page", kind: "select", required: true }, { key: "section_key", label: "Stable section key", required: true },
-      { key: "section_type", label: "Section type", kind: "select", options: ["hero","rich_text","featured_projects","projects_grid","experience_list","certifications_grid","volunteering","skills","cta","stats","media_gallery","custom_cards"], required: true },
+      { key: "page_id", label: "Page", kind: "select", required: true }, { key: "section_key", label: "Stable section key", required: true, readOnly: true, advanced: true, helpText: "Generated by the builder and kept stable for revisions." },
+      { key: "section_type", label: "Block type", kind: "select", options: cmsBlockOptions, required: true },
       { key: "title", label: "Title" }, { key: "subtitle", label: "Subtitle" }, { key: "description", label: "Description", kind: "textarea" },
       { key: "cta_label", label: "CTA label" }, { key: "cta_href", label: "CTA destination" },
       { key: "secondary_cta_label", label: "Secondary CTA label" }, { key: "secondary_cta_href", label: "Secondary CTA destination" },
-      { key: "layout_variant", label: "Layout variant" }, { key: "display_order", label: "Display order", kind: "number" },
+      { key: "layout_variant", label: "Layout variant", kind: "select", options: cmsBlockRegistry.rich_text.variants, required: true }, { key: "display_order", label: "Display order", kind: "number" },
       { key: "is_visible", label: "Visible", kind: "checkbox" }, { key: "is_archived", label: "Archived", kind: "checkbox" },
     ],
   },
@@ -371,7 +412,7 @@ const sections: Section[] = [
   {
     table: "page_section_items", label: "Section Cards & Media", description: "Repeatable cards, stats, links and media for flexible page sections.",
     fields: [
-      { key: "page_section_id", label: "Page section ID", required: true }, { key: "title", label: "Title" },
+      { key: "page_section_id", label: "Page block", kind: "select", required: true }, { key: "title", label: "Title" },
       { key: "subtitle", label: "Subtitle" }, { key: "description", label: "Description", kind: "textarea" },
       { key: "link_label", label: "Link label" }, { key: "link_url", label: "Link destination" },
       { key: "media_url", label: "Media", kind: "asset-image", bucket: "public-assets", accept: imageAccept, allowedMimeTypes: imageMimeTypes },
@@ -394,7 +435,15 @@ const emptyRow = (section: Section): Row => {
   ]));
 
   if (section.table === "projects") row.status = "draft";
-  if (section.table === "project_sections") row.section_type = "rich_text";
+  if (
+    section.table === "project_sections" ||
+    section.table === "page_sections"
+  ) {
+    row.section_type = "rich_text";
+    row.layout_variant = "default";
+    row.is_visible = true;
+    row.is_archived = false;
+  }
   return row;
 };
 
@@ -551,6 +600,7 @@ export const AdminDashboard = ({
   const [pendingMessageId, setPendingMessageId] = useState<string | null>(null);
   const [logoutPending, setLogoutPending] = useState(false);
   const messageRefreshIdRef = useRef(0);
+  const duplicateIdempotencyKeysRef = useRef(new Map<string, string>());
   const initialUploads = useMemo(() => parseUploads(content.uploads), [content.uploads]);
 
   const request = useCallback<AdminRequest>(
@@ -589,8 +639,84 @@ export const AdminDashboard = ({
               })).filter((option) => option.value),
             ],
           }
+      : field.key === "project_section_id"
+        ? {
+            ...field,
+            options: (records.project_sections ?? []).map((projectSection) => {
+              const project = (records.projects ?? []).find(
+                (candidate) =>
+                  String(candidate.id ?? "")
+                  === String(projectSection.project_id ?? ""),
+              );
+              return {
+                label: `${String(project?.title ?? "Project")} — ${String(projectSection.title ?? "Untitled section")}`,
+                value: String(projectSection.id ?? ""),
+              };
+            }).filter((option) => option.value),
+          }
+      : field.key === "page_section_id"
+        ? {
+            ...field,
+            options: (records.page_sections ?? []).map((pageSection) => {
+              const page = (records.pages ?? []).find(
+                (candidate) =>
+                  String(candidate.id ?? "")
+                  === String(pageSection.page_id ?? ""),
+              );
+              return {
+                label: `${String(page?.title ?? "Page")} — ${String(pageSection.title ?? cmsBlockRegistry[normalizeCmsBlockType(pageSection.section_type)].label)}`,
+                value: String(pageSection.id ?? ""),
+              };
+            }).filter((option) => option.value),
+          }
+      : field.key === "layout_variant"
+        && (
+          active.table === "page_sections"
+          || active.table === "project_sections"
+        )
+        ? {
+            ...field,
+            options: variantsForBlock(
+              active.table === "project_sections"
+                ? draft.section_type === "media_gallery"
+                  ? "media_gallery"
+                  : "rich_text"
+                : normalizeCmsBlockType(draft.section_type),
+            ),
+          }
       : field);
-  }, [active, records.certifications, records.pages, records.projects]);
+  }, [
+    active,
+    draft.section_type,
+    records.certifications,
+    records.page_sections,
+    records.pages,
+    records.project_sections,
+    records.projects,
+  ]);
+  const activeFieldGroups = useMemo(() => {
+    const grouped = new Map<string, CmsField[]>();
+    activeFields.forEach((field) => {
+      const group = field.group ?? "";
+      grouped.set(group, [...(grouped.get(group) ?? []), field]);
+    });
+    return [...grouped.entries()];
+  }, [activeFields]);
+  const activeBlockDefinition = useMemo(() => {
+    if (
+      active?.table !== "page_sections" &&
+      active?.table !== "project_sections"
+    ) return null;
+    const blockType = active.table === "project_sections"
+      ? draft.section_type === "media_gallery"
+        ? "media_gallery"
+        : "rich_text"
+      : normalizeCmsBlockType(draft.section_type);
+    return {
+      blockType,
+      definition: cmsBlockRegistry[blockType],
+    };
+  }, [active?.table, draft.section_type]);
   const stats = useMemo(() => ({
     skills: records.skills?.length ?? 0,
     projects: records.projects?.length ?? 0,
@@ -704,20 +830,19 @@ export const AdminDashboard = ({
     cancelEdit();
   };
 
-  const save = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!active) return;
-    setContentStatus("Saving...");
-
+  const persistRow = async (
+    table: EditableTable,
+    values: Row,
+  ): Promise<Row | null> => {
     const response = await request("/api/admin/content", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        table: active.table,
-        values: draft,
+        table,
+        values,
         expectedUpdatedAt:
-          typeof draft.updated_at === "string"
-            ? draft.updated_at
+          typeof values.updated_at === "string"
+            ? values.updated_at
             : undefined,
       }),
     });
@@ -729,8 +854,35 @@ export const AdminDashboard = ({
         console.debug("CMS save failed", { status: response.status, data });
       }
       setContentStatus(adminApiError(data));
-      return;
+      return null;
     }
+
+    return savedRow;
+  };
+
+  const replaceRecord = (
+    table: EditableTable,
+    savedRow: Row,
+    fallbackId?: string,
+  ) => {
+    setRecords((current) => {
+      const next = [...(current[table] ?? [])];
+      const savedId = String(savedRow.id ?? fallbackId ?? "");
+      const index = next.findIndex(
+        (candidate) => String(candidate.id ?? "") === savedId,
+      );
+      if (index >= 0) next[index] = savedRow;
+      else next.push(savedRow);
+      return { ...current, [table]: next };
+    });
+  };
+
+  const save = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!active) return;
+    setContentStatus("Saving...");
+    const savedRow = await persistRow(active.table, draft);
+    if (!savedRow) return;
 
     setRecords((current) => {
       const next = [...(current[active.table] ?? [])];
@@ -783,6 +935,204 @@ export const AdminDashboard = ({
       return { ...current, [section.table]: next };
     });
     setContentStatus(returnedRow ? "Archived." : "Permanently deleted.");
+  };
+
+  const sectionForTable = (table: BuilderTable) =>
+    sections.find((section) => section.table === table);
+
+  const editBuilderRecord = (table: BuilderTable, id: string) => {
+    const section = sectionForTable(table);
+    const index = (records[table] ?? []).findIndex(
+      (row) => String(row.id ?? "") === id,
+    );
+    if (!section || index < 0) {
+      setContentStatus("This entry is no longer available. Reload the CMS.");
+      return;
+    }
+    setView(table);
+    beginEdit(section, index);
+  };
+
+  const addBuilderRecord = (table: BuilderTable, defaults: Row) => {
+    const section = sectionForTable(table);
+    if (!section) return;
+    setView(table);
+    setEditing(-1);
+    setDraft({ ...emptyRow(section), ...defaults });
+    setContentStatus("");
+  };
+
+  const duplicateBuilderRecord = async (
+    table: BuilderTable,
+    id: string,
+  ) => {
+    if (table !== "page_sections" && table !== "project_sections") return;
+    const source = (records[table] ?? []).find(
+      (row) => String(row.id ?? "") === id,
+    );
+    if (!source) return;
+    if (typeof source.updated_at !== "string") {
+      setContentStatus("Reload the CMS before duplicating this block.");
+      return;
+    }
+    const requestKey = `${table}:${id}:${source.updated_at}`;
+    const idempotencyKey =
+      duplicateIdempotencyKeysRef.current.get(requestKey)
+      ?? window.crypto.randomUUID();
+    duplicateIdempotencyKeysRef.current.set(requestKey, idempotencyKey);
+    setContentStatus("Duplicating...");
+
+    let response: Response;
+    try {
+      response = await request("/api/admin/content", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "duplicate",
+          table,
+          id,
+          expectedUpdatedAt: source.updated_at,
+          idempotencyKey,
+        }),
+      });
+    } catch {
+      setContentStatus(
+        "The duplicate request was interrupted. Select Duplicate again to safely retry it.",
+      );
+      return;
+    }
+    const data = await readJsonObject(response);
+    const savedParents = Array.isArray(data.rows)
+      ? data.rows.filter(isRecord)
+      : [];
+    const savedChildren = Array.isArray(data.children)
+      ? data.children.filter(isRecord)
+      : [];
+    const childTable =
+      data.childTable === "page_section_items"
+      || data.childTable === "project_section_items"
+        ? data.childTable
+        : null;
+    if (
+      !response.ok
+      || data.ok !== true
+      || savedParents.length === 0
+      || !childTable
+    ) {
+      setContentStatus(adminApiError(data));
+      return;
+    }
+
+    duplicateIdempotencyKeysRef.current.delete(requestKey);
+    setRecords((current) => {
+      const merge = (existing: Row[], incoming: Row[]) => {
+        const byId = new Map(
+          existing.map((row) => [String(row.id ?? ""), row]),
+        );
+        incoming.forEach((row) => byId.set(String(row.id ?? ""), row));
+        return [...byId.values()];
+      };
+      return {
+        ...current,
+        [table]: merge(current[table] ?? [], savedParents),
+        [childTable]: merge(current[childTable] ?? [], savedChildren),
+      };
+    });
+    setContentStatus("Duplicated. Review the copy before publishing.");
+  };
+
+  const moveBuilderRecord = async (
+    table: BuilderTable,
+    id: string,
+    direction: "up" | "down",
+  ) => {
+    if (table !== "page_sections" && table !== "project_sections") return;
+    const orderKey =
+      table === "page_sections" ? "display_order" : "sort_order";
+    const parentKey = table === "page_sections" ? "page_id" : "project_id";
+    const current = (records[table] ?? []).find(
+      (row) => String(row.id ?? "") === id,
+    );
+    if (!current) return;
+    const siblings = [...(records[table] ?? [])]
+      .filter(
+        (row) =>
+          row.is_archived !== true &&
+          row[parentKey] === current[parentKey],
+      )
+      .sort(
+        (left, right) =>
+          Number(left[orderKey] ?? 0) - Number(right[orderKey] ?? 0),
+      );
+    const index = siblings.findIndex(
+      (row) => String(row.id ?? "") === id,
+    );
+    const neighbor = siblings[index + (direction === "up" ? -1 : 1)];
+    if (!neighbor) return;
+    if (
+      typeof current.updated_at !== "string"
+      || typeof neighbor.updated_at !== "string"
+    ) {
+      setContentStatus("Reload the CMS before reordering these blocks.");
+      return;
+    }
+    setContentStatus("Reordering...");
+
+    const response = await request("/api/admin/content", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "move",
+        table,
+        id,
+        expectedUpdatedAt: current.updated_at,
+        relatedId: String(neighbor.id ?? ""),
+        relatedExpectedUpdatedAt: neighbor.updated_at,
+        direction,
+      }),
+    });
+    const data = await readJsonObject(response);
+    const savedRows = Array.isArray(data.rows)
+      ? data.rows.filter(isRecord)
+      : [];
+    if (!response.ok || data.ok !== true || savedRows.length === 0) {
+      setContentStatus(adminApiError(data));
+      return;
+    }
+
+    setRecords((currentRecords) => {
+      const replacements = new Map(
+        savedRows.map((row) => [String(row.id ?? ""), row]),
+      );
+      return {
+        ...currentRecords,
+        [table]: (currentRecords[table] ?? []).map(
+          (row) => replacements.get(String(row.id ?? "")) ?? row,
+        ),
+      };
+    });
+    setContentStatus("Order updated.");
+  };
+
+  const hideBuilderRecord = async (table: BuilderTable, id: string) => {
+    const row = (records[table] ?? []).find(
+      (candidate) => String(candidate.id ?? "") === id,
+    );
+    if (!row) return;
+    setContentStatus("Hiding...");
+    const saved = await persistRow(table, { ...row, is_visible: false });
+    if (saved) {
+      replaceRecord(table, saved, id);
+      setContentStatus("Hidden from the public site.");
+    }
+  };
+
+  const archiveBuilderRecord = (table: BuilderTable, id: string) => {
+    const section = sectionForTable(table);
+    const index = (records[table] ?? []).findIndex(
+      (row) => String(row.id ?? "") === id,
+    );
+    if (section && index >= 0) void remove(section, index);
   };
 
   const updateMessage = async (id: string, action: MessageAction) => {
@@ -881,25 +1231,71 @@ export const AdminDashboard = ({
       <div className="mt-8 grid gap-6 lg:grid-cols-[16rem_1fr]">
         <nav aria-label="CMS sections" className="flex h-fit flex-col gap-1 rounded-lg border border-white/10 bg-[#100b24]/80 p-3">
           {navButton("overview", "Overview")}
-          {navigationGroups.map((group) => (
-            <div key={group.label} className="mt-3 flex flex-col gap-1 first:mt-1">
-              <p className="px-4 pb-1 text-[0.65rem] font-semibold uppercase tracking-widest text-gray-500">{group.label}</p>
-              {sections
-                .filter((section) => primarySectionTables.includes(section.table) && group.tables.includes(section.table))
-                .map((section) => <span key={section.table} className="contents">{navButton(section.table, section.label)}</span>)}
-            </div>
-          ))}
+          <p className="mt-3 px-4 pb-1 text-[0.65rem] font-semibold uppercase tracking-widest text-gray-500">
+            Builders
+          </p>
+          {navButton("page_builder", "Page Builder")}
+          {navButton("project_builder", "Project Builder")}
           <p className="mt-3 px-4 pb-1 text-[0.65rem] font-semibold uppercase tracking-widest text-gray-500">Tools</p>
           {navButton("contact_messages", "Contact Messages", stats.unread)}
           {navButton("uploads", "Media Library")}
           {navButton("settings", "Settings")}
+          <details className="mt-3 rounded-lg border border-white/5 bg-black/10">
+            <summary className="min-h-11 cursor-pointer px-4 py-3 text-sm font-medium text-gray-300">
+              Advanced data tables
+            </summary>
+            <div className="pb-2">
+              {navigationGroups.map((group) => (
+                <div key={group.label} className="mt-2 flex flex-col gap-1">
+                  <p className="px-4 pb-1 text-[0.65rem] font-semibold uppercase tracking-widest text-gray-500">
+                    {group.label}
+                  </p>
+                  {sections
+                    .filter((section) => group.tables.includes(section.table))
+                    .map((section) => (
+                      <span key={section.table} className="contents">
+                        {navButton(section.table, section.label)}
+                      </span>
+                    ))}
+                </div>
+              ))}
+            </div>
+          </details>
         </nav>
 
         <div className="min-w-0 rounded-lg border border-white/10 bg-[#100b24]/90 p-5 shadow-xl shadow-[#2A0E61]/20">
           {view === "overview" && (
             <div>
               <h2 className="text-2xl font-bold text-white">Overview</h2>
-              <p className="mt-2 text-sm text-gray-400">Current CMS content at a glance.</p>
+              <p className="mt-2 text-sm text-gray-400">
+                Start with a builder for normal page and project work. The raw
+                tables remain available only as an advanced fallback.
+              </p>
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => selectView("page_builder")}
+                  className="min-h-11 rounded-lg border border-cyan-300/20 bg-cyan-300/10 p-4 text-left hover:bg-cyan-300/15"
+                >
+                  <span className="font-semibold text-white">Page Builder</span>
+                  <span className="mt-1 block text-sm text-gray-300">
+                    Settings, search/social preview, navigation, and ordered
+                    blocks.
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => selectView("project_builder")}
+                  className="min-h-11 rounded-lg border border-purple-300/20 bg-purple-300/10 p-4 text-left hover:bg-purple-300/15"
+                >
+                  <span className="font-semibold text-white">
+                    Project Builder
+                  </span>
+                  <span className="mt-1 block text-sm text-gray-300">
+                    Project metadata, publication checks, evidence, and media.
+                  </span>
+                </button>
+              </div>
               <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {[
                   ["Profile", records.profile?.length ? "Ready" : "Needs content"],
@@ -920,6 +1316,44 @@ export const AdminDashboard = ({
             </div>
           )}
 
+          {view === "page_builder" && (
+            <PageBuilder
+              records={records}
+              status={contentStatus}
+              onEdit={editBuilderRecord}
+              onAdd={addBuilderRecord}
+              onDuplicate={(table, id) =>
+                void duplicateBuilderRecord(table, id)
+              }
+              onMove={(table, id, direction) =>
+                void moveBuilderRecord(table, id, direction)
+              }
+              onHide={(table, id) =>
+                void hideBuilderRecord(table, id)
+              }
+              onArchive={archiveBuilderRecord}
+            />
+          )}
+
+          {view === "project_builder" && (
+            <ProjectBuilder
+              records={records}
+              status={contentStatus}
+              onEdit={editBuilderRecord}
+              onAdd={addBuilderRecord}
+              onDuplicate={(table, id) =>
+                void duplicateBuilderRecord(table, id)
+              }
+              onMove={(table, id, direction) =>
+                void moveBuilderRecord(table, id, direction)
+              }
+              onHide={(table, id) =>
+                void hideBuilderRecord(table, id)
+              }
+              onArchive={archiveBuilderRecord}
+            />
+          )}
+
           {active && (
             <div>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -927,26 +1361,101 @@ export const AdminDashboard = ({
                   <h2 className="text-2xl font-bold text-white">{active.label}</h2>
                   <p className="mt-2 text-sm text-gray-400">{active.description}</p>
                 </div>
-                {editing === null && (!active.singleton || !(records[active.table]?.length)) && (
-                  <button type="button" onClick={() => beginAdd(active)} className="button-primary inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white">
-                    <FiPlus aria-hidden="true" />Add
-                  </button>
-                )}
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    "pages",
+                    "page_sections",
+                    "page_section_items",
+                  ].includes(active.table) && (
+                    <button
+                      type="button"
+                      onClick={() => selectView("page_builder")}
+                      className="min-h-11 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
+                    >
+                      Back to Page Builder
+                    </button>
+                  )}
+                  {[
+                    "projects",
+                    "project_sections",
+                    "project_section_items",
+                    "project_media",
+                  ].includes(active.table) && (
+                    <button
+                      type="button"
+                      onClick={() => selectView("project_builder")}
+                      className="min-h-11 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
+                    >
+                      Back to Project Builder
+                    </button>
+                  )}
+                  {editing === null && (!active.singleton || !(records[active.table]?.length)) && (
+                    <button type="button" onClick={() => beginAdd(active)} className="button-primary inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white">
+                      <FiPlus aria-hidden="true" />Add
+                    </button>
+                  )}
+                </div>
               </div>
 
               {editing !== null ? (
                 <form onSubmit={save} className="mt-6">
                   <div className="grid gap-4 md:grid-cols-2">
-                    {activeFields.map((field) => (
-                      <CmsFieldInput
-                        key={field.key}
-                        field={field}
-                        value={draft[field.key]}
-                        request={request}
-                        onChange={(value) => setDraft((current) => ({ ...current, [field.key]: value }))}
-                      />
+                    {activeFieldGroups.map(([group, fields]) => (
+                      <fieldset
+                        key={group || "content"}
+                        className={
+                          group
+                            ? "grid gap-4 rounded-lg border border-white/10 p-4 md:col-span-2 md:grid-cols-2"
+                            : "contents"
+                        }
+                      >
+                        {group && (
+                          <legend className="px-2 text-sm font-semibold text-cyan-100">
+                            {group}
+                          </legend>
+                        )}
+                        {fields.map((field) => (
+                          <CmsFieldInput
+                            key={field.key}
+                            field={field}
+                            value={draft[field.key]}
+                            request={request}
+                            onChange={(value) =>
+                              setDraft((current) => ({
+                                ...current,
+                                [field.key]: value,
+                                ...(field.key === "section_type"
+                                  ? {
+                                      layout_variant:
+                                        variantsForBlock(
+                                          active.table === "project_sections"
+                                            ? value === "media_gallery"
+                                              ? "media_gallery"
+                                              : "rich_text"
+                                            : normalizeCmsBlockType(value),
+                                        )[0],
+                                    }
+                                  : {}),
+                              }))
+                            }
+                          />
+                        ))}
+                      </fieldset>
                     ))}
                   </div>
+                  {activeBlockDefinition && (
+                    <aside className="mt-5 rounded-lg border border-cyan-300/15 bg-cyan-300/5 p-4">
+                      <p className="text-sm font-semibold text-cyan-100">
+                        {activeBlockDefinition.definition.label}
+                      </p>
+                      <p className="mt-2 text-sm leading-6 text-gray-300">
+                        {activeBlockDefinition.definition.description}
+                      </p>
+                      <p className="mt-2 text-xs leading-5 text-gray-500">
+                        Example: {activeBlockDefinition.definition.example}
+                      </p>
+                    </aside>
+                  )}
                   {projectChecklist && (
                     <section
                       aria-labelledby="project-publishing-checklist"
@@ -1047,14 +1556,14 @@ export const AdminDashboard = ({
                           <p className="mt-1 line-clamp-2 text-sm text-gray-400">{String(row.headline ?? row.summary ?? row.role ?? row.issuer ?? row.degree ?? row.url ?? row.body ?? "")}</p>
                         </div>
                         <div className="flex shrink-0 gap-2">
-                          <button type="button" aria-label={`Edit ${inputCardTitle(row, index)}`} onClick={() => beginEdit(active, index)} className="rounded-lg border border-white/10 bg-white/5 p-2.5 hover:bg-white/10">
+                          <button type="button" aria-label={`Edit ${inputCardTitle(row, index)}`} onClick={() => beginEdit(active, index)} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-white/10 bg-white/5 p-2.5 hover:bg-white/10">
                             <FiEdit2 aria-hidden="true" />
                           </button>
                           <button
                             type="button"
                             aria-label={`${archiveAction ? "Archive" : "Delete"} ${inputCardTitle(row, index)}`}
                             onClick={() => void remove(active, index)}
-                            className="rounded-lg border border-red-300/20 bg-red-500/10 p-2.5 text-red-100 hover:bg-red-500/20"
+                            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-red-300/20 bg-red-500/10 p-2.5 text-red-100 hover:bg-red-500/20"
                           >
                             <FiTrash2 aria-hidden="true" />
                           </button>

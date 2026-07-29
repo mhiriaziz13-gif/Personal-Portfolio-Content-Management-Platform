@@ -5,9 +5,11 @@ import { usePathname } from "next/navigation";
 
 import { useAnalyticsConsent } from "@/components/analytics/analytics-consent-provider";
 import {
-  isProductionAnalyticsLocation,
-  isPublicAnalyticsPath,
+  clarityConsentState,
+  isCurrentAnalyticsCollectionAllowed,
 } from "@/lib/analytics/consent";
+
+const CLARITY_PROJECT_ID = /^[a-z0-9]+$/i;
 
 export const ClarityLoader = ({
   enabled,
@@ -21,16 +23,10 @@ export const ClarityLoader = ({
 
   useEffect(() => {
     const canCollect =
-      consent === "granted" &&
-      enabled &&
-      Boolean(projectId) &&
-      isProductionAnalyticsLocation() &&
-      isPublicAnalyticsPath(pathname);
+      Boolean(projectId && CLARITY_PROJECT_ID.test(projectId)) &&
+      isCurrentAnalyticsCollectionAllowed(enabled, consent, pathname);
     if (!canCollect) {
-      window.clarity?.("consentv2", {
-        ad_Storage: "denied",
-        analytics_Storage: "denied",
-      });
+      window.clarity?.("consentv2", clarityConsentState("denied"));
       return;
     }
     if (!projectId) return;
@@ -48,10 +44,7 @@ export const ClarityLoader = ({
         Clarity.init(projectId);
         window.microsoftClarityInitialized = true;
       }
-      Clarity.consentV2({
-        ad_Storage: "denied",
-        analytics_Storage: "granted",
-      });
+      Clarity.consentV2(clarityConsentState("granted"));
     });
 
     return () => {

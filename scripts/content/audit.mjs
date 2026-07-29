@@ -163,10 +163,13 @@ for (const project of projects) {
     if (
       !/prototype/i.test(boundaryCopy)
       || !/(two-person|two person|team)/i.test(boundaryCopy)
-      || !/(not deployed|non-production|not a production)/i.test(boundaryCopy)
+      || !/chatbot/i.test(boundaryCopy)
+      || !/selected (application )?services/i.test(boundaryCopy)
+      || !/not presented as a production deployment/i.test(boundaryCopy)
+      || !/(not sole-authored|not presented .*sole-authored system)/i.test(boundaryCopy)
     ) {
       failures.push(
-        `project ${String(project.slug)} does not bound the VERMEG work as a team prototype that was not deployed to production`,
+        `project ${String(project.slug)} does not state the approved VERMEG team-prototype, bounded-contribution, production-presentation and authorship limits`,
       );
     }
   }
@@ -231,10 +234,13 @@ for (const experience of snapshots.get("experience") ?? []) {
   if (
     !/prototype/i.test(boundaryCopy)
     || !/(two-person|two person|team)/i.test(boundaryCopy)
-    || !/(not deployed|non-production|not a production)/i.test(boundaryCopy)
+    || !/chatbot/i.test(boundaryCopy)
+    || !/selected (application )?services/i.test(boundaryCopy)
+    || !/not presented as a production deployment/i.test(boundaryCopy)
+    || !/(not sole-authored|not presented .*sole-authored system)/i.test(boundaryCopy)
   ) {
     failures.push(
-      "VERMEG experience does not bound the work as a team prototype that was not deployed to production",
+      "VERMEG experience does not state the approved team-prototype, bounded-contribution, production-presentation and authorship limits",
     );
   }
 }

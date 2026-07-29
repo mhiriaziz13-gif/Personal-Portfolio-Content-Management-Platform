@@ -1,11 +1,14 @@
 export const revalidate = 60;
 
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 
+import { CmsPageSections } from "@/components/main/cms-page-sections";
 import { EducationSection } from "@/components/main/education-section";
 import { Breadcrumbs } from "@/components/seo/breadcrumbs";
 import { PageIntro } from "@/components/seo/page-intro";
 import { getPortfolioContent } from "@/lib/cms";
+import { resolveCmsPageRoute } from "@/lib/cms-page-routing";
 import { createCmsPageMetadata } from "@/lib/seo/metadata";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -14,6 +17,30 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function EducationPage() {
   const content = await getPortfolioContent();
+  const route = resolveCmsPageRoute(content, "education");
+
+  if (route.mode === "not-found") notFound();
+
+  if (route.mode === "cms") {
+    return (
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="min-h-screen pt-24"
+      >
+        <div className="relative z-20 mx-auto max-w-7xl px-6">
+          <Breadcrumbs
+            items={[
+              { name: "Home", href: "/" },
+              { name: "Education", href: "/education" },
+            ]}
+          />
+        </div>
+        <CmsPageSections content={content} pageKey="education" />
+      </main>
+    );
+  }
+
   const page = content.pages.find((item) => item.pageKey === "education");
 
   return (

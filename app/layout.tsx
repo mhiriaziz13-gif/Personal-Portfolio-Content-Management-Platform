@@ -10,8 +10,10 @@ import { DeferredStarBackground } from "@/components/main/deferred-star-backgrou
 import { Footer } from "@/components/main/footer";
 import { ImageFallbackController } from "@/components/main/image-fallback-controller";
 import { Navbar } from "@/components/main/navbar";
+import { JsonLd } from "@/components/seo/json-ld";
 import { siteConfig } from "@/config";
 import { getPortfolioChromeContent } from "@/lib/cms";
+import { personSchema, websiteSchema } from "@/lib/seo/schema";
 import { cn } from "@/lib/utils";
 
 import "./globals.css";
@@ -39,13 +41,14 @@ export default async function RootLayout({ children }: PropsWithChildren) {
           gtmId={gtmId}
           clarityProjectId={clarityProjectId}
         >
+          <JsonLd data={[websiteSchema(), personSchema(content.profile)]} />
           <DeferredStarBackground />
           <ImageFallbackController />
           <Navbar profile={content.profile} navLinks={content.navLinks} />
           {children}
-          <Footer profile={content.profile} />
+          <Footer profile={content.profile} navLinks={content.navLinks} />
+          <DeferredAnalytics enabled={analyticsEnabled} />
         </AnalyticsConsentProvider>
-        <DeferredAnalytics enabled={analyticsEnabled} />
       </body>
     </html>
   );
