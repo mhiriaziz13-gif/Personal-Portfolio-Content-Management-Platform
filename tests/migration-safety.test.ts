@@ -172,6 +172,18 @@ describe("portfolio migration order and compatibility contract", () => {
     );
   });
 
+  it("preserves Supabase-managed storage ACLs and denies browser writes through RLS", () => {
+    expect(hardeningSql).not.toMatch(
+      /\b(?:grant|revoke)[\s\S]{0,180}\bon\s+table\s+storage\.objects\b/i,
+    );
+    expect(hardeningSql).toMatch(
+      /relation\.oid\s*=\s*'storage\.objects'::pg_catalog\.regclass[\s\S]{0,120}relation\.relrowsecurity/i,
+    );
+    expect(hardeningSql).toMatch(
+      /policy\.schemaname\s*=\s*'storage'[\s\S]{0,120}policy\.tablename\s*=\s*'objects'[\s\S]{0,260}policy\.cmd\s+in\s*\('ALL',\s*'INSERT',\s*'UPDATE',\s*'DELETE'\)[\s\S]{0,180}'public'[\s\S]{0,80}'anon'[\s\S]{0,80}'authenticated'/i,
+    );
+  });
+
   it("adds only controlled navigation and builder schema", () => {
     expect(alignmentSql).toMatch(/add column if not exists navigation_label text/i);
     expect(alignmentSql).toMatch(

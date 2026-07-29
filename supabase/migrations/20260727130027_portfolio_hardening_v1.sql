@@ -2558,10 +2558,10 @@ to service_role;
 grant select on table public.cms_content_revisions
   to service_role;
 
-revoke insert, update, delete on table storage.objects
-  from public, anon, authenticated;
-grant select, insert, update, delete on table storage.objects
-  to service_role;
+-- Supabase manages the base ACLs on storage.objects. Do not revoke or
+-- re-grant those managed privileges here. Browser writes remain denied by RLS
+-- because no INSERT, UPDATE, DELETE, or ALL policy is retained for
+-- public, anon, or authenticated roles.
 
 -- ---------------------------------------------------------------------------
 -- Expected updated_at trigger verification and repair of missing bindings.
@@ -3183,39 +3183,15 @@ begin
       detail = v_problem;
   end if;
 
-  if pg_catalog.has_table_privilege(
-       'authenticated',
-       'storage.objects',
-       'insert'
-     )
-     or pg_catalog.has_table_privilege(
-       'authenticated',
-       'storage.objects',
-       'update'
-     )
-     or pg_catalog.has_table_privilege(
-       'authenticated',
-       'storage.objects',
-       'delete'
-     )
-     or pg_catalog.has_table_privilege(
-       'anon',
-       'storage.objects',
-       'insert'
-     )
-     or pg_catalog.has_table_privilege(
-       'anon',
-       'storage.objects',
-       'update'
-     )
-     or pg_catalog.has_table_privilege(
-       'anon',
-       'storage.objects',
-       'delete'
-     ) then
+  if not exists (
+    select 1
+    from pg_catalog.pg_class as relation
+    where relation.oid = 'storage.objects'::pg_catalog.regclass
+      and relation.relrowsecurity
+  ) then
     raise exception using
       errcode = 'P0001',
-      message = 'Portfolio hardening postflight failed: browser role retains direct storage DML';
+      message = 'Portfolio hardening postflight failed: storage.objects RLS is not enabled';
   end if;
 
   select pg_catalog.string_agg(
