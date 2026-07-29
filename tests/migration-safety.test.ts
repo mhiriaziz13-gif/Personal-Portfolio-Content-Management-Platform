@@ -108,6 +108,30 @@ describe("portfolio migration order and compatibility contract", () => {
     expect(contactSql).not.toMatch(/\bdrop\s+index\b/i);
   });
 
+  it("validates contact index ordering through catalog option bits", () => {
+    const preflight = contactSql.match(
+      /do \$contact_messages_compatibility_preflight\$[\s\S]*?\$contact_messages_compatibility_preflight\$;/i,
+    )?.[0] ?? "";
+    const postflight = contactSql.match(
+      /do \$contact_messages_compatibility_postflight\$[\s\S]*?\$contact_messages_compatibility_postflight\$;/i,
+    )?.[0] ?? "";
+
+    for (const check of [preflight, postflight]) {
+      expect(check).toMatch(
+        /pg_catalog\.pg_get_indexdef\(index_row\.indexrelid,\s*2,\s*true\)\s*=\s*'created_at'/i,
+      );
+      expect(check).not.toMatch(
+        /pg_catalog\.pg_get_indexdef\(index_row\.indexrelid,\s*2,\s*true\)[\s\S]{0,80}\bdesc\b/i,
+      );
+      expect(check).toMatch(/index_row\.indoption\[0\]\s*=\s*0/i);
+      expect(check).toMatch(/index_row\.indoption\[1\]\s*=\s*3/i);
+    }
+
+    expect(contactSql).toMatch(
+      /create index idx_contact_messages_status_created_at\s+on public\.contact_messages \(status,\s*created_at desc\);/i,
+    );
+  });
+
   it("requires all contact timestamps before and after hardening", () => {
     const preflight = hardeningSql.match(
       /do \$portfolio_hardening_preflight\$[\s\S]*?\$portfolio_hardening_preflight\$;/i,

@@ -376,7 +376,9 @@ begin
          and pg_catalog.pg_get_indexdef(index_row.indexrelid, 1, true)
              = 'status'
          and pg_catalog.pg_get_indexdef(index_row.indexrelid, 2, true)
-             in ('created_at DESC', 'created_at DESC NULLS FIRST')
+             = 'created_at'
+         and index_row.indoption[0] = 0
+         and index_row.indoption[1] = 3
      ) then
     raise exception using
       errcode = 'P0001',
@@ -729,7 +731,9 @@ begin
       and pg_catalog.pg_get_indexdef(index_row.indexrelid, 1, true)
           = 'status'
       and pg_catalog.pg_get_indexdef(index_row.indexrelid, 2, true)
-          in ('created_at DESC', 'created_at DESC NULLS FIRST')
+          = 'created_at'
+      and index_row.indoption[0] = 0
+      and index_row.indoption[1] = 3
   ) then
     raise exception using
       errcode = 'P0001',
