@@ -1952,32 +1952,6 @@ begin
   if exists (
     select 1
     from public.pages as page
-    where page.page_key = 'resume'
-      and not exists (
-        select 1
-        from public.page_sections as section
-        where section.page_id = page.id
-          and section.is_visible
-          and not section.is_archived
-      )
-      and not exists (
-        select 1
-        from public.resumes as resume_row
-        where resume_row.published
-          and (
-            nullif(pg_catalog.btrim(resume_row.pdf_url), '') ~* '^(https://|/)'
-            or nullif(pg_catalog.btrim(resume_row.docx_url), '') ~* '^(https://|/)'
-          )
-      )
-  ) then
-    raise exception using
-      errcode = 'P0001',
-      message = 'Final CMS alignment failed: Resume seed has no public published file';
-  end if;
-
-  if exists (
-    select 1
-    from public.pages as page
     where page.page_key = 'contact'
       and not exists (
         select 1
@@ -2219,8 +2193,9 @@ section_seed(
 
   union all
 
-  select page.id, 'canonical-resume', 'custom_cards', page.title,
-    null, null, null, null, null, null, 0, 'grid-2'
+  select page.id, 'canonical-resume', 'rich_text', page.title,
+    null, 'Download the resume in PDF or DOCX format.',
+    null, null, null, null, 0, 'compact'
   from empty_pages as page
   where page.page_key = 'resume'
 
@@ -2310,29 +2285,6 @@ education_items as (
   join public.education as education_row on education_row.published
   where page.page_key = 'education'
     and section.section_key = 'canonical-education'
-),
-resume_items as (
-  select
-    section.id as page_section_id,
-    resume_row.label as title,
-    resume_row.variant as subtitle,
-    case
-      when nullif(pg_catalog.btrim(resume_row.pdf_url), '')
-           ~* '^(https://|/)'
-        then pg_catalog.btrim(resume_row.pdf_url)
-      else pg_catalog.btrim(resume_row.docx_url)
-    end as link_url,
-    resume_row.sort_order as display_order
-  from inserted_sections as section
-  join public.pages as page on page.id = section.page_id
-  join public.resumes as resume_row
-    on resume_row.published
-   and (
-     nullif(pg_catalog.btrim(resume_row.pdf_url), '') ~* '^(https://|/)'
-     or nullif(pg_catalog.btrim(resume_row.docx_url), '') ~* '^(https://|/)'
-   )
-  where page.page_key = 'resume'
-    and section.section_key = 'canonical-resume'
 )
 insert into public.page_section_items (
   page_section_id,
@@ -2353,20 +2305,7 @@ select
   null,
   education.display_order,
   true
-from education_items as education
-
-union all
-
-select
-  resume.page_section_id,
-  resume.title,
-  resume.subtitle,
-  null,
-  'Open resume',
-  resume.link_url,
-  resume.display_order,
-  true
-from resume_items as resume;
+from education_items as education;
 
 -- Published projects use their own cover as the social-image fallback. Existing
 -- separate Open Graph images and authored metadata are preserved.
@@ -2989,10 +2928,7 @@ begin
   if exists (
     select 1
     from public.page_sections as section
-    where section.section_key in (
-      'canonical-education',
-      'canonical-resume'
-    )
+    where section.section_key = 'canonical-education'
       and not section.is_archived
       and not exists (
         select 1

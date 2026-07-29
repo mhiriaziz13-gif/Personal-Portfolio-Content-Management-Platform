@@ -227,12 +227,12 @@ describe("portfolio migration order and compatibility contract", () => {
     expect(seedEligibility).toMatch(visibleSectionPredicate);
     expect(
       seedPreflight.match(/from public\.page_sections as section/gi),
-    ).toHaveLength(6);
+    ).toHaveLength(5);
     expect(
       seedPreflight.match(
         /where section\.page_id = page\.id\s+and section\.is_visible\s+and not section\.is_archived/gi,
       ),
-    ).toHaveLength(6);
+    ).toHaveLength(5);
     for (const seedKey of [
       "canonical-hero",
       "canonical-featured-projects",
@@ -264,7 +264,12 @@ describe("portfolio migration order and compatibility contract", () => {
       /education_items as \([\s\S]*?join public\.education/i,
     );
     expect(alignmentSql).toMatch(
-      /resume_items as \([\s\S]*?join public\.resumes[\s\S]*?\^\(https:\/\/\|\/\)/i,
+      /'canonical-resume',\s*'rich_text',\s*page\.title,\s*null,\s*'Download the resume in PDF or DOCX format\.',[\s\S]*?0,\s*'compact'/i,
+    );
+    expect(alignmentSql).not.toMatch(/\bresume_items\b/i);
+    expect(alignmentSql).not.toContain("'Open resume'");
+    expect(alignmentSql).not.toMatch(
+      /\b(?:insert\s+into|update|delete\s+from)\s+public\.resumes\b/i,
     );
     expect(alignmentSql).toMatch(
       /'mailto:' \|\| pg_catalog\.btrim\(profile_row\.email\)/i,
