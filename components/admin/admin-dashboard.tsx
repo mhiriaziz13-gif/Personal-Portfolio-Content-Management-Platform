@@ -446,6 +446,35 @@ const emptyRow = (section: Section): Row => {
   }
   return row;
 };
+const normalizeEditorRow = (section: Section, source: Row): Row => {
+  const normalized: Row = { ...source };
+
+  for (const field of section.fields) {
+    const value = source[field.key];
+
+    if (value !== null && value !== undefined) continue;
+
+    switch (field.kind) {
+      case "checkbox":
+        normalized[field.key] = false;
+        break;
+
+      case "number":
+        normalized[field.key] = 0;
+        break;
+
+      case "list":
+        normalized[field.key] = [];
+        break;
+
+      default:
+        normalized[field.key] = "";
+        break;
+    }
+  }
+
+  return normalized;
+};
 
 const rowsFor = (snapshot: AdminContentSnapshot, table: CmsTableName): Row[] =>
   (Array.isArray(snapshot[table]) ? snapshot[table] : []).filter(isRecord);
@@ -806,10 +835,16 @@ export const AdminDashboard = ({
   };
 
   const beginEdit = (section: Section, index: number) => {
-    setEditing(index);
-    setDraft({ ...(records[section.table]?.[index] ?? emptyRow(section)) });
-    setContentStatus("");
-  };
+  const existingRow = records[section.table]?.[index];
+
+  setEditing(index);
+  setDraft(
+    existingRow
+      ? normalizeEditorRow(section, existingRow)
+      : emptyRow(section),
+  );
+  setContentStatus("");
+};
 
   const beginAdd = (section: Section) => {
     setEditing(-1);
