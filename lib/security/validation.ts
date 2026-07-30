@@ -180,27 +180,86 @@ export const adminProfileSettingsSchema = z.object({
   language: z.string().trim().max(50).optional().default(""),
 }).strict();
 
-const optionalText = (max = 5000) => z.string().trim().max(max).optional().default("");
-const requiredText = (max = 500) => z.string().trim().min(1).max(max);
-const stringList = z.array(z.string().trim().min(1).max(300)).max(100).optional().default([]);
-const sortOrder = z.number().int().min(-10000).max(10000).optional().default(0);
+const emptyStringForNull = (value: unknown) =>
+  value === null || value === undefined ? "" : value;
+
+const emptyListForNull = (value: unknown) =>
+  value === null || value === undefined ? [] : value;
+
+const optionalText = (max = 5000) =>
+  z.preprocess(
+    emptyStringForNull,
+    z.string().trim().max(max),
+  );
+
+const requiredText = (max = 500) =>
+  z.string().trim().min(1).max(max);
+
+const stringList = z.preprocess(
+  emptyListForNull,
+  z.array(z.string().trim().min(1).max(300)).max(100),
+);
+
+const sortOrder = z
+  .number()
+  .int()
+  .min(-10000)
+  .max(10000)
+  .optional()
+  .default(0);
+
 const published = z.boolean().optional().default(true);
+
 const id = z.string().uuid().optional();
-const assetLink = assetUrlSchema.optional().default("");
-const externalLink = externalUrlSchema.optional().default("");
+
+const assetLink = z.preprocess(
+  emptyStringForNull,
+  assetUrlSchema,
+);
+
+const externalLink = z.preprocess(
+  emptyStringForNull,
+  externalUrlSchema,
+);
+
 const nullableExternalLink = z.preprocess(
-  (value) => value == null ? "" : value,
+  emptyStringForNull,
   externalLink,
 );
-const socialLink = z.string().trim().max(2048).refine((value) => {
-  if (isHttpsUrl(value)) return true;
-  return value.startsWith("mailto:") && emailSchema.safeParse(value.slice(7)).success;
-}, "Enter a valid HTTPS URL or email link.").optional().default("");
-const siteLink = z.string().trim().max(2048).refine((value) => {
-  if (!value || isInternalPath(value) || value.startsWith("#")) return true;
-  if (value.startsWith("mailto:")) return emailSchema.safeParse(value.slice(7)).success;
-  return isHttpsUrl(value);
-}, "Enter a valid HTTPS URL, email link, or site path.").optional().default("");
+
+const socialLink = z
+  .string()
+  .trim()
+  .max(2048)
+  .refine((value) => {
+    if (isHttpsUrl(value)) return true;
+
+    return (
+      value.startsWith("mailto:") &&
+      emailSchema.safeParse(value.slice(7)).success
+    );
+  }, "Enter a valid HTTPS URL or email link.")
+  .optional()
+  .default("");
+
+const siteLink = z.preprocess(
+  emptyStringForNull,
+  z
+    .string()
+    .trim()
+    .max(2048)
+    .refine((value) => {
+      if (!value || isInternalPath(value) || value.startsWith("#")) {
+        return true;
+      }
+
+      if (value.startsWith("mailto:")) {
+        return emailSchema.safeParse(value.slice(7)).success;
+      }
+
+      return isHttpsUrl(value);
+    }, "Enter a valid HTTPS URL, email link, or site path."),
+);
 
 const base = { id };
 
