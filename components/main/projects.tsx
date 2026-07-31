@@ -20,12 +20,19 @@ export const Projects = ({
     (project) => project.slug && project.title && project.description,
   );
   if (visibleProjects.length === 0) return null;
-  const gridClass =
-    variant === "grid-2"
+  const homepageGridClass =
+  visibleProjects.length === 1
+    ? "mx-auto max-w-xl"
+    : visibleProjects.length === 2 || visibleProjects.length === 4
       ? "md:grid-cols-2"
-      : variant === "grid-3"
-        ? "md:grid-cols-2 xl:grid-cols-3"
-        : "md:grid-cols-2 xl:grid-cols-3";
+      : "md:grid-cols-2 xl:grid-cols-3";
+
+const gridClass =
+  variant === "grid-2"
+    ? "md:grid-cols-2"
+    : cardLocation === "homepage"
+      ? homepageGridClass
+      : "md:grid-cols-2 xl:grid-cols-3";
 
   return (
     <section
