@@ -37,11 +37,15 @@ export default async function Home() {
           <About profile={content.profile} about={content.about} />
           <Skills skillCategories={content.skillCategories} />
           <Projects
-            projects={content.projects
-              .filter((project) => project.featured)
-              .slice(0, 3)}
-            cardLocation="homepage"
-          />
+  projects={content.projects
+    .filter((project) => project.featured)
+    .sort(
+      (left, right) =>
+        (left.homeFeaturedOrder ?? 999) -
+        (right.homeFeaturedOrder ?? 999),
+    )}
+  cardLocation="homepage"
+/>
           <Experience experience={content.experience} />
           <EducationSection preview education={content.education} />
           <CertificationsSection

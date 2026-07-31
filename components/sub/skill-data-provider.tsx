@@ -15,18 +15,20 @@ import {
 } from "react-icons/fa6";
 import {
   SiAngular,
+  SiApache,
+  SiDjango,
   SiDocker,
-  SiMongodb,
-  SiPython,
   SiGithub,
   SiGoogleanalytics,
   SiGooglesearchconsole,
   SiJsonwebtokens,
   SiMailchimp,
   SiMeta,
+  SiMongodb,
   SiNextdotjs,
   SiOllama,
   SiPostgresql,
+  SiPython,
   SiShopify,
   SiSpringboot,
   SiSupabase,
@@ -57,46 +59,189 @@ type SkillIcon = {
 };
 
 const skillIcons: Record<string, SkillIcon> = {
-  "Data Analysis": { icon: TbFileAnalytics, color: "#38bdf8" },
-  "KPI Analysis": { icon: FaChartLine, color: "#22d3ee" },
-  "Business Intelligence": { icon: FaChartPie, color: "#a78bfa" },
-  "Commercial Analytics": { icon: FaChartColumn, color: "#60a5fa" },
-  "Marketing Analytics": { icon: SiGoogleanalytics, color: "#fbbc04" },
-  "Data Visualization": { icon: TbChartPie, color: "#67e8f9" },
-  "Financial Reporting": { icon: TbReportMoney, color: "#34d399" },
-  Excel: { icon: FaFileExcel, color: "#21a366" },
-  Reporting: { icon: TbReportAnalytics, color: "#93c5fd" },
-  "Digital Marketing": { icon: FaBullhorn, color: "#fb7185" },
-  "Customer Insights": { icon: FaUsers, color: "#f0abfc" },
-  "Customer Journey": { icon: TbRoute, color: "#2dd4bf" },
-  "Local SEO": { icon: SiGooglesearchconsole, color: "#4285f4" },
-  "Email Marketing": { icon: SiMailchimp, color: "#ffe01b" },
-    "CRM & Marketing Automation": {
+  // Data & Business Intelligence
+  "Data Analysis": {
+    icon: TbFileAnalytics,
+    color: "#38bdf8",
+  },
+  "KPI Analysis": {
+    icon: FaChartLine,
+    color: "#22d3ee",
+  },
+  "Business Intelligence": {
+    icon: FaChartPie,
+    color: "#a78bfa",
+  },
+  "Commercial Analytics": {
+    icon: FaChartColumn,
+    color: "#60a5fa",
+  },
+  "Marketing Analytics": {
+    icon: SiGoogleanalytics,
+    color: "#fbbc04",
+  },
+  "Data Visualization": {
+    icon: TbChartPie,
+    color: "#67e8f9",
+  },
+  "Financial Reporting": {
+    icon: TbReportMoney,
+    color: "#34d399",
+  },
+  Excel: {
+    icon: FaFileExcel,
+    color: "#21a366",
+  },
+  Reporting: {
+    icon: TbReportAnalytics,
+    color: "#93c5fd",
+  },
+
+  // Marketing & Customer Growth
+  "Digital Marketing": {
+    icon: FaBullhorn,
+    color: "#fb7185",
+  },
+  "Customer Insights": {
+    icon: FaUsers,
+    color: "#f0abfc",
+  },
+  "Customer Journey": {
+    icon: TbRoute,
+    color: "#2dd4bf",
+  },
+  "Local SEO": {
+    icon: SiGooglesearchconsole,
+    color: "#4285f4",
+  },
+  "Email Marketing": {
+    icon: SiMailchimp,
+    color: "#ffe01b",
+  },
+  "CRM & Marketing Automation": {
     icon: TbAutomation,
     color: "#c084fc",
   },
-  "Paid Social": { icon: SiMeta, color: "#0866ff" },
-  "Social Media Strategy": { icon: TbSocial, color: "#38bdf8" },
-  "E-Commerce": { icon: SiShopify, color: "#95bf47" },
-  UiPath: { icon: SiUipath, color: "#ff6d00" },
-  "Process Automation": { icon: TbAutomation, color: "#c084fc" },
-  "Business Rules Automation": { icon: FaClipboardCheck, color: "#818cf8" },
-  JSON: { icon: SiJsonwebtokens, color: "#ffffff" },
-  "HTML Reporting": { icon: FaFileCode, color: "#f97316" },
-  "Workflow Automation": { icon: FaRoute, color: "#22d3ee" },
-  "Booking Reconciliation": { icon: TbBrandBooking, color: "#60a5fa" },
-  "Invoice Control": { icon: FaFileInvoice, color: "#e879f9" },
-    Auditability: { icon: FaClipboardCheck, color: "#34d399" },
+  "Paid Social": {
+    icon: SiMeta,
+    color: "#0866ff",
+  },
+  "Social Media Strategy": {
+    icon: TbSocial,
+    color: "#38bdf8",
+  },
+  "E-Commerce": {
+    icon: SiShopify,
+    color: "#95bf47",
+  },
 
-  Python: { icon: SiPython, color: "#3776ab" },
+  // Automation, AI & Operations
+  UiPath: {
+    icon: SiUipath,
+    color: "#ff6d00",
+  },
+  "Process Automation": {
+    icon: TbAutomation,
+    color: "#c084fc",
+  },
+  "Business Rules Automation": {
+    icon: FaClipboardCheck,
+    color: "#818cf8",
+  },
+  "Workflow Automation": {
+    icon: FaRoute,
+    color: "#22d3ee",
+  },
+  "Booking Reconciliation": {
+    icon: TbBrandBooking,
+    color: "#60a5fa",
+  },
+  "Invoice Control": {
+    icon: FaFileInvoice,
+    color: "#e879f9",
+  },
+  Auditability: {
+    icon: FaClipboardCheck,
+    color: "#34d399",
+  },
+  RAG: {
+    icon: TbRobot,
+    color: "#a78bfa",
+  },
+  Ollama: {
+    icon: SiOllama,
+    color: "#ffffff",
+  },
+  JSON: {
+    icon: SiJsonwebtokens,
+    color: "#ffffff",
+  },
+  "HTML Reporting": {
+    icon: FaFileCode,
+    color: "#f97316",
+  },
+
+  // Technical Implementation & Integration
+  Python: {
+    icon: SiPython,
+    color: "#3776ab",
+  },
   "SQL & Relational Databases": {
     icon: FaDatabase,
     color: "#38bdf8",
   },
-  PostgreSQL: { icon: SiPostgresql, color: "#4169e1" },
-  MongoDB: { icon: SiMongodb, color: "#47a248" },
-  Supabase: { icon: SiSupabase, color: "#3ecf8e" },
-  Docker: { icon: SiDocker, color: "#2496ed" },
+  PostgreSQL: {
+    icon: SiPostgresql,
+    color: "#4169e1",
+  },
+  MongoDB: {
+    icon: SiMongodb,
+    color: "#47a248",
+  },
+  Supabase: {
+    icon: SiSupabase,
+    color: "#3ecf8e",
+  },
+  "REST APIs": {
+    icon: TbApi,
+    color: "#22d3ee",
+  },
+  Angular: {
+    icon: SiAngular,
+    color: "#dd0031",
+  },
+  "Spring Boot": {
+    icon: SiSpringboot,
+    color: "#6db33f",
+  },
+  Django: {
+    icon: SiDjango,
+    color: "#44b78b",
+  },
+  Apache: {
+    icon: SiApache,
+    color: "#d22128",
+  },
+  Docker: {
+    icon: SiDocker,
+    color: "#2496ed",
+  },
+  "Next.js": {
+    icon: SiNextdotjs,
+    color: "#ffffff",
+  },
+  TypeScript: {
+    icon: SiTypescript,
+    color: "#3178c6",
+  },
+  GitHub: {
+    icon: SiGithub,
+    color: "#ffffff",
+  },
+  Vercel: {
+    icon: SiVercel,
+    color: "#ffffff",
+  },
 };
 
 const fallbackSkill: SkillIcon = {
@@ -104,7 +249,9 @@ const fallbackSkill: SkillIcon = {
   color: "#c4b5fd",
 };
 
-export const SkillDataProvider = ({ name }: SkillDataProviderProps) => {
+export const SkillDataProvider = ({
+  name,
+}: SkillDataProviderProps) => {
   const skill = skillIcons[name] ?? fallbackSkill;
   const Icon = skill.icon;
 
@@ -121,12 +268,10 @@ export const SkillDataProvider = ({ name }: SkillDataProviderProps) => {
           aria-hidden="true"
         />
       </span>
+
       <span className="text-xs font-medium leading-5 text-gray-200 sm:text-sm">
         {name}
       </span>
     </div>
   );
 };
-
-
-

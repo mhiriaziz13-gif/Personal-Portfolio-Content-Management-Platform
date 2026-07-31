@@ -91,13 +91,12 @@ function CmsSection({
           title={section.title}
           subtitle={section.subtitle}
           projects={content.projects
-            .filter((project) => project.featured)
-            .sort(
-              (left, right) =>
-                (left.homeFeaturedOrder ?? 999) -
-                (right.homeFeaturedOrder ?? 999),
-            )
-            .slice(0, 3)}
+  .filter((project) => project.featured)
+  .sort(
+    (left, right) =>
+      (left.homeFeaturedOrder ?? 999) -
+      (right.homeFeaturedOrder ?? 999),
+  )}
           cardLocation="homepage"
           variant={variant}
         />
