@@ -15,6 +15,9 @@ import {
 } from "react-icons/fa6";
 import {
   SiAngular,
+  SiDocker,
+  SiMongodb,
+  SiPython,
   SiGithub,
   SiGoogleanalytics,
   SiGooglesearchconsole,
@@ -68,6 +71,10 @@ const skillIcons: Record<string, SkillIcon> = {
   "Customer Journey": { icon: TbRoute, color: "#2dd4bf" },
   "Local SEO": { icon: SiGooglesearchconsole, color: "#4285f4" },
   "Email Marketing": { icon: SiMailchimp, color: "#ffe01b" },
+    "CRM & Marketing Automation": {
+    icon: TbAutomation,
+    color: "#c084fc",
+  },
   "Paid Social": { icon: SiMeta, color: "#0866ff" },
   "Social Media Strategy": { icon: TbSocial, color: "#38bdf8" },
   "E-Commerce": { icon: SiShopify, color: "#95bf47" },
@@ -79,19 +86,17 @@ const skillIcons: Record<string, SkillIcon> = {
   "Workflow Automation": { icon: FaRoute, color: "#22d3ee" },
   "Booking Reconciliation": { icon: TbBrandBooking, color: "#60a5fa" },
   "Invoice Control": { icon: FaFileInvoice, color: "#e879f9" },
-  Auditability: { icon: FaClipboardCheck, color: "#34d399" },
+    Auditability: { icon: FaClipboardCheck, color: "#34d399" },
+
+  Python: { icon: SiPython, color: "#3776ab" },
+  "SQL & Relational Databases": {
+    icon: FaDatabase,
+    color: "#38bdf8",
+  },
   PostgreSQL: { icon: SiPostgresql, color: "#4169e1" },
+  MongoDB: { icon: SiMongodb, color: "#47a248" },
   Supabase: { icon: SiSupabase, color: "#3ecf8e" },
-  "Next.js": { icon: SiNextdotjs, color: "#ffffff" },
-  TypeScript: { icon: SiTypescript, color: "#3178c6" },
-  Vercel: { icon: SiVercel, color: "#ffffff" },
-  GitHub: { icon: SiGithub, color: "#ffffff" },
-  Angular: { icon: SiAngular, color: "#dd0031" },
-  "Spring Boot": { icon: SiSpringboot, color: "#6db33f" },
-  "REST APIs": { icon: TbApi, color: "#67e8f9" },
-  RAG: { icon: FaDatabase, color: "#a78bfa" },
-  Ollama: { icon: SiOllama, color: "#ffffff" },
-  "LLaMA 3.2": { icon: TbRobot, color: "#c4b5fd" },
+  Docker: { icon: SiDocker, color: "#2496ed" },
 };
 
 const fallbackSkill: SkillIcon = {
