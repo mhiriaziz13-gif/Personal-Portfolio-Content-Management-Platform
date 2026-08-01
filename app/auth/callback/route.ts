@@ -13,7 +13,7 @@ import {
   getTrustedRequestOrigin,
   jsonError,
 } from "@/lib/security/http";
-import { safeRedirect } from "@/lib/security/redirects";
+import { safeAdminRedirect } from "@/lib/security/redirects";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -39,7 +39,7 @@ export async function GET(request: Request) {
   const tokenHash = requestUrl.searchParams.get("token_hash");
   const type = requestUrl.searchParams.get("type");
   const recoveryState = requestUrl.searchParams.get("recovery_state");
-  const next = safeRedirect(requestUrl.searchParams.get("next"), "/admin");
+  const next = safeAdminRedirect(requestUrl.searchParams.get("next"), "/admin");
   const isRecoveryDestination =
     new URL(next, trustedOrigin).pathname === "/admin/reset-password";
 

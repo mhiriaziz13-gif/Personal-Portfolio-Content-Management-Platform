@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   type FormEvent,
   useCallback,
@@ -60,7 +61,7 @@ type Section = {
   fields: CmsField[];
   singleton?: boolean;
 };
-type View =
+export type View =
   | "overview"
   | "page_builder"
   | "project_builder"
@@ -611,11 +612,14 @@ const recordIssues = (
 export const AdminDashboard = ({
   content,
   email,
+  initialView = "overview",
 }: {
   content: AdminContentSnapshot;
   email?: string;
+  initialView?: View;
 }) => {
-  const [view, setView] = useState<View>("overview");
+  const router = useRouter();
+  const [view, setView] = useState<View>(initialView);
   const [records, setRecords] = useState<Record<string, Row[]>>(() =>
     Object.fromEntries(sections.map((section) => [section.table, rowsFor(content, section.table)])),
   );
@@ -863,6 +867,23 @@ export const AdminDashboard = ({
   const selectView = (target: View) => {
     setView(target);
     cancelEdit();
+    const routes: Partial<Record<View, string>> = {
+      overview: "/admin",
+      projects: "/admin/projects",
+      profile: "/admin/content/profile",
+      hero: "/admin/content/hero",
+      about: "/admin/content/about",
+      experience: "/admin/content/experience",
+      skills: "/admin/content/skills",
+      education: "/admin/content/education",
+      certifications: "/admin/content/certifications",
+      resumes: "/admin/content/resumes",
+      contact_messages: "/admin/messages",
+      uploads: "/admin/media",
+      settings: "/admin/settings",
+    };
+    const route = routes[target];
+    if (route) router.push(route);
   };
 
   const persistRow = async (

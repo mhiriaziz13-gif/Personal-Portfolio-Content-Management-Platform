@@ -1,0 +1,2 @@
+import { notFound } from "next/navigation"; import { ProjectWorkspace } from "@/components/admin/project-workspace"; import { getAdminProjectWorkspace } from "@/lib/admin-project-workspace";
+export const dynamic="force-dynamic"; export default async function ProjectPage({params}:{params:Promise<{projectId:string}>}){const {projectId}=await params;const data=await getAdminProjectWorkspace(projectId);if(!data.project)notFound();return <ProjectWorkspace {...data} project={data.project} mode="main"/>;}

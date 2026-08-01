@@ -28,7 +28,7 @@ import {
   isCsrfTokenValid,
   isMutationRequest,
 } from "@/lib/security/csrf";
-import { safeRedirect } from "@/lib/security/redirects";
+import { safeAdminRedirect } from "@/lib/security/redirects";
 
 export const REMEMBER_DEVICE_COOKIE = "aam_admin_mfa_device";
 export const passwordRecoveryCookieName = () =>
@@ -892,7 +892,7 @@ export const requireAdminPage = async (
   if (!admin) {
     redirect(
       `/admin/login?next=${encodeURIComponent(
-        options?.next ?? "/admin",
+        safeAdminRedirect(options?.next, "/admin"),
       )}`,
     );
 
@@ -916,7 +916,7 @@ export const requireAdminPage = async (
   ) {
     redirect(
       `/admin/login?mfa=required&next=${encodeURIComponent(
-        options?.next ?? "/admin",
+        safeAdminRedirect(options?.next, "/admin"),
       )}`,
     );
 
@@ -1100,7 +1100,7 @@ export const signOutAndRedirectToLogin =
 
     redirect(
       `/admin/login?next=${encodeURIComponent(
-        safeRedirect(next),
+        safeAdminRedirect(next),
       )}`,
     );
   };
