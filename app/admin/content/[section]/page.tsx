@@ -8,5 +8,5 @@ const sections = new Set<CmsTableName>(["profile","hero","about","experience","s
 export default async function ContentSectionPage({ params }: { params: Promise<{ section: string }> }) {
   const { section } = await params;
   if (!sections.has(section as CmsTableName)) notFound();
-  return <AdminDashboard content={await getAdminContentSnapshot()} initialView={section as View} />;
+  return <AdminDashboard content={await getAdminContentSnapshot()} initialView={section as View} embedded />;
 }

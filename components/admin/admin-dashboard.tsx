@@ -613,10 +613,12 @@ export const AdminDashboard = ({
   content,
   email,
   initialView = "overview",
+  embedded = false,
 }: {
   content: AdminContentSnapshot;
   email?: string;
   initialView?: View;
+  embedded?: boolean;
 }) => {
   const router = useRouter();
   const [view, setView] = useState<View>(initialView);
@@ -1264,8 +1266,8 @@ export const AdminDashboard = ({
   );
 
   return (
-    <section className="relative z-[20] mx-auto w-full max-w-7xl px-6 py-28 text-gray-200">
-      <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+    <section className={`relative z-[20] mx-auto w-full text-gray-200 ${embedded ? "" : "max-w-7xl px-6 py-28"}`}>
+      {!embedded && <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="Welcome-text text-sm uppercase">CMS Admin</p>
           <h1 className="mt-3 text-4xl font-bold text-white">Portfolio Dashboard</h1>
@@ -1282,10 +1284,10 @@ export const AdminDashboard = ({
             {logoutPending ? "Logging out..." : "Logout"}
           </button>
         </div>
-      </header>
+      </header>}
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-[16rem_1fr]">
-        <nav aria-label="CMS sections" className="flex h-fit flex-col gap-1 rounded-lg border border-white/10 bg-[#100b24]/80 p-3">
+      <div className={`grid gap-6 ${embedded ? "" : "mt-8 lg:grid-cols-[16rem_1fr]"}`}>
+        {!embedded && <nav aria-label="CMS sections" className="flex h-fit flex-col gap-1 rounded-lg border border-white/10 bg-[#100b24]/80 p-3">
           {navButton("overview", "Overview")}
           <p className="mt-3 px-4 pb-1 text-[0.65rem] font-semibold uppercase tracking-widest text-gray-500">
             Builders
@@ -1317,7 +1319,7 @@ export const AdminDashboard = ({
               ))}
             </div>
           </details>
-        </nav>
+        </nav>}
 
         <div className="min-w-0 rounded-lg border border-white/10 bg-[#100b24]/90 p-5 shadow-xl shadow-[#2A0E61]/20">
           {view === "overview" && (
