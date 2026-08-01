@@ -20,16 +20,10 @@ create table public.project_section_definitions (
 
 alter table public.project_section_definitions enable row level security;
 grant select on public.project_section_definitions to anon, authenticated;
-grant insert, update, delete on public.project_section_definitions to authenticated;
 
 create policy "Canonical project section definitions are readable"
   on public.project_section_definitions for select to anon, authenticated
   using (is_active);
-create policy "Admins manage project section definitions"
-  on public.project_section_definitions for all to authenticated
-  using ((select private.is_admin()))
-  with check ((select private.is_admin()));
-
 create trigger set_project_section_definitions_updated_at
   before update on public.project_section_definitions
   for each row execute function public.set_updated_at();
@@ -237,7 +231,7 @@ update private.project_section_structure_migration_report report set
       group by sort_order having count(*)>1) orders), '{}');
 
 create or replace function public.ensure_project_section_structure(target_project_id uuid)
-returns jsonb language plpgsql security definer set search_path='' as $$
+returns jsonb language plpgsql security invoker set search_path='' as $$
 declare result jsonb;
 begin
   if not (select private.is_admin()) then raise exception 'admin authorization required' using errcode='42501'; end if;
@@ -272,7 +266,7 @@ begin
   return result;
 end $$;
 revoke execute on function public.ensure_project_section_structure(uuid) from public, anon;
-grant execute on function public.ensure_project_section_structure(uuid) to authenticated, service_role;
+grant execute on function public.ensure_project_section_structure(uuid) to authenticated;
 
 create or replace function private.provision_project_section_structure()
 returns trigger language plpgsql security definer set search_path='' as $$
