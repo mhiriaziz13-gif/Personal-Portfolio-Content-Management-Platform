@@ -28,7 +28,7 @@ const columns: Record<EditableCmsTable, readonly string[]> = {
     "sort_order",
   ],
   project_sections: [
-    ...common, "project_id", "section_type", "title", "body", "bullets",
+    ...common, "project_id", "definition_id", "section_type", "title", "body", "bullets",
     "sort_order", "is_visible", "is_archived", "layout_variant",
   ],
   experience: [

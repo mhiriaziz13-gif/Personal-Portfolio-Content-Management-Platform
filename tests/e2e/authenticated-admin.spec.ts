@@ -65,6 +65,43 @@ test.describe("authenticated CMS lifecycle in an isolated project", () => {
     ).toEqual([]);
   });
 
+  test("project workspace is deep-linkable and preserves browser history", async ({ page }) => {
+    await page.goto("/admin/projects");
+    const firstProject = page.locator('a[href^="/admin/projects/"]').filter({ hasNot: page.locator('[href$="/new"]') }).first();
+    await expect(firstProject).toBeVisible();
+    await firstProject.click();
+    const projectUrl = page.url();
+    await page.getByRole("link", { name: "Sections", exact: true }).click();
+    const sectionsUrl = page.url();
+    await page.locator('a[href*="/sections/"]').first().click();
+    const sectionUrl = page.url();
+    await page.reload();
+    await expect(page).toHaveURL(sectionUrl);
+    await page.goBack();
+    await expect(page).toHaveURL(sectionsUrl);
+    await page.goBack();
+    await expect(page).toHaveURL(projectUrl);
+    await page.goBack();
+    await expect(page).toHaveURL(/\/admin\/projects$/);
+    await page.goForward();
+    await expect(page).toHaveURL(projectUrl);
+  });
+
+  test("project switching retains the workspace tab and exposes mobile navigation", async ({ page, isMobile }) => {
+    await page.goto("/admin/projects");
+    const projectLinks = page.locator('a[href^="/admin/projects/"]');
+    test.skip(await projectLinks.count() < 2, "Requires two projects.");
+    await projectLinks.first().click();
+    await page.getByRole("link", { name: "Sections", exact: true }).click();
+    await page.getByLabel("Switch project").selectOption({ index: 1 });
+    await expect(page).toHaveURL(/\/admin\/projects\/[^/]+\/sections$/);
+    if (isMobile) {
+      await page.getByRole("button", { name: "Menu" }).click();
+      await expect(page.locator("#mobile-cms-navigation")).toBeVisible();
+    }
+    await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toBeVisible();
+  });
+
   test("create, update, conflict, archive, restore, delete, and revision history", async ({
     request,
   }) => {

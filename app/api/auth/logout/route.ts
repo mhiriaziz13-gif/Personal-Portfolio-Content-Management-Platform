@@ -22,7 +22,6 @@ import {
   consumeRateLimit,
   rateLimitResponse,
 } from "@/lib/security/rate-limit";
-import { safeRedirect } from "@/lib/security/redirects";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -92,13 +91,8 @@ export async function POST(request: Request) {
 
   const url = new URL(request.url);
 
-  const next = safeRedirect(
-    url.searchParams.get("next"),
-    "/admin/login",
-  );
-
   const response = NextResponse.redirect(
-    new URL(next, getTrustedRequestOrigin(request) ?? url.origin),
+    new URL("/admin/login", getTrustedRequestOrigin(request) ?? url.origin),
     303,
   );
 

@@ -62,3 +62,13 @@ export const safeRedirect = (
     return fallback;
   }
 };
+
+export const safeAdminRedirect = (
+  value: string | null | undefined,
+  fallback = "/admin",
+) => {
+  const normalized = safeRedirect(value, fallback);
+  return normalized === "/admin" || normalized.startsWith("/admin/")
+    ? normalized
+    : fallback;
+};

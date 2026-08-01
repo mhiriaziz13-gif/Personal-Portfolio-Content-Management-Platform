@@ -196,6 +196,15 @@ test("private entry routes are protected and remain noindex", async ({
   ).toBeVisible();
 });
 
+test("nested admin deep links preserve their intended destination", async ({ page }) => {
+  const deepPath = "/admin/projects/00000000-0000-4000-8000-000000000000/sections";
+  await page.goto(deepPath);
+  await expect(page).toHaveURL((url) =>
+    url.pathname === "/admin/login"
+    && url.searchParams.get("next") === deepPath,
+  );
+});
+
 test("an invalid admin login request fails closed without issuing a session", async ({
   request,
   baseURL,
