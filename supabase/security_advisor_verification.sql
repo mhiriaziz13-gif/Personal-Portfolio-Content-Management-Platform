@@ -477,6 +477,28 @@ select
     where variant = 'french-cv'
       and published
   ) = 1
+  and (
+    select count(*)
+    from public.resumes
+    where variant = 'italian-cv'
+      and published
+  ) = 1
+  and (
+    select count(*)
+    from public.resumes
+    where published
+  ) = 3
+  and not exists (
+    select 1
+    from public.resumes
+    where published
+      and (
+        pdf_url is null
+        or docx_url is null
+        or pdf_url not like 'https://qflchsmvszbesfnomdeo.supabase.co/storage/v1/object/public/resumes/%?download=%'
+        or docx_url not like 'https://qflchsmvszbesfnomdeo.supabase.co/storage/v1/object/public/resumes/%?download=%'
+      )
+  )
   and not exists (
     select 1
     from public.resumes

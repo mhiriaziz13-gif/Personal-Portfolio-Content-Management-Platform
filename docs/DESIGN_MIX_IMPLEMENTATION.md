@@ -32,7 +32,7 @@ No local avatar image was available. The About section uses a safe initials-base
 
 ## CV Files
 
-Resume publication is controlled by the CMS and the shared public-variant policy. Only validated English, French and Italian variants may appear. English and French replacement files are pending, so their CMS cards remain visible with disabled downloads. Italian remains absent until a validated asset is supplied. Master is private; ATS and Canadian variants are deprecated and must not be restored to `public/cv`.
+Resume publication is controlled by the CMS and the shared public-variant policy. The validated English, French and Italian PDF/DOCX pairs are stored in the Supabase `resumes` bucket and tracked through CMS upload metadata. Master is private; ATS and Canadian variants are deprecated and must not be restored to `public/cv`.
 
 ## Test Results
 
@@ -43,6 +43,5 @@ Resume publication is controlled by the CMS and the shared public-variant policy
 
 ## Remaining Placeholders
 
-- Validated English, French and Italian CV PDF/DOCX files are not present yet.
 - About uses an initials avatar placeholder until Ahmed provides a real local avatar image.
 - Project images are neutral visual placeholders from the base template and are labeled as placeholders in the UI.

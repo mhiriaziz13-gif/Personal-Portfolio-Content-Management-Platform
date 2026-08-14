@@ -10,7 +10,7 @@
 | `/experience` | professional experience | Digital Transformation Project Manager at El Mouradi Hotels; Sunshine Holiday Group, July 2025–July 2026; hospitality; tourism; automation |
 | `/education` | education | Big Data Analytics & E-Commerce, October 2025–June 2027; Business Intelligence, January 2021–June 2025; 17.11/20 average; 19.5/20 PFE grade; Mention Excellent |
 | `/certifications` | verified credentials | issuer, credential URL and covered topics |
-| `/resume` | Ahmed Aziz Mhiri CV | approved English and French variants; validated files pending; education; credentials |
+| `/resume` | Ahmed Aziz Mhiri CV | validated English, French and Italian PDF/DOCX variants; education; credentials |
 | `/contact` | contact Ahmed Aziz Mhiri | Marketing & Commercial Analytics, Business Intelligence and Digital Transformation opportunities; selected freelance projects; international full-time opportunities from 2027 |
 
 Branded, role, expertise and project/problem intent should converge on these pages rather than create near-duplicate variants. No country/city doorway pages should be created.

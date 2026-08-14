@@ -91,15 +91,22 @@ const validSnapshots: Record<string, unknown[]> = {
     {
       label: "English CV",
       variant: "english-professional-cv",
-      pdf_url: null,
-      docx_url: null,
+      pdf_url: "/cv/Ahmed_Aziz_Mhiri_CV_English.pdf",
+      docx_url: "/cv/Ahmed_Aziz_Mhiri_CV_English.docx",
       published: true,
     },
     {
       label: "French CV",
       variant: "french-cv",
-      pdf_url: null,
-      docx_url: null,
+      pdf_url: "/cv/Ahmed_Aziz_Mhiri_CV_Francais.pdf",
+      docx_url: "/cv/Ahmed_Aziz_Mhiri_CV_Francais.docx",
+      published: true,
+    },
+    {
+      label: "Italian CV",
+      variant: "italian-cv",
+      pdf_url: "/cv/Ahmed_Aziz_Mhiri_CV_Italian.pdf",
+      docx_url: "/cv/Ahmed_Aziz_Mhiri_CV_Italian.docx",
       published: true,
     },
   ],
@@ -195,39 +202,61 @@ describe("Wave 1 content audit", () => {
     expect(output).toContain("Supabase is not configured");
   });
 
-  it("allows approved EN/FR rows with pending assets as warnings", async () => {
+  it("accepts exactly one fully backed EN, FR and IT row", async () => {
     const directory = createRepositoryFixture();
     const { server, url } = await startSnapshotServer(validSnapshots);
     try {
       const result = await runConfiguredAudit(directory, url);
 
       expect(result.code).toBe(0);
-      expect(result.output).toContain(
-        "English resume has no PDF URL; the validated replacement asset is pending",
-      );
-      expect(result.output).toContain(
-        "French resume has no DOCX URL; the validated replacement asset is pending",
-      );
-      expect(result.output).toContain("0 failure(s), 4 warning(s)");
+      expect(result.output).toContain("0 failure(s), 0 warning(s)");
     } finally {
       await stopServer(server);
     }
   });
 
-  it("requires exactly one published English and French row", async () => {
+  it("requires both PDF and DOCX URLs for every approved resume", async () => {
     const directory = createRepositoryFixture();
-    const missingFrenchSnapshots = structuredClone(validSnapshots);
-    missingFrenchSnapshots.resumes = missingFrenchSnapshots.resumes.filter(
-      (resume) =>
-        (resume as { variant?: unknown }).variant !== "french-cv",
-    );
-    const { server, url } = await startSnapshotServer(missingFrenchSnapshots);
+    const missingAssetSnapshots = structuredClone(validSnapshots);
+    const frenchResume = missingAssetSnapshots.resumes.find(
+      (resume) => (resume as { variant?: unknown }).variant === "french-cv",
+    ) as { docx_url?: unknown } | undefined;
+    const italianResume = missingAssetSnapshots.resumes.find(
+      (resume) => (resume as { variant?: unknown }).variant === "italian-cv",
+    ) as { pdf_url?: unknown } | undefined;
+    if (frenchResume) frenchResume.docx_url = null;
+    if (italianResume) italianResume.pdf_url = "";
+    const { server, url } = await startSnapshotServer(missingAssetSnapshots);
     try {
       const result = await runConfiguredAudit(directory, url);
 
       expect(result.code).toBe(1);
       expect(result.output).toContain(
-        "published resume policy requires exactly one French variant; found 0",
+        "French resume has no DOCX URL; a validated asset is required",
+      );
+      expect(result.output).toContain(
+        "Italian resume has no PDF URL; a validated asset is required",
+      );
+      expect(result.output).toContain("2 failure(s), 0 warning(s)");
+    } finally {
+      await stopServer(server);
+    }
+  });
+
+  it("requires exactly one published English, French and Italian row", async () => {
+    const directory = createRepositoryFixture();
+    const missingItalianSnapshots = structuredClone(validSnapshots);
+    missingItalianSnapshots.resumes = missingItalianSnapshots.resumes.filter(
+      (resume) =>
+        (resume as { variant?: unknown }).variant !== "italian-cv",
+    );
+    const { server, url } = await startSnapshotServer(missingItalianSnapshots);
+    try {
+      const result = await runConfiguredAudit(directory, url);
+
+      expect(result.code).toBe(1);
+      expect(result.output).toContain(
+        "published resume policy requires exactly one Italian variant; found 0",
       );
     } finally {
       await stopServer(server);
@@ -343,7 +372,8 @@ describe("Wave 1 content audit", () => {
         "deprecated resume variant is published: master-cv Master CV",
         "deprecated/private resume asset is published: english-professional-cv English CV",
         "unapproved resume variant is published: internal-review-copy English CV",
-        "Italian resume is published without a validated PDF or DOCX asset",
+        "Italian resume has no PDF URL; a validated asset is required",
+        "Italian resume has no DOCX URL; a validated asset is required",
       ]) {
         expect(result.output).toContain(failure);
       }

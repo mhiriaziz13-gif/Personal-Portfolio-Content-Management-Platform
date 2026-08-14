@@ -283,8 +283,8 @@ for (const project of projects) {
       || !/(two-person|two person|team)/i.test(boundaryCopy)
       || !/chatbot/i.test(boundaryCopy)
       || !/selected (application )?services/i.test(boundaryCopy)
-      || !/not presented as a production deployment/i.test(boundaryCopy)
-      || !/(not sole-authored|not presented .*sole-authored system)/i.test(boundaryCopy)
+      || !/(not presented as a production deployment|not a production deployment)/i.test(boundaryCopy)
+      || !/(not sole-authored|not solely authored|not presented .*sole-authored system|rather than (?:the )?(?:complete|whole) (?:platform|system) independently)/i.test(boundaryCopy)
     ) {
       failures.push(
         `project ${String(project.slug)} does not state the approved VERMEG team-prototype, bounded-contribution, production-presentation and authorship limits`,
@@ -494,15 +494,6 @@ for (const resume of snapshots.get("resumes") ?? []) {
     failures.push(`unapproved resume variant is published: ${identity.trim()}`);
     continue;
   }
-  const hasAnyAsset = [resume.pdf_url, resume.docx_url].some((value) =>
-    String(value || "").trim(),
-  );
-  if (approvedVariant === "Italian" && !hasAnyAsset) {
-    failures.push(
-      "Italian resume is published without a validated PDF or DOCX asset",
-    );
-    continue;
-  }
   publicResumeCounts.set(
     approvedVariant,
     (publicResumeCounts.get(approvedVariant) ?? 0) + 1,
@@ -512,25 +503,20 @@ for (const resume of snapshots.get("resumes") ?? []) {
     ["docx_url", "DOCX"],
   ]) {
     if (!String(resume[field] || "").trim()) {
-      warnings.push(
-        `${approvedVariant} resume has no ${label} URL; the validated replacement asset is pending`,
+      failures.push(
+        `${approvedVariant} resume has no ${label} URL; a validated asset is required`,
       );
     }
   }
 }
 
-for (const requiredVariant of ["English", "French"]) {
+for (const requiredVariant of ["English", "French", "Italian"]) {
   const count = publicResumeCounts.get(requiredVariant) ?? 0;
   if (count !== 1) {
     failures.push(
       `published resume policy requires exactly one ${requiredVariant} variant; found ${count}`,
     );
   }
-}
-if ((publicResumeCounts.get("Italian") ?? 0) > 1) {
-  failures.push(
-    `published resume policy allows at most one Italian variant; found ${publicResumeCounts.get("Italian")}`,
-  );
 }
 
 for (const experience of experienceRows) {
@@ -544,8 +530,8 @@ for (const experience of experienceRows) {
     || !/(two-person|two person|team)/i.test(boundaryCopy)
     || !/chatbot/i.test(boundaryCopy)
     || !/selected (application )?services/i.test(boundaryCopy)
-    || !/not presented as a production deployment/i.test(boundaryCopy)
-    || !/(not sole-authored|not presented .*sole-authored system)/i.test(boundaryCopy)
+    || !/(not presented as a production deployment|not a production deployment)/i.test(boundaryCopy)
+    || !/(not sole-authored|not solely authored|not presented .*sole-authored system|rather than (?:the )?(?:complete|whole) (?:platform|system) independently)/i.test(boundaryCopy)
   ) {
     failures.push(
       "VERMEG experience does not state the approved team-prototype, bounded-contribution, production-presentation and authorship limits",

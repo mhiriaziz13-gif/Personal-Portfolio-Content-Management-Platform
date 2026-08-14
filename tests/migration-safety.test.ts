@@ -14,11 +14,14 @@ const alignmentMigrationName =
   "20260729120000_final_cms_content_alignment.sql";
 const wave1MigrationName =
   "20260814112255_wave1_source_of_truth.sql";
+const resumeAssetsMigrationName =
+  "20260814140343_publish_validated_resume_assets.sql";
 const requiredMigrationNames = [
   contactMigrationName,
   hardeningMigrationName,
   alignmentMigrationName,
   wave1MigrationName,
+  resumeAssetsMigrationName,
 ] as const;
 
 const migrationFiles = globSync(join(migrationDirectory, "*.sql")).sort();
@@ -28,7 +31,8 @@ const contactSql = readMigration(contactMigrationName);
 const hardeningSql = readMigration(hardeningMigrationName);
 const alignmentSql = readMigration(alignmentMigrationName);
 const wave1Sql = readMigration(wave1MigrationName);
-const reviewedSql = `${contactSql}\n${hardeningSql}\n${alignmentSql}\n${wave1Sql}`;
+const resumeAssetsSql = readMigration(resumeAssetsMigrationName);
+const reviewedSql = `${contactSql}\n${hardeningSql}\n${alignmentSql}\n${wave1Sql}\n${resumeAssetsSql}`;
 
 const stripFunctionBodies = (sql: string) =>
   sql.replace(
@@ -61,7 +65,7 @@ describe("portfolio migration order and compatibility contract", () => {
 
     expect(
       names.filter((name) =>
-        /(?:contact_messages_compatibility|portfolio_hardening_v1|final_cms_content_alignment|wave1_source_of_truth)\.sql$/.test(
+        /(?:contact_messages_compatibility|portfolio_hardening_v1|final_cms_content_alignment|wave1_source_of_truth|publish_validated_resume_assets)\.sql$/.test(
           name,
         )),
     ).toEqual(requiredMigrationNames);
@@ -404,6 +408,37 @@ describe("portfolio migration order and compatibility contract", () => {
       /item\.display_order = 0[\s\S]*?\) <> 1 or \([\s\S]*?item\.display_order = 1[\s\S]*?\) <> 1/i,
     );
     expect(stripComments(wave1Sql)).not.toMatch(
+      /\b(?:insert\s+into|update|delete\s+from)\s+public\.experiences\b/i,
+    );
+  });
+
+  it("publishes only the six validated EN/FR/IT resume assets", () => {
+    expect(resumeAssetsSql).toMatch(/\bbegin\s*;/i);
+    expect(resumeAssetsSql.trimEnd()).toMatch(/\bcommit\s*;$/i);
+    expect(resumeAssetsSql).toContain("storage.objects");
+    expect(resumeAssetsSql).toContain("storage.buckets");
+    expect(resumeAssetsSql).toContain("the resumes bucket must exist and be public");
+    expect(resumeAssetsSql).toContain("Storage object is missing or has unexpected metadata");
+    expect(resumeAssetsSql).toContain("English Professional CV");
+    expect(resumeAssetsSql).toContain("French CV");
+    expect(resumeAssetsSql).toContain("Italian CV");
+    expect(resumeAssetsSql).toMatch(
+      /where published[\s\S]*?\) <> 3 or exists[\s\S]*?variant not in \('english-professional-cv', 'french-cv', 'italian-cv'\)/i,
+    );
+    expect(resumeAssetsSql).toMatch(
+      /lower\(pg_catalog\.concat_ws\(' ', variant, label, pdf_url, docx_url\)\)[\s\S]*?\(ats\|canad\|master\)/i,
+    );
+    for (const digest of [
+      "b22107d10a0c2d471359a6cdb975c5a866ce07eba6b661102175a2d90a4e601b",
+      "f5e42dba5f98632127eb9f1a690c4af89f4e3f417118b0830b4e0b40f1289528",
+      "0931edd08ef766d3526aec4d79b0079413709957dddef1ee31b1473c38f216bf",
+      "532e8f76684996a36ee380b62720108d52ce063b241773b080694cd23e8c86cf",
+      "b676f91eb719a9993dc176001295a20395b9c62977281ad51fa74c375c7094dc",
+      "edb7d7dbc5643f91d4a3ab19b6ed2fcb94c131686986ff5d8b7e065c48905c1e",
+    ]) {
+      expect(resumeAssetsSql).toContain(digest);
+    }
+    expect(resumeAssetsSql).not.toMatch(
       /\b(?:insert\s+into|update|delete\s+from)\s+public\.experiences\b/i,
     );
   });
