@@ -1,4 +1,4 @@
-# Ahmed Aziz Mhiri — Data-Driven Marketing & Commercial Analytics
+# Ahmed Aziz Mhiri — Marketing & Commercial Analytics, Big Data & Digital Transformation
 
 [![Live Portfolio](https://img.shields.io/badge/Live%20Portfolio-Visit-000000?style=for-the-badge&logo=vercel)](https://ahmedaziz-portfolio.vercel.app/?utm_source=github&utm_medium=referral&utm_campaign=portfolio_growth_2026&utm_content=repository_badge)
 [![Next.js](https://img.shields.io/badge/Next.js-16.2.9-000000?style=for-the-badge&logo=nextdotjs)](https://nextjs.org/)
@@ -6,9 +6,9 @@
 [![Supabase](https://img.shields.io/badge/Supabase-CMS%20%26%20Auth-3FCF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
 [![Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-000000?style=for-the-badge&logo=vercel)](https://vercel.com/)
 
-A production-grade 3D personal portfolio for **Ahmed Aziz Mhiri**, positioned at the intersection of **data-driven marketing, commercial analytics, business intelligence, customer insight and process automation**.
+A production-grade 3D personal portfolio for **Ahmed Aziz Mhiri**, a **Marketing & Commercial Analyst** and **Digital Transformation Project Manager** working across Business Intelligence, Big Data, AI, CRM automation and engineering.
 
-> **Turning Data into Commercial Growth**
+> **Turning customer, commercial and operational data into clearer decisions, smarter processes and measurable digital outcomes.**
 
 The platform combines a high-impact public portfolio, a Supabase-backed CMS, secure administration, structured project case studies, modern search-engine infrastructure and a performance-conscious 3D experience.
 
@@ -28,17 +28,20 @@ Core areas:
 
 - Marketing and commercial analytics
 - Business intelligence and KPI reporting
+- Big Data and applied AI
 - Customer and operational insight
 - Revenue and performance analysis
 - Process automation and auditability
+- CRM and marketing automation
+- Digital transformation and systems integration
 - Digital growth and customer journeys
 - Hospitality and tourism business systems
 
-Target role families include Marketing Data Analyst, Commercial Data Analyst, Business Intelligence Analyst, Revenue Operations Analyst, Customer Insights Analyst, CRM & Marketing Automation Specialist, Business Analyst and Process Automation Analyst.
+Target role families include Marketing & Commercial Analyst, Business Intelligence Analyst, Marketing Data Analyst, CRM & Marketing Automation Analyst and Digital Transformation Analyst.
 
 ## Selected case studies
 
-The site currently presents five public-safe, evidence-led case studies:
+The site presents published, evidence-led case studies including:
 
 1. **RPA for Invoice Control & Booking Reconciliation**  
    UiPath-based reconciliation across invoices, vouchers, reservations, stay data and commercial rules, with structured JSON outputs, HTML reporting and exception review.
@@ -66,7 +69,7 @@ No confidential customer, reservation, hotel-contract, invoice or financial data
 - Dedicated About, Expertise, Projects, Experience, Education, Certifications, Resume and Contact pages
 - Dynamic project detail pages
 - Crawlable navigation, breadcrumbs and related-content links
-- Multiple downloadable CV variants
+- CMS-governed resume variants with downloads enabled only for validated files
 - Accessible semantic content layered over deferred visual effects
 
 ### CMS and content governance
@@ -171,7 +174,7 @@ No confidential customer, reservation, hotel-contract, invoice or financial data
 | `/experience` | Professional experience timeline |
 | `/education` | Academic background |
 | `/certifications` | Verified credentials |
-| `/resume` | CV variants and downloads |
+| `/resume` | Approved CV variants and validated downloads |
 | `/contact` | Contact form and professional links |
 | `/robots.txt` | Search-crawler directives |
 | `/sitemap.xml` | Canonical public URL discovery |
@@ -410,7 +413,7 @@ Public content must not expose:
 ## Author
 
 **Ahmed Aziz Mhiri**  
-Data-Driven Marketing · Commercial Analytics · Business Intelligence · Process Automation
+Marketing & Commercial Analytics · Business Intelligence · Big Data & AI · CRM & Marketing Automation · Digital Transformation
 
 - [Portfolio](https://ahmedaziz-portfolio.vercel.app)
 - [LinkedIn](https://linkedin.com/in/ahmed-aziz-mhiri)

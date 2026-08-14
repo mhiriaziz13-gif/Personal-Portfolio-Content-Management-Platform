@@ -396,21 +396,149 @@ select
   not exists (
     select 1
     from public.profile
-    where availability in (
-      'Available for Europe-based opportunities from Summer 2027',
-      'Based in Tunisia · Open to European opportunities from Summer 2027',
-      'Based in Tunisia Â· Open to European opportunities from Summer 2027'
-    )
+    where availability ~* '(october|oct\.?|summer)[[:space:]]+2027'
   )
   and not exists (
     select 1
-    from public.page_sections as section
-    join public.pages as page on page.id = section.page_id
-    where page.page_key = 'home'
-      and section.section_key = 'cta'
-      and section.description
-          = 'Open to relevant European opportunities from Summer 2027.'
-  ) as known_summer_2027_copy_absent,
+    from public.page_sections
+    where concat_ws(' ', title, subtitle, description) ~*
+      '(october|oct\.?|summer)[[:space:]]+2027|llm interface for multi-agent|master multi-agent'
+  )
+  and not exists (
+    select 1
+    from public.page_section_items
+    where concat_ws(' ', title, subtitle, description) ~*
+      '(october|oct\.?|summer)[[:space:]]+2027|llm interface for multi-agent|master multi-agent'
+  ) as known_wave1_stale_copy_absent,
+  exists (
+    select 1
+    from public.experience
+    where published
+      and company = 'El Mouradi Hotels'
+      and role = 'Digital Transformation Project Manager'
+      and start_date = 'Jul 2026'
+      and end_date = 'Present'
+  )
+  and exists (
+    select 1
+    from public.experience
+    where published
+      and company = 'Sunshine Holiday Group / Sunshine Vacances France'
+      and role = 'Head of IT Services | Process Automation & Business Systems'
+      and start_date = 'Jul 2025'
+      and end_date = 'Jul 2026'
+  )
+  and exists (
+    select 1
+    from public.experience
+    where published
+      and company = 'El Mouradi Hotels'
+      and role = 'Management Control Intern'
+      and start_date = 'Jun 2023'
+      and end_date = 'Sep 2023'
+  ) as wave1_experience_facts_current,
+  exists (
+    select 1
+    from public.education
+    where published
+      and degree ilike '%Big Data Analytics%'
+      and start_date = 'Oct 2025'
+      and end_date = 'Jun 2027'
+  )
+  and exists (
+    select 1
+    from public.education
+    where published
+      and degree ilike '%Business Intelligence%'
+      and start_date = 'Jan 2021'
+      and end_date = 'Jun 2025'
+      and status like '%17.11/20%'
+      and status like '%PFE grade: 19.5/20%'
+      and status like '%Mention Excellent%'
+  ) as wave1_education_facts_current,
+  not exists (
+    select 1
+    from public.projects
+    where slug = 'master-multi-agent-llm-project'
+       or lower(title) in (
+            'master multi-agent llm project',
+            'llm interface for multi-agent system management'
+          )
+  ) as wave1_obsolete_project_absent,
+  (
+    select count(*)
+    from public.resumes
+    where variant = 'english-professional-cv'
+      and published
+  ) = 1
+  and (
+    select count(*)
+    from public.resumes
+    where variant = 'french-cv'
+      and published
+  ) = 1
+  and (
+    select count(*)
+    from public.resumes
+    where variant = 'italian-cv'
+      and published
+  ) = 1
+  and (
+    select count(*)
+    from public.resumes
+    where published
+  ) = 3
+  and not exists (
+    select 1
+    from public.resumes
+    where published
+      and (
+        pdf_url is null
+        or docx_url is null
+        or pdf_url not like 'https://qflchsmvszbesfnomdeo.supabase.co/storage/v1/object/public/resumes/%?download=%'
+        or docx_url not like 'https://qflchsmvszbesfnomdeo.supabase.co/storage/v1/object/public/resumes/%?download=%'
+      )
+  )
+  and not exists (
+    select 1
+    from public.resumes
+    where (
+        lower(concat_ws(' ', variant, label, pdf_url, docx_url))
+          ~ '(ats|canad|master)'
+        or coalesce(variant, '') not in (
+          'english-professional-cv',
+          'french-cv',
+          'italian',
+          'italian-cv',
+          'italian-professional-cv'
+        )
+        or (
+          variant in ('italian', 'italian-cv', 'italian-professional-cv')
+          and published
+          and pdf_url is null
+          and docx_url is null
+        )
+      ) and (
+        published
+        or pdf_url is not null
+        or docx_url is not null
+      )
+  )
+  and not exists (
+    select 1
+    from public.resumes
+    where variant in ('english-professional-cv', 'french-cv')
+      and (
+        pdf_url in (
+          '/cv/Ahmed_Aziz_Mhiri_CV_English.pdf',
+          '/cv/Ahmed_Aziz_Mhiri_CV_Francais.pdf'
+        )
+        or docx_url in (
+          '/cv/Ahmed_Aziz_Mhiri_CV_English.docx',
+          '/cv/Ahmed_Aziz_Mhiri_CV_Francais.docx'
+        )
+      )
+  ) as wave1_resume_policy_current,
   not exists (
     select 1
     from public.projects

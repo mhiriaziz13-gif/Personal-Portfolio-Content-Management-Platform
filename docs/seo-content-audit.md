@@ -28,7 +28,7 @@ The baseline had one global metadata object but no `metadataBase`, canonical arc
 - No duplicate public route intent was intentionally introduced. Baseline homepage copy is summarized while dedicated pages provide additional context.
 - Important cards already used real anchors, but main navigation pointed to anchors. It now points to canonical routes; footer navigation covers all core pages.
 - No intentionally orphaned public page remains. The audit script checks sitemap pages and internal references.
-- The first pass still contained inaccurate fallback education. The second pass replaces it with the owner-confirmed IHEC Carthage Master's and completed Business Intelligence degree, including only the confirmed Mention Excellent — 19.5/20 result.
+- The first pass still contained inaccurate fallback education. Wave 1 records the owner-confirmed IHEC Carthage Master's and completed Business Intelligence degree with an overall average of 17.11/20, a PFE grade of 19.5/20 and Mention Excellent.
 - Project images use descriptive alt text; decorative hero imagery has empty alt. Existing company logos are visual context only and are not used as structured-data endorsements.
 - CMS/fallback divergence remains possible because production data was not modified. Repository fallbacks are truthful, but live CMS copy should be reviewed after deployment.
 - Analytics and performance features are deferred. Event taxonomy is documented; implementation was not allowed to send personal/contact data.

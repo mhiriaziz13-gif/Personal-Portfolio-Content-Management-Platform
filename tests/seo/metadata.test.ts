@@ -64,11 +64,11 @@ describe("public metadata", () => {
   });
 
   it("keeps the emergency fallback availability factual and current", () => {
-    expect(fallbackPortfolioContent.profile.availability).toContain(
-      "October 2027",
+    expect(fallbackPortfolioContent.profile.availability).toBe(
+      "Open to selected freelance projects and building toward international full-time opportunities from 2027.",
     );
-    expect(fallbackPortfolioContent.profile.availability).toContain(
-      "freelance",
+    expect(fallbackPortfolioContent.profile.availability).not.toMatch(
+      /(?:October|Oct\.?)\s+2027|Summer\s+2027/i,
     );
   });
 });

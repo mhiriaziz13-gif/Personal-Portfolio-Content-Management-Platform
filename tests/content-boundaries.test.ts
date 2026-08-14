@@ -1,68 +1,93 @@
-import { existsSync, readFileSync } from "node:fs";
-import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { experiences, projects, resumes } from "@/constants/portfolio";
+import { fallbackPortfolioContent } from "@/data/fallback-portfolio";
 import type { ProjectContent } from "@/lib/cms-types";
+import {
+  PUBLIC_RESUME_VARIANTS,
+  isPublicResume,
+  resolvePublicResumeVariant,
+} from "@/lib/resume-policy";
 import { projectSchema } from "@/lib/seo/schema";
 
-const boundaryCopyIsExplicit = (value: string) =>
-  /prototype/i.test(value)
-  && /(two-person|two person|team)/i.test(value)
-  && /chatbot/i.test(value)
-  && /selected (application )?services/i.test(value)
-  && /not presented as a production deployment/i.test(value)
-  && /(not sole-authored|not presented .*sole-authored system)/i.test(value);
+const vermegProject: ProjectContent = {
+  id: "vermeg-project",
+  slug: "vermeg-ai-ready-e-learning-platform",
+  title: "VERMEG AI-Ready E-Learning Prototype",
+  description:
+    "Two-person internship prototype focused on chatbot functionality and selected application services. It was not presented as a production deployment or as a sole-authored system.",
+  image: "/projects/project-3.png",
+  tags: ["AI Prototype"],
+  tools: ["Angular"],
+  status: "published",
+  media: [],
+  createdAt: "",
+  updatedAt: "",
+};
 
 describe("public content boundaries", () => {
-  it("keeps the VERMEG project and experience bounded to a team prototype", () => {
-    const project = projects.find((item) => /VERMEG/i.test(item.title));
-    const experience = experiences.find((item) => /^VERMEG/i.test(item.company));
-
-    expect(project).toBeDefined();
-    expect(experience).toBeDefined();
-    expect(boundaryCopyIsExplicit(
-      `${project?.title} ${project?.description}`,
-    )).toBe(true);
-    expect(boundaryCopyIsExplicit(
-      `${experience?.role} ${experience?.points.join(" ")}`,
-    )).toBe(true);
-  });
-
   it("uses contributor attribution for the VERMEG team prototype schema", () => {
-    const staticProject = projects.find((item) => /VERMEG/i.test(item.title));
-    expect(staticProject).toBeDefined();
-
-    const schema = projectSchema({
-      ...staticProject!,
-      id: "vermeg-project",
-      slug: "vermeg-ai-ready-e-learning-platform",
-      media: [],
-      createdAt: "",
-      updatedAt: "",
-    } satisfies ProjectContent);
+    const schema = projectSchema(vermegProject);
 
     expect(schema).toHaveProperty("contributor");
     expect(schema).not.toHaveProperty("creator");
     expect(schema).not.toHaveProperty("author");
   });
 
-  it("keeps every advertised resume asset at a real public path", () => {
-    for (const resume of resumes.filter((item) => item.available)) {
-      for (const publicPath of [resume.pdfPath, resume.docxPath]) {
-        const filePath = path.join(
-          process.cwd(),
-          "public",
-          publicPath.replace(/^[/\\]+/, ""),
-        );
-        expect(existsSync(filePath), publicPath).toBe(true);
+  it("keeps the emergency fallback current without replaying CMS records", () => {
+    const serialized = JSON.stringify(fallbackPortfolioContent);
 
-        const signature = readFileSync(filePath).subarray(0, 4).toString("ascii");
-        expect(
-          signature.startsWith("%PDF") || signature.startsWith("PK"),
-          publicPath,
-        ).toBe(true);
-      }
+    expect(fallbackPortfolioContent.profile.availability).toBe(
+      "Open to selected freelance projects and building toward international full-time opportunities from 2027.",
+    );
+    expect(fallbackPortfolioContent.profile.shortProfile).toContain(
+      "Digital Transformation Project Manager at El Mouradi Hotels",
+    );
+    expect(fallbackPortfolioContent.profile.about).toContain(
+      "Previously, at Sunshine Holiday Group",
+    );
+    expect(serialized).not.toMatch(
+      /(?:October|Oct\.?)\s+2027|Summer\s+2027/i,
+    );
+    expect(serialized).not.toMatch(
+      /master-multi-agent-llm-project|Master Multi-Agent LLM Project/i,
+    );
+    for (const records of [
+      fallbackPortfolioContent.projects,
+      fallbackPortfolioContent.experience,
+      fallbackPortfolioContent.education,
+      fallbackPortfolioContent.resumes,
+    ]) {
+      expect(records).toEqual([]);
+    }
+  });
+
+  it("allows only unambiguous EN/FR/IT resume variants", () => {
+    expect(PUBLIC_RESUME_VARIANTS).toEqual([
+      "english",
+      "french",
+      "italian",
+    ]);
+    expect(resolvePublicResumeVariant({ variant: "english-cv" })).toBe(
+      "english",
+    );
+    expect(resolvePublicResumeVariant({ label: "CV français" })).toBe(
+      "french",
+    );
+    expect(resolvePublicResumeVariant({ title: "Italian CV" })).toBe(
+      "italian",
+    );
+    expect(isPublicResume({ variant: "italian-cv" })).toBe(false);
+    expect(
+      isPublicResume({ variant: "italian-cv", pdfPath: "/cv/italian.pdf" }),
+    ).toBe(true);
+    for (const resume of [
+      { variant: "ats-cv", label: "English CV" },
+      { variant: "canadian-cv" },
+      { variant: "master-cv" },
+      { variant: "english-cv", pdfPath: "/cv/candidate_ATS.pdf" },
+      { variant: "resume" },
+    ]) {
+      expect(resolvePublicResumeVariant(resume)).toBeNull();
     }
   });
 });

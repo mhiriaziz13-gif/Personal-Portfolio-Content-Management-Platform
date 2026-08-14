@@ -1,24 +1,17 @@
 import { ArrowDownTrayIcon } from "@heroicons/react/24/solid";
-import Link from "next/link";
 
 import { TrackedLink } from "@/components/analytics/tracked-link";
 import { fallbackPortfolioContent } from "@/data/fallback-portfolio";
 import type { ResumeContent } from "@/lib/cms-types";
+import {
+  isPublicResume,
+  resolvePublicResumeVariant,
+  type PublicResumeVariant,
+} from "@/lib/resume-policy";
 
 type ResumeSectionProps = {
   preview?: boolean;
   resumes?: ResumeContent[];
-};
-
-type CvVariant = "english" | "french" | "canadian" | "ats";
-
-const resolveCvVariant = (resume: ResumeContent): CvVariant | null => {
-  const value = `${resume.variant} ${resume.title}`.toLowerCase();
-  if (value.includes("english")) return "english";
-  if (value.includes("french") || value.includes("francais")) return "french";
-  if (value.includes("canada")) return "canadian";
-  if (value.includes("ats")) return "ats";
-  return null;
 };
 
 const DownloadAction = ({
@@ -32,7 +25,7 @@ const DownloadAction = ({
   href: string;
   label: string;
   available: boolean;
-  variant: CvVariant | null;
+  variant: PublicResumeVariant;
   fileFormat: "pdf" | "docx";
   ctaLocation: "homepage" | "resume_page";
 }) => {
@@ -58,14 +51,6 @@ const DownloadAction = ({
     </>
   );
 
-  if (!variant) {
-    return (
-      <Link href={href} download className={`${className} button-primary text-white`}>
-        {content}
-      </Link>
-    );
-  }
-
   return (
     <TrackedLink
       href={href}
@@ -83,42 +68,54 @@ const DownloadAction = ({
   );
 };
 
-const ResumeCard = ({ resume, ctaLocation }: { resume: ResumeContent; ctaLocation: "homepage" | "resume_page" }) => (
-  <article className="rounded-lg border border-white/10 bg-[#08021c]/75 p-5 shadow-lg shadow-[#2A0E61]/20 backdrop-blur-md">
-    <div className="flex items-start justify-between gap-4">
-      <h3 className="text-lg font-semibold text-white">{resume.title}</h3>
-      {!resume.available && (
-        <span className="rounded-full border border-purple-300/20 bg-purple-300/10 px-3 py-1 text-xs text-purple-100">
-          Files pending
-        </span>
-      )}
-    </div>
-    <div className="mt-6 flex flex-wrap gap-3">
-      <DownloadAction
-        href={resume.pdfPath}
-        label="Download PDF"
-        available={resume.available}
-        variant={resolveCvVariant(resume)}
-        fileFormat="pdf"
-        ctaLocation={ctaLocation}
-      />
-      <DownloadAction
-        href={resume.docxPath}
-        label="Download DOCX"
-        available={resume.available}
-        variant={resolveCvVariant(resume)}
-        fileFormat="docx"
-        ctaLocation={ctaLocation}
-      />
-    </div>
-  </article>
-);
+const ResumeCard = ({
+  resume,
+  ctaLocation,
+}: {
+  resume: ResumeContent;
+  ctaLocation: "homepage" | "resume_page";
+}) => {
+  const variant = resolvePublicResumeVariant(resume);
+  if (!variant) return null;
+
+  return (
+    <article className="rounded-lg border border-white/10 bg-[#08021c]/75 p-5 shadow-lg shadow-[#2A0E61]/20 backdrop-blur-md">
+      <div className="flex items-start justify-between gap-4">
+        <h3 className="text-lg font-semibold text-white">{resume.title}</h3>
+        {!resume.available && (
+          <span className="rounded-full border border-purple-300/20 bg-purple-300/10 px-3 py-1 text-xs text-purple-100">
+            Files pending
+          </span>
+        )}
+      </div>
+      <div className="mt-6 flex flex-wrap gap-3">
+        <DownloadAction
+          href={resume.pdfPath}
+          label="Download PDF"
+          available={resume.available}
+          variant={variant}
+          fileFormat="pdf"
+          ctaLocation={ctaLocation}
+        />
+        <DownloadAction
+          href={resume.docxPath}
+          label="Download DOCX"
+          available={resume.available}
+          variant={variant}
+          fileFormat="docx"
+          ctaLocation={ctaLocation}
+        />
+      </div>
+    </article>
+  );
+};
 
 export const ResumeSection = ({
   preview = false,
   resumes = fallbackPortfolioContent.resumes,
 }: ResumeSectionProps) => {
   const visibleResumes = [...resumes]
+    .filter(isPublicResume)
     .sort((first, second) => first.sortOrder - second.sortOrder)
     .slice(0, preview ? 3 : undefined);
 
@@ -136,8 +133,8 @@ export const ResumeSection = ({
             CV & Resume
           </h2>
           <p className="mt-4 max-w-2xl text-base leading-7 text-gray-300">
-            Choose the version that fits the application context. Each card
-            includes direct PDF and DOCX downloads.
+            Choose the version that fits the application context. Validated
+            PDF and DOCX files appear here when they are available.
           </p>
         </div>
         {preview && (
@@ -163,7 +160,11 @@ export const ResumeSection = ({
         }
       >
         {visibleResumes.map((resume) => (
-          <ResumeCard key={resume.variant} resume={resume} ctaLocation={preview ? "homepage" : "resume_page"} />
+          <ResumeCard
+            key={resume.variant}
+            resume={resume}
+            ctaLocation={preview ? "homepage" : "resume_page"}
+          />
         ))}
       </div>
     </section>

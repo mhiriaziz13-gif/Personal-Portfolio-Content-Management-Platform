@@ -378,13 +378,78 @@ create policy "Public can read public portfolio storage" on storage.objects for 
 create policy "Admins manage portfolio storage" on storage.objects for all to authenticated using (public.is_admin() and bucket_id in ('public-assets', 'project-images', 'resumes', 'uploads')) with check (public.is_admin() and bucket_id in ('public-assets', 'project-images', 'resumes', 'uploads'));
 
 insert into public.profile (full_name, initials, headline, secondary_line, tagline, location, email, linkedin_url, linkedin_label, github_url, github_label, avatar_url, availability, short_bio, about_text, about_focus, published)
-values ('Ahmed Aziz Mhiri','AAM','Data-Driven Marketing & Commercial Analytics','Marketing Analytics | Commercial Analytics | Business Intelligence | Process Automation','Turning Data into Commercial Growth','Sousse, Tunisia','mhiriaziz13@gmail.com','https://linkedin.com/in/ahmed-aziz-mhiri','linkedin.com/in/ahmed-aziz-mhiri','https://github.com/mhiriaziz13-gif','github.com/mhiriaziz13-gif','/profile/avatar.png','International full-time availability from October 2027; selected freelance projects available now.','Master''s student in Big Data Analytics & E-Commerce with a Business Intelligence background.','I work at the intersection of data, business context and automation, turning operational and customer information into clearer decisions, smoother workflows and stronger commercial visibility.',array['Marketing and commercial analytics','Auditable automation and reporting','Business intelligence for operational decisions'],true);
+values (
+  'Ahmed Aziz Mhiri',
+  'AAM',
+  'Marketing & Commercial Analyst',
+  'Business Intelligence · Big Data & AI · CRM & Marketing Automation · Digital Transformation',
+  'Turning customer, commercial and operational data into clearer decisions, smarter processes and measurable digital outcomes.',
+  'Sousse, Tunisia',
+  'mhiriaziz13@gmail.com',
+  'https://linkedin.com/in/ahmed-aziz-mhiri',
+  'linkedin.com/in/ahmed-aziz-mhiri',
+  'https://github.com/mhiriaziz13-gif',
+  'github.com/mhiriaziz13-gif',
+  '/profile/avatar.png',
+  'Open to selected freelance projects and building toward international full-time opportunities from 2027.',
+  'Digital Transformation Project Manager at El Mouradi Hotels and Master''s candidate in Big Data Analytics & E-Commerce, combining Marketing & Commercial Analytics, Business Intelligence, automation, AI and engineering to improve decisions, workflows and digital operations.',
+  $wave1_profile_about$I work at the intersection of Marketing & Commercial Analytics, Big Data, AI and Digital Transformation, turning customer, commercial and operational data into clearer decisions, smarter processes and measurable business improvements.
+
+At El Mouradi Hotels, I am responsible for connectivity and digital transformation projects across Groupe El Mouradi's hotel and travel operations. Previously, at Sunshine Holiday Group, I led IT systems and process automation, including an end-to-end UiPath workflow for invoice control, booking reconciliation and hotel commercial-rule validation across 40 hotels and four travel agencies.
+
+My background combines Business Intelligence, Marketing & Commercial Analytics, process automation and full-stack engineering, with hands-on experience across tourism, hospitality and digital services. I use AI as an accelerator—not a substitute for judgment: the objective is to frame the right business problem, choose meaningful KPIs, validate data and model outputs, understand the architecture behind the solution and translate analysis into concrete marketing and commercial actions.
+
+I am completing a Master's in Big Data Analytics & E-Commerce at IHEC Carthage, covering Big Data, Machine Learning, Deep Learning, Artificial Intelligence, NoSQL databases, cloud/data platforms and applied analytics.
+
+My professional focus is Marketing & Commercial Analytics, Business Intelligence, Customer Insights, CRM & Marketing Automation, Big Data & AI and Digital Transformation.$wave1_profile_about$,
+  array[
+    'Marketing & Commercial Analytics',
+    'Business Intelligence & Decision Support',
+    'Big Data, AI & Digital Transformation'
+  ]::text[],
+  true
+);
 
 insert into public.hero (eyebrow, title, subtitle, tagline, dynamic_titles, primary_cta_label, primary_cta_href, secondary_cta_label, secondary_cta_href, published)
-values ('Data-Driven Marketing & Commercial Analytics','Ahmed Aziz Mhiri','Marketing Analytics | Commercial Analytics | Business Intelligence | Process Automation','Turning Data into Commercial Growth',array['Marketing Data Analyst','Commercial Data Analyst','Business Intelligence Analyst','Revenue Operations Analyst','CRM & Marketing Automation Specialist','Process Automation Analyst','Data Operations Analyst'],'Contact Me','/#contact','View Projects','/#projects',true);
+values (
+  'Marketing & Commercial Analytics · Big Data · AI · Digital Transformation',
+  'Ahmed Aziz Mhiri',
+  'Business Intelligence · CRM & Marketing Automation · Digital Transformation',
+  'Turning customer, commercial and operational data into clearer decisions, smarter processes and measurable digital outcomes.',
+  array[
+    'Marketing & Commercial Analyst',
+    'Business Intelligence Analyst',
+    'Marketing Data Analyst',
+    'CRM & Marketing Automation Analyst',
+    'Digital Transformation Analyst'
+  ]::text[],
+  'Explore Case Studies',
+  '/projects',
+  'View Resume',
+  '/resume',
+  true
+);
 
 insert into public.about (title, body, highlights, avatar_url, published)
-values ('Data, commercial context and automation in one working view.','I work at the intersection of data, business context and automation, turning operational and customer information into clearer decisions, smoother workflows and stronger commercial visibility.',array['Marketing and commercial analytics','Auditable automation and reporting','Business intelligence for operational decisions'],'/profile/avatar.png',true);
+values (
+  'I connect business questions, data and technology to create decisions and systems people can use.',
+  $wave1_about_body$I work at the intersection of Marketing & Commercial Analytics, Big Data, AI and Digital Transformation, turning customer, commercial and operational data into clearer decisions, smarter processes and measurable business improvements.
+
+At El Mouradi Hotels, I am responsible for connectivity and digital transformation projects across Groupe El Mouradi's hotel and travel operations. Previously, at Sunshine Holiday Group, I led IT systems and process automation, including an end-to-end UiPath workflow for invoice control, booking reconciliation and hotel commercial-rule validation across 40 hotels and four travel agencies.
+
+My background combines Business Intelligence, Marketing & Commercial Analytics, process automation and full-stack engineering, with hands-on experience across tourism, hospitality and digital services. I use AI as an accelerator—not a substitute for judgment: the objective is to frame the right business problem, choose meaningful KPIs, validate data and model outputs, understand the architecture behind the solution and translate analysis into concrete marketing and commercial actions.
+
+I am completing a Master's in Big Data Analytics & E-Commerce at IHEC Carthage, covering Big Data, Machine Learning, Deep Learning, Artificial Intelligence, NoSQL databases, cloud/data platforms and applied analytics.
+
+My professional focus is Marketing & Commercial Analytics, Business Intelligence, Customer Insights, CRM & Marketing Automation, Big Data & AI and Digital Transformation.$wave1_about_body$,
+  array[
+    'Marketing & Commercial Analytics',
+    'Business Intelligence & Decision Support',
+    'Big Data, AI & Digital Transformation'
+  ]::text[],
+  '/profile/avatar.png',
+  true
+);
 
 insert into public.skills (name, category, icon_key, sort_order, published) values
 ('Data Analysis','Data & Business Intelligence','data-analysis',0,true),('KPI Analysis','Data & Business Intelligence','kpi-analysis',1,true),('Business Intelligence','Data & Business Intelligence','business-intelligence',2,true),('Commercial Analytics','Data & Business Intelligence','commercial-analytics',3,true),('Marketing Analytics','Data & Business Intelligence','marketing-analytics',4,true),('Data Visualization','Data & Business Intelligence','data-visualization',5,true),('Financial Reporting','Data & Business Intelligence','financial-reporting',6,true),('Excel','Data & Business Intelligence','excel',7,true),('Reporting','Data & Business Intelligence','reporting',8,true),
@@ -399,26 +464,208 @@ insert into public.projects (slug, title, type, summary, description, cover_imag
 ('library-management-application','Library Management Application','Full-Stack Development','Full-stack library-management application using Angular, Spring Boot, REST APIs and relational databases.','Full-stack library-management application using Angular, Spring Boot, REST APIs and relational databases.','/projects/project-1.png',array['Angular','Spring Boot','REST APIs','Relational Databases'],array['Angular','Spring Boot','REST APIs'],false,true,3),
 ('hotel-kpi-cost-control-analysis','Hotel KPI & Cost Control Analysis','Business Intelligence / Management Control','Analysis of hotel occupancy, operational costs, revenue-related KPIs, budget variance and financial reporting.','Analysis of hotel occupancy, operational costs, revenue-related KPIs, budget variance and financial reporting.','/projects/project-2.png',array['Excel','KPI Analysis','Financial Reporting','Variance Analysis','Business Intelligence'],array['Excel','Reporting','BI'],false,true,4);
 
-insert into public.experience (company, role, location, start_date, end_date, date_label, logo_url, logo_alt, points, sort_order, published) values
-('Sunshine Vacances France','Head of IT Services | Process Automation & Business Systems','Sousse, Tunisia','Jul 2025','Present','Jul 2025 - Present','/companies/sunshine-vacances.png','Sunshine Vacances France logo',array['Led business-process improvement initiatives for tourism operations, with a focus on automation, data reliability and auditability.','Designed and expanded a UiPath workflow for invoice validation and reconciliation across invoices, vouchers, reservations and stay-related data.','Automated business rules covering room rates, board types, discounts, supplements and special offers.','Generated structured JSON outputs and HTML reports for review and audit follow-up.'],0,true),
-('Maison Salina','Commercial & Digital Marketing Manager','Sousse, Tunisia','Apr 2025','Sep 2025','Apr 2025 - Sep 2025','/companies/maison-salina.png','Maison Salina logo',array['Led commercial and digital initiatives for a long-established home-furnishing business.','Supported visibility, customer engagement and commercial growth.','Developed digital marketing initiatives aligned with commercial objectives and brand positioning.','Supported strategic collaborations and online communication.'],1,true),
-('Confidential Client - Men''s Barbershop, France','Digital Marketing & Automation Consultant','Noisy-le-Grand, France','Feb 2025','Jul 2025','Feb 2025 - Jul 2025','/companies/chicchac.png','Confidential client logo',array['Led a digital transformation project focused on online visibility, booking experience and digital customer communication.','Built a website with online booking and activity monitoring.','Improved local SEO.','Supported Instagram and TikTok content, email marketing, paid social activity and a Planity partnership.'],2,true),
-('VERMEG for Banking & Insurance Software','AI & Full-Stack Development Intern','Tunis, Tunisia','Feb 2025','May 2025','Feb 2025 - May 2025','/companies/vermeg.png','VERMEG logo',array['Co-developed a demonstrable AI-ready e-learning prototype in a two-person team; focused on chatbot functionality and selected application services.','Applied Angular, Spring Boot, Ollama and RAG concepts and contributed to integration, secure access, event-driven communication, containerisation and observability concepts. Prototype only; not deployed to production.'],3,true),
-('El Mouradi Hotels','Management Controller','Sousse, Tunisia','Jul 2024','Sep 2024','Jul 2024 - Sep 2024','/companies/el-mouradi.png','El Mouradi Hotels logo',array['Analysed occupancy, operational costs and revenue-related KPIs.','Contributed to budget preparation, variance analysis and financial reporting.','Supported cost-control opportunities and structured performance analyses for management decision-making.'],4,true),
-('ArabSoft','Full-Stack Development Intern','Tunis, Tunisia','Jun 2024','Aug 2024','Jun 2024 - Aug 2024','/companies/arab-soft.png','ArabSoft logo',array['Built a full-stack library-management application using Angular, Spring Boot, REST APIs and relational databases.','Implemented core management, search and real-time borrowing-tracking functions.'],5,true);
+insert into public.experience (company, role, location, start_date, end_date, date_label, logo_url, logo_alt, points, tools, sort_order, published) values
+(
+  'El Mouradi Hotels',
+  'Digital Transformation Project Manager',
+  'Sousse, Tunisia',
+  'Jul 2026',
+  'Present',
+  'Jul 2026 - Present',
+  '/companies/el-mouradi.png',
+  'El Mouradi Hotels logo',
+  array[
+    'Promoted to a group-level role with responsibility for connectivity and digital transformation projects across Groupe El Mouradi''s hotel and travel operations.',
+    'Lead and coordinate digital transformation initiatives, translating operational needs into scalable technology solutions and integration priorities.',
+    'Manage connectivity and systems-integration initiatives, coordinating requirements, implementation and follow-up across business and technical stakeholders.'
+  ]::text[],
+  array[
+    'Digital Transformation',
+    'Project Management',
+    'Systems Integration',
+    'Connectivity',
+    'Process Automation',
+    'Hospitality Technology'
+  ]::text[],
+  1,
+  true
+),
+(
+  'Sunshine Holiday Group / Sunshine Vacances France',
+  'Head of IT Services | Process Automation & Business Systems',
+  'Sousse, Tunisia',
+  'Jul 2025',
+  'Jul 2026',
+  'Jul 2025 - Jul 2026',
+  '/companies/sunshine-vacances.png',
+  'Sunshine Vacances France logo',
+  array[
+    'Worked full-time in a hybrid setup as the sole contributor responsible for IT systems, technical project delivery and process automation at Sunshine Holiday Group headquarters.',
+    'Designed and operated an end-to-end UiPath workflow for invoice control, booking reconciliation and hotel commercial-rule validation across 40 hotels and four travel agencies.',
+    'Expanded the control scope from one month for one hotel and one agency in four working days to a full season across all supported hotels and agencies in approximately seven days, while routing uncertain cases for mandatory human review.',
+    'Structured hotel rates, discounts, supplements and special offers into controlled business rules and produced validated control and exception reports.'
+  ]::text[],
+  array[
+    'UiPath',
+    'Process Automation',
+    'Business Rules',
+    'JSON',
+    'Data Validation',
+    'Exception Management'
+  ]::text[],
+  2,
+  true
+),
+(
+  'Maison Salina',
+  'Freelance Commercial & Digital Marketing Manager',
+  'Sousse, Tunisia',
+  'Apr 2025',
+  'Sep 2025',
+  'Apr 2025 - Sep 2025',
+  '/companies/maison-salina.png',
+  'Maison Salina logo',
+  array[
+    'Developed digital marketing initiatives aligned with commercial objectives and brand positioning.',
+    'Structured the company’s online presence and customer-facing communication to support visibility and engagement.',
+    'Identified and supported partnerships and commercial collaborations designed to create new business opportunities.',
+    'Monitored digital actions and commercial priorities to support business development and more consistent brand communication.'
+  ]::text[],
+  array['Digital Marketing','Content Strategy','Commercial Development','Partnership Development','Performance Monitoring']::text[],
+  3,
+  true
+),
+(
+  'Chic-Chac',
+  'Freelance Digital Transformation & Data-Driven Marketing Consultant',
+  'Noisy-le-Grand, France',
+  'Feb 2025',
+  'Jul 2025',
+  'Feb 2025 - Jul 2025',
+  '/companies/chicchac.png',
+  'Confidential client logo',
+  array[
+    'Built and managed a tailored website with online booking and activity-monitoring capabilities.',
+    'Supported local visibility, customer communication, social content and improvements to booking-related touchpoints.',
+    'Facilitated a partnership with Planity to streamline booking operations and improve the customer journey.',
+    'Improved recurring digital and operational workflows related to customer acquisition, communication and appointment management.'
+  ]::text[],
+  array['Website Management','Online Booking','Planity','Local Visibility','Social Media']::text[],
+  4,
+  true
+),
+(
+  'VERMEG for Banking & Insurance Software',
+  'AI & Full-Stack Development Intern',
+  'Tunis, Tunisia',
+  'Feb 2025',
+  'May 2025',
+  'Feb 2025 - May 2025',
+  '/companies/vermeg.png',
+  'VERMEG logo',
+  array[
+    'Contributed to a two-person internship prototype for a multilingual employee learning and internal knowledge platform.',
+    'Developed the chatbot and selected application services rather than the complete platform independently.',
+    'Integrated a locally deployed LLaMA 3.2 model through Ollama with retrieval-augmented generation for PDF and CSV knowledge sources.',
+    'Contributed to safeguards addressing prompt injection, malicious files and unsafe links.',
+    'The result was a collaborative internship prototype and was not presented as a production deployment.'
+  ]::text[],
+  array['LLaMA 3.2','Ollama','Retrieval-Augmented Generation','PDF and CSV Retrieval','Application Security']::text[],
+  5,
+  true
+),
+(
+  'El Mouradi Club Kantaoui',
+  'Management Controller',
+  'Sousse, Tunisia',
+  'Jul 2024',
+  'Sep 2024',
+  'Jul 2024 - Sep 2024',
+  '/companies/el-mouradi.png',
+  'El Mouradi Hotels logo',
+  array[
+    'Produced daily management-control reporting across hotel operational departments.',
+    'Analysed occupancy, operational costs, revenue-related KPIs and budget variances.',
+    'Contributed to annual budget preparation and management reporting.',
+    'Supported cost-control analysis across procurement, inventory and hotel operations.'
+  ]::text[],
+  array['Budgeting','KPI Reporting','Variance Analysis','Cost Control','Hospitality Operations']::text[],
+  6,
+  true
+),
+(
+  'ArabSoft',
+  'Full-Stack Development Intern',
+  'Tunis, Tunisia',
+  'Jun 2024',
+  'Aug 2024',
+  'Jun 2024 - Aug 2024',
+  '/companies/arab-soft.png',
+  'ArabSoft logo',
+  array[
+    'Designed a responsive Angular interface for a library-management application.',
+    'Built a Spring Boot backend and REST APIs connected to relational data.',
+    'Implemented creation, update, deletion, search and borrowing-tracking functionality.',
+    'Contributed to the full-stack delivery of the application from interface design to backend operations.'
+  ]::text[],
+  array['Angular','Spring Boot','REST APIs','Relational Databases','CRUD Operations']::text[],
+  7,
+  true
+),
+(
+  'El Mouradi Hotels',
+  'Management Control Intern',
+  'Sousse, Tunisia',
+  'Jun 2023',
+  'Sep 2023',
+  'Jun 2023 - Sep 2023',
+  '/companies/el-mouradi.png',
+  'El Mouradi Hotels logo',
+  array[
+    'Analysed expenses, operational indicators and budget variances in a five-star hotel environment.',
+    'Contributed to KPI and financial reporting for management.',
+    'Supported cost-control initiatives and the identification of performance gaps.',
+    'Participated in monitoring corrective actions with hotel operational departments.'
+  ]::text[],
+  array[
+    'Expense Analysis',
+    'KPI Reporting',
+    'Budget Variance Analysis',
+    'Cost Control',
+    'Hospitality Management Control'
+  ]::text[],
+  8,
+  true
+);
 
 insert into public.education (institution, degree, start_date, end_date, status, location, sort_order, published) values
-('IHEC Carthage','Master Big Data Analytics & E-Commerce','Oct 2025','Jun 2027','Expected graduation: Summer 2027','Carthage, Tunisia',0,true),
-('IHEC Carthage','Bachelor Business Intelligence','Jan 2021','Jun 2025','Mention Excellent','Carthage, Tunisia',1,true);
+(
+  'Institut des Hautes Études Commerciales de Carthage — IHEC Carthage',
+  'Master’s in Big Data Analytics & E-Commerce',
+  'Oct 2025',
+  'Jun 2027',
+  'In progress — expected graduation June 2027 · Big Data Analytics · Machine Learning · Deep Learning · Artificial Intelligence · NoSQL · Microsoft Azure / Cloud Data Platforms · ELK · Data Engineering · Business Analytics · E-Commerce',
+  'Carthage, Tunisia',
+  0,
+  true
+),
+(
+  'Institut des Hautes Études Commerciales de Carthage — IHEC Carthage',
+  'Licence / Bachelor’s degree in Business Intelligence',
+  'Jan 2021',
+  'Jun 2025',
+  'Overall average: 17.11/20 · PFE grade: 19.5/20 · Mention Excellent',
+  'Carthage, Tunisia',
+  1,
+  true
+);
 
 insert into public.certifications (name, issuer, date, credential_url, credential_id, image_url, description, tags, sort_order, published) values
 ('Fundamentals of Digital Marketing','Google','','https://drive.google.com/file/d/10v7Z86IzuUwwvhTYdKfZji24-2-K00JN/view','','','Google Digital Marketing Fundamentals certification covering core concepts in online marketing, SEO, analytics and digital growth.',array['Digital Marketing','SEO','Analytics','Online Marketing'],0,true);
 
 insert into public.resumes (label, variant, pdf_url, docx_url, sort_order, published) values
-('English Professional CV','english-professional-cv','/cv/Ahmed_Aziz_Mhiri_CV_English.pdf','/cv/Ahmed_Aziz_Mhiri_CV_English.docx',0,true),
-('French CV','french-cv','/cv/Ahmed_Aziz_Mhiri_CV_Francais.pdf','/cv/Ahmed_Aziz_Mhiri_CV_Francais.docx',1,true),
-('ATS CV','ats-cv','/cv/Ahmed_Aziz_Mhiri_CV_ATS.pdf','/cv/Ahmed_Aziz_Mhiri_CV_ATS.docx',2,true),
-('Canadian CV','canadian-cv','/cv/Ahmed_Aziz_Mhiri_CV_Canada.pdf','/cv/Ahmed_Aziz_Mhiri_CV_Canada.docx',3,true);
+('English Professional CV','english-professional-cv',null,null,0,true),
+('French CV','french-cv',null,null,1,true);
 
 insert into public.social_links (label, url, icon_key, sort_order, published) values
 ('LinkedIn','https://linkedin.com/in/ahmed-aziz-mhiri','linkedin',0,true),

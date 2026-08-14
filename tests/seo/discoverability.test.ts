@@ -108,6 +108,11 @@ describe("published discoverability surfaces", () => {
     expect(llms).toContain("Published case study");
     expect(llms).not.toContain("Draft case study");
     expect(llms).toContain("supplementary, experimental discovery aid");
-    expect(llms).toContain("October 2027");
+    expect(llms).toContain(
+      "Open to selected freelance projects and building toward international full-time opportunities from 2027.",
+    );
+    expect(llms).not.toMatch(
+      /(?:October|Oct\.?)\s+2027|Summer\s+2027/i,
+    );
   });
 });

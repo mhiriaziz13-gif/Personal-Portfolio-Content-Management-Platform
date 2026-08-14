@@ -6,8 +6,8 @@ export async function GET() {
   const { profile } = await getPortfolioChromeContent();
   const lines = [
     `Owner: ${profile.name || "Ahmed Aziz Mhiri"}`,
-    "Purpose: Data-driven marketing, commercial analytics and business intelligence portfolio",
-    "Availability: International full-time from October 2027; selected freelance projects now",
+    "Purpose: Marketing & Commercial Analytics, Big Data, AI and Digital Transformation portfolio",
+    `Availability: ${profile.availability}`,
     "Technology: Next.js, TypeScript, Supabase, Vercel",
     ...(profile.linkedIn ? [`LinkedIn: ${profile.linkedIn}`] : []),
     ...(profile.github ? [`GitHub: ${profile.github}`] : []),

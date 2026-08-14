@@ -4,6 +4,35 @@ const timeoutMs = 10000;
 const failures = [];
 const warnings = [];
 const responses = new Map();
+const staleWave1Content = [
+  {
+    label: "October/Summer 2027 availability",
+    pattern: /\b(?:(?:October|Oct\.?)\s+2027|Summer\s+2027)\b/i,
+  },
+  {
+    label: "Sunshine as a current role",
+    pattern:
+      /(?:Sunshine[\s\S]{0,500}\bJul(?:y)?\s+2025\s*(?:-|&ndash;|–|to)\s*Present\b|Head\s+of\s+IT\s+Services[\s\S]{0,500}\bPresent\b)/i,
+  },
+  {
+    label: "obsolete Master multi-agent LLM project",
+    pattern:
+      /(?:master-multi-agent-llm-project|Master\s+Multi-Agent\s+LLM\s+Project|LLM\s+Interface\s+for\s+Multi-Agent\s+System\s+Management|interface\s+for\s+launching\s+and\s+managing\s+a\s+multi-agent\s+system)/i,
+  },
+  {
+    label: "deprecated public resume variant",
+    pattern:
+      /(?:\bATS\s+(?:CV|resume)\b|\bCanadian\s+(?:CV|resume)\b|\bCanada\s+resume\b|\bMaster\s+(?:CV|resume)\b|\/cv\/[^"'<>\s]*(?:ATS|Canad(?:a|ian)|Master)[^"'<>\s]*)/i,
+  },
+];
+
+const rejectStaleWave1Content = (surface, content) => {
+  for (const { label, pattern } of staleWave1Content) {
+    if (pattern.test(content)) {
+      failures.push(`${surface} contains stale Wave 1 content: ${label}`);
+    }
+  }
+};
 
 const fetchPage = async (url) => {
   const controller = new AbortController();
@@ -64,12 +93,7 @@ if (!/disallow:\s*\/api\//i.test(robots)) {
 }
 
 const llms = responses.get("/llms.txt")?.html || "";
-if (/summer 2027/i.test(llms)) {
-  failures.push("llms.txt contains stale Summer 2027 availability");
-}
-if (!/october 2027/i.test(llms)) {
-  failures.push("llms.txt does not state October 2027 availability");
-}
+rejectStaleWave1Content("/llms.txt", llms);
 const sitemap = responses.get("/sitemap.xml")?.html || "";
 const urls = [...sitemap.matchAll(/<loc>(.*?)<\/loc>/g)].map(
   (match) => match[1],
@@ -130,6 +154,7 @@ for (const [url, { html }] of responses) {
   if (!String(url).startsWith("http")) continue;
 
   const pathname = new URL(url).pathname;
+  rejectStaleWave1Content(`${pathname} HTML/JSON-LD`, html);
   const title = text(html, /<title[^>]*>([^<]*)<\/title>/i);
   const description = attribute(
     html,

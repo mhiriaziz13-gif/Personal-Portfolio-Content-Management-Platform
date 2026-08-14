@@ -23,15 +23,16 @@ export const siteConfig: Metadata = {
   description: siteSeo.description,
   keywords: [
     "Ahmed Aziz Mhiri",
-    "Marketing Analytics",
-    "Commercial Analytics",
+    "Marketing & Commercial Analytics",
+    "Marketing & Commercial Analyst",
     "Business Intelligence",
+    "Big Data Analytics",
+    "Artificial Intelligence",
+    "Digital Transformation",
+    "Digital Transformation Project Manager",
+    "CRM & Marketing Automation",
+    "Customer Insights",
     "Process Automation",
-    "Data Analyst",
-    "BI Analyst",
-    "Revenue Operations",
-    "CRM Automation",
-    "Digital Marketing Analyst",
   ],
   authors: {
     name: publicIdentity.name,
@@ -42,19 +43,35 @@ export const siteConfig: Metadata = {
   alternates: { canonical: absoluteUrl("/") },
   manifest: "/manifest.webmanifest",
   icons: { icon: "/favicon.ico", apple: "/apple-icon.png" },
-  robots: { index: isProductionDeployment, follow: isProductionDeployment, nocache: !isProductionDeployment },
+  robots: {
+    index: isProductionDeployment,
+    follow: isProductionDeployment,
+    nocache: !isProductionDeployment,
+  },
   ...(googleSiteVerification || bingSiteVerification
     ? { verification }
     : {}),
   openGraph: {
-    title: `${publicIdentity.name} | Data-Driven Marketing & Commercial Analytics`,
+    title: `${publicIdentity.name} | Marketing & Commercial Analytics`,
     description:
-      "Marketing analytics, commercial analytics, business intelligence, process automation and digital growth portfolio.",
+      "Marketing & Commercial Analytics powered by Business Intelligence, Big Data, AI, automation and engineering.",
     type: "website",
     url: absoluteUrl("/"),
     siteName: siteSeo.siteName,
     locale: siteSeo.locale,
-    images: [{ url: absoluteUrl(siteSeo.socialImage), width: 1200, height: 630, alt: siteSeo.siteName }],
+    images: [
+      {
+        url: absoluteUrl(siteSeo.socialImage),
+        width: 1200,
+        height: 630,
+        alt: siteSeo.siteName,
+      },
+    ],
   },
-  twitter: { card: "summary_large_image", title: siteSeo.siteName, description: siteSeo.description, images: [absoluteUrl(siteSeo.socialImage)] },
+  twitter: {
+    card: "summary_large_image",
+    title: siteSeo.siteName,
+    description: siteSeo.description,
+    images: [absoluteUrl(siteSeo.socialImage)],
+  },
 } as const;

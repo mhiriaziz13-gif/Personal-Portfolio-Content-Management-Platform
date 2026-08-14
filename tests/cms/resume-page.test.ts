@@ -114,6 +114,38 @@ const cmsContent: PortfolioContent = {
       available: true,
       sortOrder: 1,
     },
+    {
+      title: "Italian CV",
+      variant: "italian",
+      pdfPath: "/cv/italian.pdf",
+      docxPath: "/cv/italian.docx",
+      available: true,
+      sortOrder: 3,
+    },
+    {
+      title: "ATS CV",
+      variant: "ats-cv",
+      pdfPath: "/cv/ats.pdf",
+      docxPath: "/cv/ats.docx",
+      available: true,
+      sortOrder: 4,
+    },
+    {
+      title: "Canadian CV",
+      variant: "canadian-cv",
+      pdfPath: "/cv/canadian.pdf",
+      docxPath: "/cv/canadian.docx",
+      available: true,
+      sortOrder: 5,
+    },
+    {
+      title: "Master CV",
+      variant: "master-cv",
+      pdfPath: "/cv/master.pdf",
+      docxPath: "/cv/master.docx",
+      available: true,
+      sortOrder: 6,
+    },
   ],
   education: [
     {
@@ -146,7 +178,7 @@ const cmsContent: PortfolioContent = {
 const expectTrackedDownload = (
   markup: string,
   href: string,
-  cvVariant: "english" | "french",
+  cvVariant: "english" | "french" | "italian",
   fileFormat: "pdf" | "docx",
 ) => {
   const link = markup
@@ -167,7 +199,11 @@ describe("published CMS Resume page", () => {
     const markup = renderToStaticMarkup(await ResumePage());
 
     expect(markup).toContain("Resume introduction");
-    for (const resumeTitle of ["English Professional CV", "French CV"]) {
+    for (const resumeTitle of [
+      "English Professional CV",
+      "French CV",
+      "Italian CV",
+    ]) {
       expect(markup).toContain(resumeTitle);
       expect(markup.indexOf("Resume introduction")).toBeLessThan(
         markup.indexOf(resumeTitle),
@@ -176,13 +212,28 @@ describe("published CMS Resume page", () => {
     expect(markup.indexOf("French CV")).toBeLessThan(
       markup.indexOf("English Professional CV"),
     );
-    expect(markup.match(/>Download PDF<\/a>/g)).toHaveLength(2);
-    expect(markup.match(/>Download DOCX<\/a>/g)).toHaveLength(2);
+    expect(markup.indexOf("English Professional CV")).toBeLessThan(
+      markup.indexOf("Italian CV"),
+    );
+    expect(markup.match(/>Download PDF<\/a>/g)).toHaveLength(3);
+    expect(markup.match(/>Download DOCX<\/a>/g)).toHaveLength(3);
 
     expectTrackedDownload(markup, "/cv/english.pdf", "english", "pdf");
     expectTrackedDownload(markup, "/cv/english.docx", "english", "docx");
     expectTrackedDownload(markup, "/cv/french.pdf", "french", "pdf");
     expectTrackedDownload(markup, "/cv/french.docx", "french", "docx");
+    expectTrackedDownload(markup, "/cv/italian.pdf", "italian", "pdf");
+    expectTrackedDownload(markup, "/cv/italian.docx", "italian", "docx");
+    for (const privateTitle of ["ATS CV", "Canadian CV", "Master CV"]) {
+      expect(markup).not.toContain(privateTitle);
+    }
+    for (const privateHref of [
+      "/cv/ats.pdf",
+      "/cv/canadian.pdf",
+      "/cv/master.pdf",
+    ]) {
+      expect(markup).not.toContain(privateHref);
+    }
 
     expect(markup.match(/>CV &amp; Resume<\/h2>/g)).toHaveLength(1);
     expect(markup.match(/>Education<\/h2>/g)).toHaveLength(1);

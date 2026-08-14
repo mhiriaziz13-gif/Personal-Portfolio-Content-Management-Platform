@@ -8,65 +8,64 @@ export const publicPageDefinitions = [
   {
     pageKey: "home",
     path: "/",
-    title: "Data-Driven Marketing & Commercial Analytics",
+    title: "Marketing & Commercial Analyst",
     description:
-      "Ahmed Aziz Mhiri connects marketing and commercial analytics, business intelligence, customer insight and auditable process automation.",
+      "Portfolio of Ahmed Aziz Mhiri, Marketing & Commercial Analyst and Digital Transformation Project Manager combining Business Intelligence, Big Data, AI, CRM automation and engineering for measurable business outcomes.",
   },
   {
     pageKey: "about",
     path: "/about",
-    title: "About",
+    title: "About Ahmed Aziz Mhiri",
     description:
-      "How Ahmed Aziz Mhiri combines marketing and commercial analytics, business intelligence, customer insight and process automation.",
+      "Learn how Ahmed Aziz Mhiri combines Marketing & Commercial Analytics, Business Intelligence, Big Data, AI, automation and engineering to turn business problems into decisions and digital solutions.",
   },
   {
     pageKey: "expertise",
     path: "/expertise",
-    title: "Expertise",
+    title: "Marketing Analytics, Big Data, AI & Digital Transformation",
     description:
-      "How Ahmed Aziz Mhiri applies business intelligence, marketing analytics, customer insight and process automation to commercial and operational questions.",
+      "Explore capabilities across Marketing & Commercial Analytics, Business Intelligence, Big Data, AI, CRM and Marketing Automation, Digital Transformation and engineering.",
   },
   {
     pageKey: "projects",
     path: "/projects",
-    title: "Projects",
+    title: "Projects | Marketing, Commercial Analytics, AI & Automation",
     description:
-      "Public-safe case studies by Ahmed Aziz Mhiri across commercial analytics, business intelligence, marketing transformation and process automation.",
+      "Case studies and projects across commercial analytics, customer journeys, process automation, AI, hospitality, travel and digital product development.",
   },
   {
     pageKey: "experience",
     path: "/experience",
-    title: "Experience",
+    title: "Experience | Marketing Analytics, BI & Digital Transformation",
     description:
-      "Ahmed Aziz Mhiri's professional timeline across analytics, commercial operations, digital marketing, business systems and automation.",
+      "Professional experience across group-level digital transformation, connectivity, IT systems, commercial and marketing operations, management control, AI and full-stack development.",
   },
   {
     pageKey: "education",
     path: "/education",
-    title: "Education",
+    title: "Education | Big Data Analytics & Business Intelligence",
     description:
-      "Verified education supporting Ahmed Aziz Mhiri's work in business intelligence, big data analytics, e-commerce and commercial decision-making.",
+      "Education in Big Data Analytics & E-Commerce and Business Intelligence, including AI, Machine Learning, NoSQL, cloud data platforms and business analytics.",
   },
   {
     pageKey: "certifications",
     path: "/certifications",
     title: "Certifications",
-    description:
-      "Verified professional credentials held by Ahmed Aziz Mhiri across digital marketing, analytics and related disciplines.",
+    description: "Published professional certifications.",
   },
   {
     pageKey: "resume",
     path: "/resume",
     title: "Resume",
     description:
-      "View Ahmed Aziz Mhiri's resume formats and supporting education and certification information.",
+      "Access current resume versions for Ahmed Aziz Mhiri, Marketing & Commercial Analyst and Digital Transformation Project Manager.",
   },
   {
     pageKey: "contact",
     path: "/contact",
-    title: "Contact",
+    title: "Contact Ahmed Aziz Mhiri",
     description:
-      "Contact Ahmed Aziz Mhiri about marketing analytics, commercial analytics, business intelligence and process automation opportunities.",
+      "Contact Ahmed Aziz Mhiri about Marketing & Commercial Analytics, Business Intelligence, Digital Transformation, automation and selected freelance opportunities.",
   },
 ] as const;
 
