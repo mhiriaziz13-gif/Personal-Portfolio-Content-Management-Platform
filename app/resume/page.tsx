@@ -38,7 +38,7 @@ export default async function ResumePage() {
         <PageIntro
           eyebrow="CV and supporting evidence"
           title="Resume options for Ahmed Aziz Mhiri"
-          description="Choose the English professional CV for general applications, the French version for French-language review, the ATS version for structured recruitment systems, or the Canadian format where that convention is requested. Each option remains available to view as PDF or download in its published formats."
+          description="Access current resume versions for Ahmed Aziz Mhiri, Marketing & Commercial Analyst and Digital Transformation Project Manager."
           links={[
             { href: "/projects", label: "Review project evidence" },
             { href: "/experience", label: "See the full timeline" },

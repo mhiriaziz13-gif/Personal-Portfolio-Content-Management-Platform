@@ -59,7 +59,7 @@ export default async function ContactPage() {
         title={page?.title || "Contact Ahmed Aziz Mhiri"}
         description={
           page?.seoDescription ||
-          "Contact Ahmed about marketing or commercial analytics, Business Intelligence, customer insight, revenue operations, data operations or process-automation opportunities. He is based in Sousse, Tunisia and available for Europe-based opportunities from October 2027; selected freelance projects are available now."
+          "Contact Ahmed Aziz Mhiri about Marketing & Commercial Analytics, Business Intelligence, Digital Transformation, automation and selected freelance opportunities."
         }
         links={[
           { href: "/projects", label: "View selected proof" },

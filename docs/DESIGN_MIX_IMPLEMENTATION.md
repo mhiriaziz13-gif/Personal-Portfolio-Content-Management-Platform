@@ -16,9 +16,9 @@ The public portfolio uses `space-portfolio` as the technical base. The app keeps
 
 All public portfolio content has been rewritten for Ahmed Aziz Mhiri:
 
-- Positioning: Data-Driven Marketing & Commercial Analytics.
-- Tagline: Turning Data into Commercial Growth.
-- Profile axis: data, business intelligence, marketing analytics and automation.
+- Positioning: Marketing & Commercial Analyst.
+- Tagline: Turning customer, commercial and operational data into clearer decisions, smarter processes and measurable digital outcomes.
+- Profile axis: Marketing & Commercial Analytics, Business Intelligence, Big Data & AI, CRM & Marketing Automation and Digital Transformation.
 - Contact: Sousse, Tunisia, `mhiriaziz13@gmail.com`, and LinkedIn profile.
 - Projects, skills and experience now reflect Ahmed's analytics, digital marketing, automation and BI background.
 
@@ -32,18 +32,7 @@ No local avatar image was available. The About section uses a safe initials-base
 
 ## CV Files
 
-CV download paths are configured in `constants/portfolio.ts`. Expected files should be placed in `public/cv`:
-
-- `Ahmed_Aziz_Mhiri_CV_English.pdf`
-- `Ahmed_Aziz_Mhiri_CV_English.docx`
-- `Ahmed_Aziz_Mhiri_CV_Francais.pdf`
-- `Ahmed_Aziz_Mhiri_CV_Francais.docx`
-- `Ahmed_Aziz_Mhiri_CV_ATS.pdf`
-- `Ahmed_Aziz_Mhiri_CV_ATS.docx`
-- `Ahmed_Aziz_Mhiri_CV_Canada.pdf`
-- `Ahmed_Aziz_Mhiri_CV_Canada.docx`
-
-The current UI keeps download buttons disabled because these files are not present yet.
+Resume publication is controlled by the CMS and the shared public-variant policy. Only validated English, French and Italian variants may appear. English and French replacement files are pending, so their CMS cards remain visible with disabled downloads. Italian remains absent until a validated asset is supplied. Master is private; ATS and Canadian variants are deprecated and must not be restored to `public/cv`.
 
 ## Test Results
 
@@ -54,6 +43,6 @@ The current UI keeps download buttons disabled because these files are not prese
 
 ## Remaining Placeholders
 
-- CV PDF/DOCX files are not present yet.
+- Validated English, French and Italian CV PDF/DOCX files are not present yet.
 - About uses an initials avatar placeholder until Ahmed provides a real local avatar image.
 - Project images are neutral visual placeholders from the base template and are labeled as placeholders in the UI.

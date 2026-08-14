@@ -3,6 +3,7 @@ import {
   isProductionAnalyticsLocation,
   isPublicAnalyticsPath,
 } from "@/lib/analytics/consent";
+import type { PublicResumeVariant } from "@/lib/resume-policy";
 
 export type VirtualPageViewEvent = {
   event: "virtual_page_view";
@@ -43,7 +44,7 @@ export type AnalyticsEvent =
     }
   | {
       event: "resume_download";
-      cv_variant: "english" | "french" | "ats" | "canadian";
+      cv_variant: PublicResumeVariant;
       file_format: "pdf" | "docx";
       cta_location: "resume_page" | "homepage" | "contact_section";
     }

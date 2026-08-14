@@ -14,26 +14,27 @@ export const primaryNavigation = navLinks.map((link) => ({ ...link }));
 
 const fallbackProfile: PortfolioContent["profile"] = {
   ...profile,
-  availability:
-    "International full-time availability from October 2027; selected freelance projects available now.",
   aboutFocus: [...profile.aboutFocus],
 };
 
 export const fallbackPortfolioContent: PortfolioContent = {
   profile: fallbackProfile,
   hero: {
-    eyebrow: fallbackProfile.mainTitle,
+    eyebrow:
+      "Marketing & Commercial Analytics · Big Data · AI · Digital Transformation",
     title: fallbackProfile.name,
-    subtitle: fallbackProfile.secondaryLine,
+    subtitle:
+      "Business Intelligence · CRM & Marketing Automation · Digital Transformation",
     tagline: fallbackProfile.tagline,
     dynamicTitles: [...dynamicTitles],
-    primaryCtaLabel: "Contact Me",
-    primaryCtaHref: "/contact",
-    secondaryCtaLabel: "View Projects",
-    secondaryCtaHref: "/projects",
+    primaryCtaLabel: "Explore Case Studies",
+    primaryCtaHref: "/projects",
+    secondaryCtaLabel: "View Resume",
+    secondaryCtaHref: "/resume",
   },
   about: {
-    title: "Data, commercial context and automation in one working view.",
+    title:
+      "I connect business questions, data and technology to create decisions and systems people can use.",
     body: fallbackProfile.about,
     highlights: [...fallbackProfile.aboutFocus],
     avatarUrl: fallbackProfile.avatarPath,

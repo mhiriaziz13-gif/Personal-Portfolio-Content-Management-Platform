@@ -26,6 +26,7 @@ import type {
   SkillCategory,
 } from "@/lib/cms-types";
 import { createVolunteeringFooterLink } from "@/lib/navigation";
+import { isPublicResume } from "@/lib/resume-policy";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseAdminConfigured, isSupabaseConfigured } from "@/lib/supabase/config";
 import { createSupabasePublicClient } from "@/lib/supabase/server";
@@ -141,6 +142,14 @@ type PublicQueryResult = {
 };
 
 type QueryLike = PromiseLike<{ data: unknown; error: unknown }>;
+
+const isPublicCmsResumeRow = (row: CmsRow) =>
+  isPublicResume({
+    variant: row.variant,
+    label: row.label,
+    pdf_url: row.pdf_url,
+    docx_url: row.docx_url,
+  });
 
 const readRows = (data: unknown): CmsRow[] =>
   Array.isArray(data) ? (data as CmsRow[]) : [];
@@ -589,7 +598,7 @@ const loadCareerRows = unstable_cache(
 const loadSecondaryRows = unstable_cache(
   async () => {
     const supabase = createSupabasePublicClient();
-    const [certifications, resumes, socialLinks, volunteering] =
+    const [certifications, loadedResumes, socialLinks, volunteering] =
       await Promise.all([
         readPublicRows(
           "CMS-PUBLIC-CERTIFICATIONS-READ",
@@ -626,9 +635,14 @@ const loadSecondaryRows = unstable_cache(
         ),
       ]);
 
+    const resumes: PublicQueryResult = {
+      ...loadedResumes,
+      rows: loadedResumes.rows.filter(isPublicCmsResumeRow),
+    };
+
     return { certifications, resumes, socialLinks, volunteering };
   },
-  ["public-cms-secondary-v2"],
+  ["public-cms-secondary-v3"],
   { revalidate: PUBLIC_REVALIDATE_SECONDS, tags: ["public-cms-secondary"] },
 );
 
@@ -1168,7 +1182,7 @@ const getPortfolioContentImpl = async (): Promise<PortfolioContent> => {
   }));
 
   const resumes: ResumeContent[] = sortByOrder(
-    secondary.resumes.rows,
+    secondary.resumes.rows.filter(isPublicCmsResumeRow),
   ).map((row, index) => ({
     title: readText(row.label) || readText(row.variant) || "Resume",
     variant: readText(row.variant),

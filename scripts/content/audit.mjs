@@ -1,6 +1,108 @@
 import fs from "node:fs";
 import path from "node:path";
 
+const repositoryRoot = path.resolve(".");
+const failures = [];
+const warnings = [];
+const snapshots = new Map();
+
+const staleAvailabilityPatterns = [
+  /\b(?:October|Oct\.?)\s+2027\b/i,
+  /\bSummer\s+2027\b/i,
+];
+const obsoleteMasterProjectPatterns = [
+  /master-multi-agent-llm-project/i,
+  /Master\s+Multi-Agent\s+LLM\s+Project/i,
+  /LLM\s+Interface\s+for\s+Multi-Agent\s+System\s+Management/i,
+  /interface\s+for\s+launching\s+and\s+managing\s+a\s+multi-agent\s+system/i,
+];
+const stalePositioningPatterns = [
+  /Data-Driven Marketing\s*&\s*Commercial Analytics/i,
+  /Turning Data into Commercial Growth/i,
+];
+const deprecatedPublicCvFilename =
+  /(?:^|[_\-.\s])(?:ats|canada|canadian|canadien|canadienne|master|masters|mastere)(?:[_\-.\s]|$)/i;
+
+const flattenStrings = (value) => {
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) return value.flatMap(flattenStrings);
+  if (value && typeof value === "object") {
+    return Object.values(value).flatMap(flattenStrings);
+  }
+  return [];
+};
+
+const listFiles = (directory) => {
+  if (!fs.existsSync(directory)) return [];
+  return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const absolutePath = path.join(directory, entry.name);
+    return entry.isDirectory() ? listFiles(absolutePath) : [absolutePath];
+  });
+};
+
+const auditRepositoryFallbacks = () => {
+  const identitySourceFiles = [
+    "README.md",
+    "constants/portfolio.ts",
+    "data/fallback-portfolio.ts",
+    "app/contact/page.tsx",
+    "app/humans.txt/route.ts",
+    "app/opengraph-image.tsx",
+    "app/resume/page.tsx",
+    "config/index.ts",
+    "lib/seo/config.ts",
+    "lib/seo/metadata.ts",
+    "package.json",
+    "docs/DESIGN_MIX_IMPLEMENTATION.md",
+    "docs/personal-brand-strategy.md",
+    "docs/profile-bios-and-descriptions.md",
+    "docs/seo-topic-and-entity-map.md",
+    "supabase/00_CLEAN_RESET_AND_SEED.sql",
+    "supabase/seed_ahmed_portfolio.sql",
+  ];
+  for (const relativePath of identitySourceFiles) {
+    const absolutePath = path.join(repositoryRoot, relativePath);
+    if (!fs.existsSync(absolutePath)) continue;
+    const source = fs.readFileSync(absolutePath, "utf8");
+    for (const pattern of staleAvailabilityPatterns) {
+      if (pattern.test(source)) {
+        failures.push(`${relativePath} contains stale 2027 availability copy`);
+        break;
+      }
+    }
+    if (/Sunshine[\s\S]{0,240}\bPresent\b/i.test(source)) {
+      failures.push(`${relativePath} still represents Sunshine as current`);
+    }
+    for (const pattern of obsoleteMasterProjectPatterns) {
+      if (pattern.test(source)) {
+        failures.push(`${relativePath} contains the obsolete Master multi-agent LLM project`);
+        break;
+      }
+    }
+    for (const pattern of stalePositioningPatterns) {
+      if (pattern.test(source)) {
+        failures.push(`${relativePath} contains stale profile positioning`);
+        break;
+      }
+    }
+  }
+
+  for (const absolutePath of listFiles(path.join(repositoryRoot, "public/cv"))) {
+    if (!deprecatedPublicCvFilename.test(path.basename(absolutePath))) continue;
+    failures.push(
+      `${path.relative(repositoryRoot, absolutePath)} is a deprecated public CV asset`,
+    );
+  }
+};
+
+const report = () => {
+  warnings.forEach((warning) => console.warn(`WARN ${warning}`));
+  failures.forEach((failure) => console.error(`FAIL ${failure}`));
+  console.log(
+    `Content audit summary: ${failures.length} failure(s), ${warnings.length} warning(s).`,
+  );
+};
+
 const parseEnv = (file) => {
   if (!fs.existsSync(file)) return {};
   return Object.fromEntries(
@@ -26,21 +128,27 @@ const parseEnv = (file) => {
   );
 };
 
-const localEnv = parseEnv(path.resolve(".env.local"));
+auditRepositoryFallbacks();
+
+const localEnv = parseEnv(path.join(repositoryRoot, ".env.local"));
 const url =
   process.env.NEXT_PUBLIC_SUPABASE_URL ||
   localEnv.NEXT_PUBLIC_SUPABASE_URL;
 const key =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
   localEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const failures = [];
-const warnings = [];
-const snapshots = new Map();
-
 const publicQueries = [
-  ["profile", "full_name,availability,published", "published=eq.true"],
-  ["hero", "title,tagline,published", "published=eq.true"],
-  ["about", "title,body,published", "published=eq.true"],
+  [
+    "profile",
+    "full_name,headline,secondary_line,tagline,availability,short_bio,about_text,about_focus,published",
+    "published=eq.true",
+  ],
+  [
+    "hero",
+    "eyebrow,title,subtitle,tagline,dynamic_titles,primary_cta_label,secondary_cta_label,published",
+    "published=eq.true",
+  ],
+  ["about", "title,body,highlights,published", "published=eq.true"],
   ["skills", "name,category,sort_order,published", "published=eq.true"],
   [
     "projects",
@@ -62,8 +170,16 @@ const publicQueries = [
     "id,project_id,media_url,alt_text,media_type,is_visible",
     "is_visible=eq.true",
   ],
-  ["experience", "company,role,points,published", "published=eq.true"],
-  ["education", "institution,degree,status,published", "published=eq.true"],
+  [
+    "experience",
+    "company,role,start_date,end_date,date_label,points,published",
+    "published=eq.true",
+  ],
+  [
+    "education",
+    "institution,degree,start_date,end_date,status,location,published",
+    "published=eq.true",
+  ],
   [
     "certifications",
     "name,issuer,credential_url,published",
@@ -71,6 +187,7 @@ const publicQueries = [
   ],
   ["resumes", "label,variant,pdf_url,docx_url,published", "published=eq.true"],
   ["social_links", "label,url,published", "published=eq.true"],
+  ["site_settings", "key,value", ""],
   ["pages", "id,page_key,title,is_published", "is_published=eq.true"],
   [
     "page_sections",
@@ -91,9 +208,10 @@ const publicQueries = [
 
 if (!url || !key) {
   console.log(
-    "Content audit: Supabase is not configured; minimal repository fallback mode is active.",
+    "Content audit: Supabase is not configured; repository fallback and public assets were inspected.",
   );
-  process.exit(0);
+  report();
+  process.exit(failures.length ? 1 : 0);
 }
 
 console.log(
@@ -214,18 +332,208 @@ if (profile && profile.full_name !== "Ahmed Aziz Mhiri") {
     `profile.full_name is "${String(profile.full_name || "empty")}"; the CMS identity is rendered verbatim and should be reviewed`,
   );
 }
-if (/summer 2027/i.test(String(profile?.availability || ""))) {
-  failures.push("profile availability still says Summer 2027");
+
+const publishedCmsStrings = Array.from(snapshots.entries()).flatMap(
+  ([table, rows]) =>
+    rows.flatMap((row) =>
+      flattenStrings(row).map((value) => ({ table, value })),
+    ),
+);
+for (const pattern of staleAvailabilityPatterns) {
+  const match = publishedCmsStrings.find(({ value }) => pattern.test(value));
+  if (match) {
+    failures.push(
+      `${match.table} contains stale October/Summer 2027 availability copy`,
+    );
+  }
 }
-if (
-  (snapshots.get("page_sections") ?? []).some((section) =>
-    /summer 2027/i.test(String(section.description || "")),
-  )
-) {
-  failures.push("a published page section still says Summer 2027");
+for (const pattern of obsoleteMasterProjectPatterns) {
+  const match = publishedCmsStrings.find(({ value }) => pattern.test(value));
+  if (match) {
+    failures.push(
+      `${match.table} contains the obsolete Master multi-agent LLM project or copy`,
+    );
+    break;
+  }
 }
 
-for (const experience of snapshots.get("experience") ?? []) {
+const experienceRows = snapshots.get("experience") ?? [];
+const rowDates = (row) =>
+  [row.start_date, row.end_date, row.date_label].map(String).join(" ");
+const sunshineRows = experienceRows.filter((row) =>
+  /Sunshine/i.test(String(row.company || "")),
+);
+if (sunshineRows.some((row) => /\bPresent\b/i.test(rowDates(row)))) {
+  failures.push("Sunshine is still represented as a current role");
+}
+
+const hasCurrentElMouradiRole = experienceRows.some(
+  (row) =>
+    /El\s+Mouradi/i.test(String(row.company || ""))
+    && /Digital\s+Transformation\s+Project\s+Manager/i.test(
+      String(row.role || ""),
+    )
+    && /\bJul(?:y)?\s+2026\b/i.test(String(row.start_date || row.date_label || ""))
+    && /\bPresent\b/i.test(String(row.end_date || row.date_label || "")),
+);
+if (!hasCurrentElMouradiRole) {
+  failures.push(
+    "published experience is missing the current El Mouradi Digital Transformation Project Manager role (Jul 2026 - Present)",
+  );
+}
+
+const hasCorrect2023Internship = experienceRows.some(
+  (row) =>
+    /El\s+Mouradi/i.test(String(row.company || ""))
+    && /Management\s+Control\s+Intern/i.test(String(row.role || ""))
+    && /\bJun(?:e)?\s+2023\b/i.test(String(row.start_date || row.date_label || ""))
+    && /\bSep(?:t(?:ember)?)?\s+2023\b/i.test(
+      String(row.end_date || row.date_label || ""),
+    ),
+);
+if (!hasCorrect2023Internship) {
+  failures.push(
+    "published experience is missing the El Mouradi Management Control Intern role (June 2023 - September 2023)",
+  );
+}
+
+const educationRows = snapshots.get("education") ?? [];
+const masterEducation = educationRows.find((row) =>
+  /Big\s+Data\s+Analytics[\s\S]*E-Commerce/i.test(String(row.degree || "")),
+);
+if (
+  !masterEducation
+  || !/\bJun(?:e)?\s+2027\b/i.test(
+    String(masterEducation.end_date || masterEducation.status || ""),
+  )
+) {
+  failures.push(
+    "published education is missing the Big Data Analytics & E-Commerce Master ending Jun 2027",
+  );
+}
+
+const licenceEducation = educationRows.find((row) =>
+  /Business\s+Intelligence/i.test(String(row.degree || "")),
+);
+const licenceCopy = flattenStrings(licenceEducation || {}).join(" ");
+for (const [pattern, fact] of [
+  [/\b17[.,]11(?:\s*\/\s*20)?\b/i, "17.11/20 final average"],
+  [
+    /\bPFE(?:\s+grade)?\s*:?\s*19[.,]5(?:0)?(?:\s*\/\s*20)?\b/i,
+    "PFE 19.5/20",
+  ],
+  [/Mention\s+Excellent/i, "Mention Excellent"],
+]) {
+  if (!pattern.test(licenceCopy)) {
+    failures.push(`published Business Intelligence education is missing ${fact}`);
+  }
+}
+
+const approvedResumeVariant = (row) => {
+  const normalizeIdentifier = (value) => String(value || "")
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
+    .join("-");
+  const variant = normalizeIdentifier(row.variant);
+  const aliases = {
+    English: new Set(["english", "english-cv", "english-professional-cv"]),
+    French: new Set([
+      "french",
+      "french-cv",
+      "french-professional-cv",
+      "francais",
+      "francais-cv",
+      "francais-professional-cv",
+    ]),
+    Italian: new Set([
+      "italian",
+      "italian-cv",
+      "italian-professional-cv",
+      "italiano",
+      "italiano-cv",
+      "italien",
+      "italien-cv",
+    ]),
+  };
+  if (variant) {
+    return Object.entries(aliases).find(([, values]) =>
+      values.has(variant),
+    )?.[0] ?? "";
+  }
+  const value = normalizeIdentifier(row.label).replaceAll("-", " ");
+  if (/\b(?:english|anglais|en)\b/.test(value)) return "English";
+  if (/\b(?:french|francais|fr|francaise)\b/.test(value)) return "French";
+  if (/\b(?:italian|italien|italiano|it)\b/.test(value)) return "Italian";
+  return "";
+};
+
+const publicResumeCounts = new Map([
+  ["English", 0],
+  ["French", 0],
+  ["Italian", 0],
+]);
+
+for (const resume of snapshots.get("resumes") ?? []) {
+  const identity = `${String(resume.variant || "")} ${String(resume.label || "")}`;
+  if (deprecatedPublicCvFilename.test(identity)) {
+    failures.push(`deprecated resume variant is published: ${identity.trim()}`);
+    continue;
+  }
+  const assetIdentity = `${String(resume.pdf_url || "")} ${String(resume.docx_url || "")}`;
+  if (deprecatedPublicCvFilename.test(assetIdentity)) {
+    failures.push(
+      `deprecated/private resume asset is published: ${identity.trim()}`,
+    );
+    continue;
+  }
+  const approvedVariant = approvedResumeVariant(resume);
+  if (!approvedVariant) {
+    failures.push(`unapproved resume variant is published: ${identity.trim()}`);
+    continue;
+  }
+  const hasAnyAsset = [resume.pdf_url, resume.docx_url].some((value) =>
+    String(value || "").trim(),
+  );
+  if (approvedVariant === "Italian" && !hasAnyAsset) {
+    failures.push(
+      "Italian resume is published without a validated PDF or DOCX asset",
+    );
+    continue;
+  }
+  publicResumeCounts.set(
+    approvedVariant,
+    (publicResumeCounts.get(approvedVariant) ?? 0) + 1,
+  );
+  for (const [field, label] of [
+    ["pdf_url", "PDF"],
+    ["docx_url", "DOCX"],
+  ]) {
+    if (!String(resume[field] || "").trim()) {
+      warnings.push(
+        `${approvedVariant} resume has no ${label} URL; the validated replacement asset is pending`,
+      );
+    }
+  }
+}
+
+for (const requiredVariant of ["English", "French"]) {
+  const count = publicResumeCounts.get(requiredVariant) ?? 0;
+  if (count !== 1) {
+    failures.push(
+      `published resume policy requires exactly one ${requiredVariant} variant; found ${count}`,
+    );
+  }
+}
+if ((publicResumeCounts.get("Italian") ?? 0) > 1) {
+  failures.push(
+    `published resume policy allows at most one Italian variant; found ${publicResumeCounts.get("Italian")}`,
+  );
+}
+
+for (const experience of experienceRows) {
   if (!/^VERMEG/i.test(String(experience.company || ""))) continue;
   const boundaryCopy = [
     experience.role,
@@ -266,9 +574,5 @@ for (const pageKey of [
   }
 }
 
-warnings.forEach((warning) => console.warn(`WARN ${warning}`));
-failures.forEach((failure) => console.error(`FAIL ${failure}`));
-console.log(
-  `Content audit summary: ${failures.length} failure(s), ${warnings.length} warning(s).`,
-);
+report();
 process.exitCode = failures.length ? 1 : 0;

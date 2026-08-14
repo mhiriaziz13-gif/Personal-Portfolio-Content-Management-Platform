@@ -67,7 +67,7 @@ Corrections made:
 - Production robots now disallow only `/api/`; admin/auth HTML remains crawlable so metadata and headers can communicate noindex.
 - Added `X-Robots-Tag: noindex, nofollow, noarchive` for admin, auth, API and raw PDF/DOCX CV paths. Non-production deployments receive the header globally.
 - Preserved production canonicals in preview behavior and documented Vercel Deployment Protection as a complementary control.
-- Replaced fallback education with the owner-confirmed IHEC Carthage Master's and completed Business Intelligence degree, including only “Mention Excellent — 19.5/20”.
+- Recorded the owner-confirmed IHEC Carthage Master's and completed Business Intelligence degree with an overall average of 17.11/20, a PFE grade of 19.5/20 and Mention Excellent.
 - Added the confirmed career priorities: Italy, Spain, Croatia, Serbia and Hungary first, broader Western and Eastern Europe second, without location pages or residence/work-authorization claims.
 - Enforced the exact public identity “Ahmed Aziz Mhiri” at the public CMS mapping layer without modifying the CMS row.
 - Added individually written, project-specific context, problem, contribution, approach, workflow, tools, deliverables, safeguards, qualitative outcome, lessons, expertise, experience and FAQ content for all five published projects. A project must first exist in the published CMS result before this verified detail renders.
@@ -90,7 +90,7 @@ The documented events (`project_detail_view`, `resume_page_view`, `cv_download`,
 - `npm run build`: pass; 21 static pages generated and dynamic operational/project routes compiled.
 - `SECURITY_TARGET_URL=http://localhost:3000 npm run security:verify`: 68 passed, 0 failed, 1 loopback warning because HTTP-to-HTTPS redirect validation is not applicable to localhost.
 - `npm run seo:audit -- http://localhost:3000`: 0 failures, 0 warnings.
-- `npm run content:audit`: 0 structural failures; one expected content difference reporting that production CMS education rows still need the confirmed IHEC/19.5 update.
+- Historical run result: production CMS education still needed synchronization at that time. Wave 1 later synchronized the 17.11/20 overall average, 19.5/20 PFE grade and Mention Excellent.
 - Rendered source inspection: every required public route has one visible H1, no hidden H1, production canonical metadata and JSON-LD. Homepage H1 is now exactly “Ahmed Aziz Mhiri”.
 - Header checks: admin login, forgot password, auth callback, API contact, CV PDF and CV DOCX all return `X-Robots-Tag: noindex, nofollow, noarchive`.
 - Robots output: public allow plus `/api/` disallow; canonical sitemap reference.

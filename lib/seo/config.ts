@@ -5,7 +5,11 @@ const FALLBACK_LINKEDIN_URL = "https://linkedin.com/in/ahmed-aziz-mhiri";
 const normalizeSiteUrl = (value: string | undefined) => {
   try {
     const url = new URL(value || FALLBACK_SITE_URL);
-    if (url.protocol !== "https:" || url.hostname.endsWith(".vercel.app") && url.hostname !== "ahmedaziz-portfolio.vercel.app") {
+    if (
+      url.protocol !== "https:" ||
+      (url.hostname.endsWith(".vercel.app") &&
+        url.hostname !== "ahmedaziz-portfolio.vercel.app")
+    ) {
       return FALLBACK_SITE_URL;
     }
     return url.origin;
@@ -44,11 +48,11 @@ export const publicIdentity = {
 
 export const siteSeo = {
   name: publicIdentity.name,
-  siteName: `${publicIdentity.name} — Data-Driven Marketing & Commercial Analytics`,
+  siteName: `${publicIdentity.name} — Marketing & Commercial Analytics`,
   url: normalizeSiteUrl(process.env.NEXT_PUBLIC_SITE_URL),
   locale: "en_US",
   titleTemplate: `%s | ${publicIdentity.name}`,
-  description: `${publicIdentity.name} connects marketing and commercial analytics, business intelligence, customer insight and auditable process automation.`,
+  description: `Portfolio of ${publicIdentity.name}, Marketing & Commercial Analyst and Digital Transformation Project Manager combining Business Intelligence, Big Data, AI, CRM automation and engineering for measurable business outcomes.`,
   creator: publicIdentity.name,
   socialImage: "/opengraph-image",
   sameAs: [publicIdentity.linkedInUrl, publicIdentity.githubUrl],

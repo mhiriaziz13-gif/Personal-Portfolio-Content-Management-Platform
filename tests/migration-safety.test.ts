@@ -12,10 +12,13 @@ const hardeningMigrationName =
   "20260727130027_portfolio_hardening_v1.sql";
 const alignmentMigrationName =
   "20260729120000_final_cms_content_alignment.sql";
+const wave1MigrationName =
+  "20260814112255_wave1_source_of_truth.sql";
 const requiredMigrationNames = [
   contactMigrationName,
   hardeningMigrationName,
   alignmentMigrationName,
+  wave1MigrationName,
 ] as const;
 
 const migrationFiles = globSync(join(migrationDirectory, "*.sql")).sort();
@@ -24,7 +27,8 @@ const readMigration = (name: string) =>
 const contactSql = readMigration(contactMigrationName);
 const hardeningSql = readMigration(hardeningMigrationName);
 const alignmentSql = readMigration(alignmentMigrationName);
-const reviewedSql = `${contactSql}\n${hardeningSql}\n${alignmentSql}`;
+const wave1Sql = readMigration(wave1MigrationName);
+const reviewedSql = `${contactSql}\n${hardeningSql}\n${alignmentSql}\n${wave1Sql}`;
 
 const stripFunctionBodies = (sql: string) =>
   sql.replace(
@@ -57,7 +61,7 @@ describe("portfolio migration order and compatibility contract", () => {
 
     expect(
       names.filter((name) =>
-        /(?:contact_messages_compatibility|portfolio_hardening_v1|final_cms_content_alignment)\.sql$/.test(
+        /(?:contact_messages_compatibility|portfolio_hardening_v1|final_cms_content_alignment|wave1_source_of_truth)\.sql$/.test(
           name,
         )),
     ).toEqual(requiredMigrationNames);
@@ -342,10 +346,6 @@ describe("portfolio migration order and compatibility contract", () => {
     expect(alignmentSql).toMatch(
       /open_graph_image = coalesce\([\s\S]*?cover_image_url/i,
     );
-    expect(alignmentSql).toMatch(
-      /master-multi-agent-llm-project[\s\S]*?published = false[\s\S]*?status = 'preparation'|published = false[\s\S]*?status = 'preparation'[\s\S]*?master-multi-agent-llm-project/i,
-    );
-    expect(alignmentSql).toContain("October 2027");
     for (const sql of [hardeningSql, alignmentSql]) {
       expect(sql).toContain("two-person internship prototype");
       expect(sql).toContain("chatbot");
@@ -356,6 +356,55 @@ describe("portfolio migration order and compatibility contract", () => {
     expect(reviewedSql).not.toMatch(/\bnot deployed to production\b/i);
     expect(reviewedSql).not.toMatch(
       /integration, secure access, event-driven communication, containerisation and observability/i,
+    );
+  });
+
+  it("codifies the Wave 1 source-of-truth facts without touching legacy experiences", () => {
+    expect(wave1Sql).toMatch(/\bbegin\s*;/i);
+    expect(wave1Sql.trimEnd()).toMatch(/\bcommit\s*;$/i);
+    expect(wave1Sql).toContain(
+      "Open to selected freelance projects and building toward international full-time opportunities from 2027.",
+    );
+    expect(wave1Sql).toMatch(
+      /role = 'Digital Transformation Project Manager'[\s\S]*?start_date = 'Jul 2026'[\s\S]*?end_date = 'Present'/i,
+    );
+    expect(wave1Sql).toMatch(
+      /insert into public\.experience[\s\S]*?'Digital Transformation Project Manager'[\s\S]*?where not exists/i,
+    );
+    expect(wave1Sql).toMatch(
+      /company = 'Sunshine Holiday Group \/ Sunshine Vacances France'[\s\S]*?start_date = 'Jul 2025'[\s\S]*?end_date = 'Jul 2026'/i,
+    );
+    expect(wave1Sql).toMatch(
+      /role = 'Management Control Intern'[\s\S]*?start_date = 'Jun 2023'[\s\S]*?end_date = 'Sep 2023'/i,
+    );
+    for (const fact of [
+      "Jun 2027",
+      "17.11/20",
+      "19.5/20",
+      "Mention Excellent",
+      "Freelance Commercial & Digital Marketing Manager",
+      "Freelance Digital Transformation & Data-Driven Marketing Consultant",
+      "El Mouradi Club Kantaoui",
+    ]) {
+      expect(wave1Sql).toContain(fact);
+    }
+    expect(wave1Sql).toMatch(
+      /delete from public\.projects[\s\S]*?where slug = 'master-multi-agent-llm-project'[\s\S]*?;/i,
+    );
+    expect(wave1Sql).toMatch(
+      /update public\.resumes[\s\S]*?pdf_url = null[\s\S]*?docx_url = null[\s\S]*?published = false[\s\S]*?\(ats\|canad\|master\)/i,
+    );
+    expect(wave1Sql).toMatch(
+      /concat_ws\(' ', variant, label, pdf_url, docx_url\)[\s\S]*?coalesce\(variant, ''\) not in/i,
+    );
+    expect(wave1Sql).toMatch(
+      /variant = 'english-professional-cv'[\s\S]*?\) <> 1 or \([\s\S]*?variant = 'french-cv'[\s\S]*?\) <> 1/i,
+    );
+    expect(wave1Sql).toMatch(
+      /item\.display_order = 0[\s\S]*?\) <> 1 or \([\s\S]*?item\.display_order = 1[\s\S]*?\) <> 1/i,
+    );
+    expect(stripComments(wave1Sql)).not.toMatch(
+      /\b(?:insert\s+into|update|delete\s+from)\s+public\.experiences\b/i,
     );
   });
 
@@ -377,8 +426,12 @@ describe("portfolio migration order and compatibility contract", () => {
     expect(alignmentSql).not.toMatch(/\b\d+(?:\.\d+)?%\b/);
   });
 
-  it("documents the exact same three-file order", () => {
-    const positions = requiredMigrationNames.map((name) => runbook.indexOf(name));
+  it("keeps the foundational three-file runbook order", () => {
+    const positions = [
+      contactMigrationName,
+      hardeningMigrationName,
+      alignmentMigrationName,
+    ].map((name) => runbook.indexOf(name));
     expect(positions.every((position) => position >= 0)).toBe(true);
     expect(positions[0]).toBeLessThan(positions[1]);
     expect(positions[1]).toBeLessThan(positions[2]);
@@ -386,10 +439,19 @@ describe("portfolio migration order and compatibility contract", () => {
 });
 
 describe("portfolio hardening destructive-operation safeguards", () => {
-  it("does not contain destructive data-reset statements", () => {
+  it("allows only the stable-slug Wave 1 project cleanup", () => {
+    const approvedWave1Cleanup =
+      /\bdelete\s+from\s+public\.projects\s+where\s+slug\s*=\s*'master-multi-agent-llm-project'\s+or\s+pg_catalog\.lower\(title\)\s+in\s*\(\s*'master multi-agent llm project'\s*,\s*'llm interface for multi-agent system management'\s*\)\s*;/i;
+    expect(wave1Sql.match(/\bdelete\s+from\s+public\./gi)).toHaveLength(1);
+    expect(wave1Sql).toMatch(approvedWave1Cleanup);
+
+    const withoutApprovedWave1Cleanup = executableSql.replace(
+      approvedWave1Cleanup,
+      "approved Wave 1 stable-slug cleanup;",
+    );
     expect(executableSql).not.toMatch(/\bdrop\s+table\b/i);
     expect(executableSql).not.toMatch(/\btruncate\b/i);
-    expect(executableSql).not.toMatch(
+    expect(withoutApprovedWave1Cleanup).not.toMatch(
       /\bdelete\s+from\s+(?:public|auth|storage)\./i,
     );
   });
