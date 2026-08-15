@@ -27,15 +27,20 @@ import {
   imageMimeTypes,
 } from "@/components/admin/cms-field-input";
 
+import { ProjectCaseStudyEditor } from "@/components/admin/projects/project-case-study-editor";
+
 import type {
   ProjectWorkspaceLink,
   ProjectWorkspaceProject,
+  ProjectWorkspaceSection,
+  ProjectWorkspaceSectionDefinition,
   ProjectWorkspaceStatus,
 } from "@/lib/projects/project-workspace-types";
 
 type WorkspaceTab =
   | "overview"
   | "links"
+  | "case_study"
   | "seo"
   | "publishing";
 
@@ -313,6 +318,8 @@ const toolsField: CmsField = {
 export function ProjectWorkspace({
   initialProject,
   initialLinks,
+  initialSections,
+  sectionDefinitions,
   sectionCount,
   mediaCount,
 }: {
@@ -321,6 +328,12 @@ export function ProjectWorkspace({
 
   initialLinks:
     ProjectWorkspaceLink[];
+
+  initialSections:
+    ProjectWorkspaceSection[];
+
+  sectionDefinitions:
+    ProjectWorkspaceSectionDefinition[];
 
   sectionCount: number;
 
@@ -650,7 +663,10 @@ export function ProjectWorkspace({
         id: "links",
         label: "Links",
       },
-
+      {
+        id: "case_study",
+        label: `Case Study (${sectionCount})`,
+     },
       {
         id: "seo",
         label: "SEO & AI",
@@ -1409,7 +1425,20 @@ export function ProjectWorkspace({
           </div>
         </section>
       )}
-
+      {tab ===
+  "case_study" && (
+  <ProjectCaseStudyEditor
+    projectId={
+      project.id
+    }
+    initialSections={
+      initialSections
+    }
+    sectionDefinitions={
+      sectionDefinitions
+    }
+  />
+)}
       {tab === "seo" && (
         <div className="mt-5 grid gap-5">
           <section className={cardClass}>

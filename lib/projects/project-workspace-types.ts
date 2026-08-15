@@ -67,3 +67,77 @@ export type ProjectWorkspaceLink = {
   display_order: number;
   is_visible: boolean;
 };
+
+export type ProjectWorkspaceSectionType =
+  | "rich_text"
+  | "media_gallery";
+
+export type ProjectWorkspaceSectionDefinition = {
+  id: string;
+
+  section_key: string;
+  label: string;
+  description: string | null;
+
+  default_sort_order: number;
+
+  default_section_type:
+    ProjectWorkspaceSectionType;
+
+  default_layout_variant: string;
+
+  default_visible: boolean;
+
+  is_required: boolean;
+  supports_items: boolean;
+  supports_media: boolean;
+
+  is_active: boolean;
+};
+
+export type ProjectWorkspaceSectionItem = {
+  id: string;
+
+  project_section_id: string;
+
+  label: string | null;
+  value: string | null;
+  description: string | null;
+
+  display_order: number;
+  is_visible: boolean;
+
+  created_at: string;
+  updated_at: string;
+};
+
+export type ProjectWorkspaceSection = {
+  id: string;
+  project_id: string;
+
+  definition_id: string | null;
+
+  title: string;
+  body: string | null;
+
+  bullets: string[];
+
+  sort_order: number;
+
+  section_type:
+    ProjectWorkspaceSectionType;
+
+  is_visible: boolean;
+  is_archived: boolean;
+
+  layout_variant: string;
+
+  created_at: string;
+  updated_at: string;
+
+  definition:
+    ProjectWorkspaceSectionDefinition | null;
+
+  items:
+    ProjectWorkspaceSectionItem[];
+};

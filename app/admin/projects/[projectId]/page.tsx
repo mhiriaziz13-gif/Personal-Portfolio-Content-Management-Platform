@@ -1,11 +1,16 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import {
+  notFound,
+} from "next/navigation";
 
 import { ProjectWorkspace } from "@/components/admin/projects/project-workspace";
+
 import { getProjectWorkspaceData } from "@/lib/projects/project-workspace-data";
+
 import { requireAdminPage } from "@/lib/security/admin-auth";
 
-export const dynamic = "force-dynamic";
+export const dynamic =
+  "force-dynamic";
 
 type PageProps = {
   params: Promise<{
@@ -13,15 +18,23 @@ type PageProps = {
   }>;
 };
 
-export default async function ProjectWorkspacePage({ params }: PageProps) {
-  const { projectId } = await params;
+export default async function ProjectWorkspacePage({
+  params,
+}: PageProps) {
+  const { projectId } =
+    await params;
 
   await requireAdminPage({
-    next: `/admin/projects/${projectId}`,
+    next:
+      `/admin/projects/${projectId}`,
+
     requireMfa: true,
   });
 
-  const data = await getProjectWorkspaceData(projectId);
+  const data =
+    await getProjectWorkspaceData(
+      projectId,
+    );
 
   if (!data) {
     notFound();
@@ -42,10 +55,24 @@ export default async function ProjectWorkspacePage({ params }: PageProps) {
         </Link>
 
         <ProjectWorkspace
-          initialProject={data.project}
-          initialLinks={data.links}
-          sectionCount={data.sectionCount}
-          mediaCount={data.mediaCount}
+          initialProject={
+            data.project
+          }
+          initialLinks={
+            data.links
+          }
+          initialSections={
+            data.sections
+          }
+          sectionDefinitions={
+            data.sectionDefinitions
+          }
+          sectionCount={
+            data.sectionCount
+          }
+          mediaCount={
+            data.mediaCount
+          }
         />
       </section>
     </main>
