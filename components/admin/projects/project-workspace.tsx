@@ -1826,13 +1826,16 @@ export function ProjectWorkspace({
         </p>
 
         <button
-          type="submit"
-          disabled={
-            saving ||
-            !dirty
-          }
-          className="button-primary inline-flex min-h-11 items-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
-        >
+  type="button"
+  onClick={() =>
+    void save()
+  }
+  disabled={
+    saving ||
+    !dirty
+  }
+  className="button-primary inline-flex min-h-11 items-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+>
           <FiSave
             aria-hidden="true"
           />
