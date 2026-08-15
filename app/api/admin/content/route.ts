@@ -362,9 +362,11 @@ const loadProjectSections = async (
     }
   }
 
-  const mediaResult = await supabase
+    const mediaResult = await supabase
     .from("project_media")
-    .select("id,project_id,media_url,alt_text,caption,media_type,is_visible")
+    .select(
+      "id,project_id,project_section_id,media_url,alt_text,caption,media_type,is_visible",
+    )
     .eq("project_id", projectId)
     .limit(1000);
   if (mediaResult.error) return null;
@@ -380,10 +382,16 @@ const loadProjectSections = async (
       typeof section.id === "string"
         ? itemsBySection.get(section.id) ?? []
         : [],
-    media:
-      section.section_type === "media"
-      || section.section_type === "media_gallery"
-        ? media
+        media:
+      section.section_type ===
+        "media_gallery" &&
+      typeof section.id ===
+        "string"
+        ? media.filter(
+            (item) =>
+              item.project_section_id ===
+              section.id,
+          )
         : [],
   })) satisfies ProjectSectionLike[];
 };

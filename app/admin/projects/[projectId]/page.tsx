@@ -54,7 +54,7 @@ export default async function ProjectWorkspacePage({
           ← Back to CMS
         </Link>
 
-        <ProjectWorkspace
+          <ProjectWorkspace
           initialProject={
             data.project
           }
@@ -66,6 +66,9 @@ export default async function ProjectWorkspacePage({
           }
           sectionDefinitions={
             data.sectionDefinitions
+          }
+          initialMedia={
+            data.media
           }
           sectionCount={
             data.sectionCount

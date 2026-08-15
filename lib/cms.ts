@@ -94,7 +94,7 @@ const publicColumns = {
   projectSectionItems:
     "id,project_section_id,label,value,description,display_order,is_visible,updated_at",
   projectMedia:
-    "id,project_id,media_url,alt_text,caption,media_type,display_order,is_visible,updated_at",
+    "id,project_id,project_section_id,media_url,alt_text,caption,media_type,display_order,is_visible,updated_at",
   experience:
     "id,company,role,location,start_date,end_date,date_label,icon_bg,logo_url,logo_alt,points,tools,sort_order,published,updated_at",
   education:
@@ -818,25 +818,76 @@ const mapProjectSectionItems = (
     }))
     .filter((item) => item.value || item.description);
 
-const mapProjectMedia = (rows: CmsRow[]): ProjectMediaContent[] =>
+const mapProjectMedia = (
+  rows: CmsRow[],
+): ProjectMediaContent[] =>
   sortByOrder(rows)
-    .map((row): ProjectMediaContent => {
-      const mediaType = readText(row.media_type);
-      return {
-        id: readText(row.id),
-        projectId: readText(row.project_id),
-        mediaUrl: normalizeCmsAssetPath(row.media_url),
-        altText: readText(row.alt_text),
-        caption: readText(row.caption),
-        mediaType:
-          mediaType === "video" || mediaType === "document"
-            ? mediaType
-            : "image",
-        displayOrder: Number(row.display_order ?? 0),
-        updatedAt: readTimestamp(row.updated_at),
-      };
-    })
-    .filter((item) => item.mediaUrl && item.altText);
+    .map(
+      (
+        row,
+      ): ProjectMediaContent => {
+        const mediaType =
+          readText(
+            row.media_type,
+          );
+
+        return {
+          id:
+            readText(
+              row.id,
+            ),
+
+          projectId:
+            readText(
+              row.project_id,
+            ),
+
+          projectSectionId:
+            readText(
+              row.project_section_id,
+            ) || null,
+
+          mediaUrl:
+            normalizeCmsAssetPath(
+              row.media_url,
+            ),
+
+          altText:
+            readText(
+              row.alt_text,
+            ),
+
+          caption:
+            readText(
+              row.caption,
+            ),
+
+          mediaType:
+            mediaType ===
+              "video" ||
+            mediaType ===
+              "document"
+              ? mediaType
+              : "image",
+
+          displayOrder:
+            Number(
+              row.display_order ??
+              0,
+            ),
+
+          updatedAt:
+            readTimestamp(
+              row.updated_at,
+            ),
+        };
+      },
+    )
+    .filter(
+      (item) =>
+        item.mediaUrl &&
+        item.altText,
+    );
 
 const mapProjects = (
   projectRows: CmsRow[],
@@ -849,11 +900,49 @@ const mapProjects = (
 
   return sortProjectsByPageOrder(projectRows)
     .map((row, index): ProjectContent => {
-      const projectId = readText(row.id);
-      const slug = readText(row.slug);
-      const projectMedia = media.filter(
-        (item) => item.projectId === projectId,
-      );
+            const projectId =
+        readText(
+          row.id,
+        );
+
+      const slug =
+        readText(
+          row.slug,
+        );
+
+      const visibleProjectSectionIds =
+        new Set(
+          projectSectionRows
+            .filter(
+              (section) =>
+                readText(
+                  section.project_id,
+                ) ===
+                projectId,
+            )
+            .map(
+              (section) =>
+                readText(
+                  section.id,
+                ),
+            )
+            .filter(Boolean),
+        );
+
+      const projectMedia =
+        media.filter(
+          (item) =>
+            item.projectId ===
+              projectId &&
+            (
+              item.projectSectionId ===
+                null ||
+              visibleProjectSectionIds.has(
+                item.projectSectionId,
+              )
+            ),
+        );
+
       const sections = sortByOrder(
         projectSectionRows.filter(
           (section) => readText(section.project_id) === projectId,
@@ -874,9 +963,13 @@ const mapProjects = (
             (item) => item.projectSectionId === readText(section.id),
           ),
           media:
-            sectionType === "media_gallery"
-              ? projectMedia
-              : [],
+  projectMedia.filter(
+    (item) =>
+      item.projectSectionId ===
+      readText(
+        section.id,
+      ),
+  ),
           sortOrder: Number(section.sort_order ?? 0),
           sectionType,
           layoutVariant: normalizeCmsLayoutVariant(

@@ -141,3 +141,35 @@ export type ProjectWorkspaceSection = {
   items:
     ProjectWorkspaceSectionItem[];
 };
+export type ProjectWorkspaceMediaType =
+  | "image"
+  | "video"
+  | "document";
+
+export type ProjectWorkspaceMedia = {
+  id: string;
+
+  project_id: string;
+
+  project_section_id:
+    | string
+    | null;
+
+  media_url: string;
+
+  alt_text: string;
+
+  caption:
+    | string
+    | null;
+
+  media_type:
+    ProjectWorkspaceMediaType;
+
+  display_order: number;
+
+  is_visible: boolean;
+
+  created_at: string;
+  updated_at: string;
+};

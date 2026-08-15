@@ -83,12 +83,25 @@ export type ProjectSectionItemContent = {
 
 export type ProjectMediaContent = {
   id: string;
+
   projectId: string;
+
+  projectSectionId:
+    string | null;
+
   mediaUrl: string;
+
   altText: string;
+
   caption: string;
-  mediaType: "image" | "video" | "document";
+
+  mediaType:
+    | "image"
+    | "video"
+    | "document";
+
   displayOrder: number;
+
   updatedAt: string;
 };
 

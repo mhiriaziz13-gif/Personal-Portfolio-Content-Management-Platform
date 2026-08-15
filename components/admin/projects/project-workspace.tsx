@@ -26,9 +26,11 @@ import {
 } from "@/components/admin/cms-field-input";
 
 import { ProjectCaseStudyEditor } from "@/components/admin/projects/project-case-study-editor";
+import { ProjectMediaManager } from "@/components/admin/projects/project-media-manager";
 
 import type {
   ProjectWorkspaceLink,
+  ProjectWorkspaceMedia,
   ProjectWorkspaceProject,
   ProjectWorkspaceSection,
   ProjectWorkspaceSectionDefinition,
@@ -38,6 +40,7 @@ import type {
 type WorkspaceTab =
   | "overview"
   | "links"
+  | "media"
   | "case_study"
   | "seo"
   | "publishing";
@@ -318,6 +321,7 @@ export function ProjectWorkspace({
   initialLinks,
   initialSections,
   sectionDefinitions,
+  initialMedia,
   sectionCount,
   mediaCount,
 }: {
@@ -332,6 +336,9 @@ export function ProjectWorkspace({
 
   sectionDefinitions:
     ProjectWorkspaceSectionDefinition[];
+
+  initialMedia:
+    ProjectWorkspaceMedia[];
 
   sectionCount: number;
 
@@ -379,6 +386,13 @@ export function ProjectWorkspace({
 
   const [saving, setSaving] =
     useState(false);
+
+  const [
+  mediaCountValue,
+  setMediaCountValue,
+] = useState(
+  mediaCount,
+);
 
   const dirty = useMemo(
     () =>
@@ -641,7 +655,7 @@ export function ProjectWorkspace({
     }
   };
 
-  const tabs:
+    const tabs:
     Array<{
       id: WorkspaceTab;
       label: string;
@@ -655,10 +669,19 @@ export function ProjectWorkspace({
         id: "links",
         label: "Links",
       },
+
+      {
+        id: "media",
+        label:
+          `Media (${mediaCountValue})`,
+      },
+
       {
         id: "case_study",
-        label: `Case Study (${sectionCount})`,
-     },
+        label:
+          `Case Study (${sectionCount})`,
+      },
+
       {
         id: "seo",
         label: "SEO & AI",
@@ -703,9 +726,9 @@ export function ProjectWorkspace({
                 sections
               </span>
 
-              <span className="rounded-full bg-white/5 px-3 py-1 text-gray-300">
+                <span className="rounded-full bg-white/5 px-3 py-1 text-gray-300">
                 {
-                  mediaCount
+                  mediaCountValue
                 }{" "}
                 media
               </span>
@@ -1418,19 +1441,56 @@ export function ProjectWorkspace({
         </section>
       )}
       {tab ===
-  "case_study" && (
-  <ProjectCaseStudyEditor
+  "media" && (
+  <ProjectMediaManager
     projectId={
       project.id
     }
-    initialSections={
+    initialMedia={
+      initialMedia
+    }
+    sections={
       initialSections
     }
-    sectionDefinitions={
-      sectionDefinitions
+    onCountChange={
+      setMediaCountValue
     }
   />
-)}
+      )}
+
+      {tab ===
+        "media" && (
+        <ProjectMediaManager
+          projectId={
+            project.id
+          }
+          initialMedia={
+            initialMedia
+          }
+          sections={
+            initialSections
+          }
+          onCountChange={
+            setMediaCountValue
+          }
+        />
+      )}
+
+      {tab ===
+        "case_study" && (
+        <ProjectCaseStudyEditor
+          projectId={
+            project.id
+          }
+          initialSections={
+            initialSections
+          }
+          sectionDefinitions={
+            sectionDefinitions
+          }
+        />
+      )}
+
       {tab === "seo" && (
         <div className="mt-5 grid gap-5">
           <section className={cardClass}>

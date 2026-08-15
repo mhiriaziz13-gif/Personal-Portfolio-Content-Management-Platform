@@ -2,6 +2,7 @@ import "server-only";
 
 import type {
   ProjectWorkspaceLink,
+  ProjectWorkspaceMedia,
   ProjectWorkspaceProject,
   ProjectWorkspaceSection,
   ProjectWorkspaceSectionDefinition,
@@ -91,6 +92,20 @@ const projectSectionItemsSelect = `
   updated_at
 ` as const;
 
+const projectMediaSelect = `
+  id,
+  project_id,
+  project_section_id,
+  media_url,
+  alt_text,
+  caption,
+  media_type,
+  display_order,
+  is_visible,
+  created_at,
+  updated_at
+` as const;
+
 type ProjectWorkspaceSectionRow =
   Omit<
     ProjectWorkspaceSection,
@@ -112,6 +127,9 @@ export type ProjectWorkspaceData =
 
     sectionDefinitions:
       ProjectWorkspaceSectionDefinition[];
+
+    media:
+      ProjectWorkspaceMedia[];
 
     sectionCount: number;
 
@@ -252,20 +270,26 @@ export async function getProjectWorkspaceData(
       >(),
 
     supabase
-      .from(
-        "project_media",
-      )
-      .select(
-        "id",
-        {
-          count: "exact",
-          head: true,
-        },
-      )
-      .eq(
-        "project_id",
-        projectId,
-      ),
+  .from(
+    "project_media",
+  )
+  .select(
+    projectMediaSelect,
+  )
+  .eq(
+    "project_id",
+    projectId,
+  )
+  .order(
+    "display_order",
+    {
+      ascending: true,
+    },
+  )
+  .overrideTypes<
+    ProjectWorkspaceMedia[],
+    { merge: false }
+  >(),
   ]);
 
   if (!projectData) {
@@ -288,9 +312,9 @@ export async function getProjectWorkspaceData(
     );
   }
 
-  if (mediaResult.error) {
+    if (mediaResult.error) {
     throw new Error(
-      "Project media count could not be loaded.",
+      "Project media could not be loaded.",
     );
   }
 
@@ -411,6 +435,10 @@ export async function getProjectWorkspaceData(
     sectionDefinitions:
       definitions,
 
+        media:
+      mediaResult.data ??
+      [],
+
     sectionCount:
       sections.filter(
         (section) =>
@@ -418,7 +446,8 @@ export async function getProjectWorkspaceData(
       ).length,
 
     mediaCount:
-      mediaResult.count ??
+      mediaResult.data
+        ?.length ??
       0,
   };
 }
