@@ -1608,6 +1608,15 @@ export const AdminDashboard = ({
                           <button type="button" aria-label={`Edit ${inputCardTitle(row, index)}`} onClick={() => beginEdit(active, index)} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-white/10 bg-white/5 p-2.5 hover:bg-white/10">
                             <FiEdit2 aria-hidden="true" />
                           </button>
+                          {active.table === "projects" &&
+  typeof row.id === "string" && (
+    <Link
+      href={`/admin/projects/${row.id}`}
+      className="inline-flex min-h-11 items-center justify-center rounded-lg border border-cyan-300/20 bg-cyan-300/10 px-3 py-2 text-sm font-medium text-cyan-100 hover:bg-cyan-300/15"
+    >
+      Workspace
+    </Link>
+  )}
                           <button
                             type="button"
                             aria-label={`${archiveAction ? "Archive" : "Delete"} ${inputCardTitle(row, index)}`}

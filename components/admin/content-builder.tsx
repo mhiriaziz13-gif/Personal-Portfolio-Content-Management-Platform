@@ -666,13 +666,25 @@ export function ProjectBuilder(callbacks: BuilderCallbacks) {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              className={buttonClass}
-              onClick={() => callbacks.onEdit("projects", activeSelectedId)}
-            >
-              Edit project
-            </button>
+            <Link
+  href={`/admin/projects/${activeSelectedId}`}
+  className="button-primary inline-flex min-h-11 items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold text-white"
+>
+  Open Project Workspace
+</Link>
+
+<button
+  type="button"
+  className={buttonClass}
+  onClick={() =>
+    callbacks.onEdit(
+      "projects",
+      activeSelectedId,
+    )
+  }
+>
+  Advanced raw edit
+</button>
             <button
               type="button"
               className="button-primary inline-flex min-h-11 items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold text-white"
