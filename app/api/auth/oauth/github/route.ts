@@ -10,7 +10,7 @@ import {
   consumeRateLimit,
   rateLimitResponse,
 } from "@/lib/security/rate-limit";
-import { safeRedirect } from "@/lib/security/redirects";
+import { safeAdminRedirect } from "@/lib/security/redirects";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => ({})) as {
       next?: unknown;
     };
-    const requestedNext = safeRedirect(
+    const requestedNext = safeAdminRedirect(
       typeof body.next === "string" ? body.next : null,
       "/admin",
     );

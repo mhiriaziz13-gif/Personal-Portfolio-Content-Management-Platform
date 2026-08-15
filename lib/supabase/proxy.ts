@@ -24,7 +24,12 @@ const preventCaching = (response: NextResponse) => {
 };
 
 export async function updateSession(request: NextRequest) {
-  let response = NextResponse.next({ request });
+  const forwardedHeaders = new Headers(request.headers);
+  forwardedHeaders.set(
+    "x-admin-path",
+    `${request.nextUrl.pathname}${request.nextUrl.search}`,
+  );
+  let response = NextResponse.next({ request: { headers: forwardedHeaders } });
   const privatePath = isPrivatePath(request.nextUrl.pathname);
 
   if (!isSupabaseConfigured()) {
@@ -49,7 +54,7 @@ export async function updateSession(request: NextRequest) {
           request.cookies.set(name, value);
         });
 
-        response = NextResponse.next({ request });
+        response = NextResponse.next({ request: { headers: forwardedHeaders } });
 
         cookiesToSet.forEach(({ name, value, options }) => {
           response.cookies.set(name, value, options);

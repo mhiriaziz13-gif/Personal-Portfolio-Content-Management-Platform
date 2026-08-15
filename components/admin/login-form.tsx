@@ -8,6 +8,7 @@ import type {
 } from "@/components/security/captcha-widget";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { SiGithub } from "react-icons/si";
+import { useRouter } from "next/navigation";
 
 import { adminFetch } from "@/components/admin/admin-api";
 
@@ -58,6 +59,7 @@ const loginErrorMessage = (error?: string) => ({
 }[error ?? ""] ?? (error ? "Login could not be completed." : ""));
 
 export const LoginForm = ({ nextPath, initialMfaRequired = false, initialError, resetSuccess }: LoginFormProps) => {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
@@ -135,7 +137,7 @@ export const LoginForm = ({ nextPath, initialMfaRequired = false, initialError, 
         return;
       }
 
-      window.location.href = data.redirectTo ?? "/admin";
+      router.replace(data.redirectTo ?? "/admin");
     } catch {
       setStatus("Login could not be completed. Please try again.");
     } finally {
@@ -191,7 +193,7 @@ export const LoginForm = ({ nextPath, initialMfaRequired = false, initialError, 
         return;
       }
 
-      window.location.href = nextPath || data.redirectTo || "/admin";
+      router.replace(nextPath || data.redirectTo || "/admin");
     } catch {
       setStatus("Invalid authenticator code.");
     } finally {

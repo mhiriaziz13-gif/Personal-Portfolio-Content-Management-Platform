@@ -11,7 +11,7 @@ import {
   consumeRateLimit,
   rateLimitResponse,
 } from "@/lib/security/rate-limit";
-import { safeRedirect } from "@/lib/security/redirects";
+import { safeAdminRedirect } from "@/lib/security/redirects";
 import { loginSchema } from "@/lib/security/validation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -83,7 +83,7 @@ export async function POST(request: Request) {
     }
 
     const mfa = await getMfaContext(supabase, data.user.id, request);
-    const next = safeRedirect(parsed.data.next, "/admin");
+    const next = safeAdminRedirect(parsed.data.next, "/admin");
 
     if (mfa.mfaRequired && !mfa.mfaSatisfied) {
       await writeAdminAudit({ actorUserId: data.user.id, action: "mfa_challenge_required", request });

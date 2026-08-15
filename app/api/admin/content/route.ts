@@ -907,6 +907,13 @@ export async function POST(request: Request) {
     }
 
     const supabase = createSupabaseAdminClient();
+    if (builderMutation.data.table === "project_sections") {
+      const ids = [builderMutation.data.id, builderMutation.data.relatedId]
+        .filter((value): value is string => typeof value === "string");
+      const canonical = await supabase.from("project_sections").select("id,definition_id").in("id", ids);
+      if (canonical.error) return jsonError("Could not validate the canonical section.", 500, "server_error");
+      if ((canonical.data ?? []).some((section) => typeof section.definition_id === "string")) return jsonError("Canonical sections cannot be duplicated or manually reordered.", 409, "canonical_section_protected");
+    }
     const mutationResult = await supabase.rpc("mutate_cms_builder_action", {
       p_action: builderMutation.data.action,
       p_table: builderMutation.data.table,
@@ -1029,6 +1036,12 @@ export async function POST(request: Request) {
     }
     if (!existing.data) return jsonError("Content not found.", 404, "not_found");
     const previous = existing.data as unknown as Record<string, unknown>;
+    if (table === "project_sections" && typeof previous.definition_id === "string") {
+      if (row.is_archived === true) return jsonError("Canonical sections cannot be archived.", 409, "canonical_section_protected");
+      const definition = await supabase.from("project_section_definitions").select("is_required").eq("id", previous.definition_id).maybeSingle();
+      if (definition.error) return jsonError("Could not validate the canonical section.", 500, "server_error");
+      if (definition.data?.is_required && row.is_visible === false) return jsonError("Required sections cannot be hidden.", 409, "required_section_protected");
+    }
     const immutableParentKeys: Partial<Record<EditableCmsTable, string>> = {
       projects: "slug",
       project_sections: "project_id",
@@ -1143,6 +1156,9 @@ export async function DELETE(request: Request) {
     .maybeSingle();
   if (existing.error) return jsonError("Could not load CMS content.", 500);
   if (!existing.data) return jsonError("Content not found.", 404, "not_found");
+  if (table === "project_sections" && typeof (existing.data as unknown as Record<string, unknown>).definition_id === "string") {
+    return jsonError("Canonical sections cannot be archived or deleted.", 409, "canonical_section_protected");
+  }
   const deletionIssue = await deletionPublicationIssue(
     table,
     existing.data as unknown as Record<string, unknown>,
