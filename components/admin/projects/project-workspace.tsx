@@ -3,11 +3,9 @@
 import Link from "next/link";
 
 import {
-  type FormEvent,
   useMemo,
   useState,
 } from "react";
-
 import {
   FiExternalLink,
   FiPlus,
@@ -500,19 +498,13 @@ export function ProjectWorkspace({
     );
   };
 
-  const save = async (
-    event:
-      FormEvent<HTMLFormElement>,
-  ) => {
-    event.preventDefault();
-
-    if (
-      saving ||
-      !dirty
-    ) {
-      return;
-    }
-
+  const save = async () => {
+  if (
+    saving ||
+    !dirty
+  ) {
+    return;
+  }
     setSaving(true);
     setStatus(
       "Saving project workspace...",
@@ -679,10 +671,7 @@ export function ProjectWorkspace({
     ];
 
   return (
-    <form
-      onSubmit={save}
-      className="mt-6"
-    >
+    <div className="mt-6">
       <header className="rounded-xl border border-white/10 bg-[#100b24]/90 p-5">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
@@ -747,11 +736,14 @@ export function ProjectWorkspace({
               )}
 
             <button
-              type="submit"
-              disabled={
-                saving ||
-                !dirty
-              }
+  type="button"
+  onClick={() =>
+    void save()
+  }
+  disabled={
+    saving ||
+    !dirty
+  }
               className="button-primary inline-flex min-h-11 items-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               <FiSave
@@ -1850,6 +1842,6 @@ export function ProjectWorkspace({
             : "Save changes"}
         </button>
       </div>
-    </form>
+    </div>
   );
 }

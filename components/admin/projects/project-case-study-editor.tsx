@@ -1090,34 +1090,38 @@ export function ProjectCaseStudyEditor({
 
             <div className="mt-5 flex flex-wrap gap-6">
               <label className="flex items-center gap-3 text-sm text-gray-300">
-                <input
-                  type="checkbox"
-                  checked={
-                    draft.is_visible
-                  }
-                  onChange={(
-                    event,
-                  ) =>
-                    setDraft(
-                      (
-                        current,
-                      ) =>
-                        current
-                          ? {
-                              ...current,
-                              is_visible:
-                                event
-                                  .target
-                                  .checked,
-                            }
-                          : current,
-                    )
-                  }
-                  className="h-5 w-5 accent-cyan-400"
-                />
+  <input
+    type="checkbox"
+    checked={
+      draft.is_visible &&
+      !draft.is_archived
+    }
+    disabled={
+      draft.is_archived
+    }
+    onChange={(
+      event,
+    ) =>
+      setDraft(
+        (
+          current,
+        ) =>
+          current
+            ? {
+                ...current,
+                is_visible:
+                  event
+                    .target
+                    .checked,
+              }
+            : current,
+      )
+    }
+    className="h-5 w-5 accent-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
+  />
 
-                Visible
-              </label>
+  Visible
+</label>
 
               <label className="flex items-center gap-3 text-sm text-gray-300">
                 <input
@@ -1126,24 +1130,38 @@ export function ProjectCaseStudyEditor({
                     draft.is_archived
                   }
                   onChange={(
-                    event,
-                  ) =>
-                    setDraft(
-                      (
-                        current,
-                      ) =>
-                        current
-                          ? {
-                              ...current,
-                              is_archived:
-                                event
-                                  .target
-                                  .checked,
-                            }
-                          : current,
-                    )
-                  }
-                  className="h-5 w-5 accent-cyan-400"
+  event,
+) =>
+  setDraft(
+    (
+      current,
+    ) => {
+      if (!current) {
+        return current;
+      }
+
+      const archived =
+        event.target.checked;
+
+      return {
+        ...current,
+
+        is_archived:
+          archived,
+
+        is_visible:
+          archived
+            ? false
+            : current.is_visible,
+      };
+    },
+  )
+}
+disabled={
+  selected.definition
+    ?.is_required === true
+}
+                  className="h-5 w-5 accent-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
                 />
 
                 Archived
