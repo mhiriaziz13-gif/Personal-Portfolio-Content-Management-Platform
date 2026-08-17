@@ -1361,10 +1361,141 @@ const getPortfolioContentImpl = async (): Promise<PortfolioContent> => {
 
 export const getPortfolioContent = cache(getPortfolioContentImpl);
 
-export const getProjectBySlug = async (slug: string) => {
-  const content = await getPortfolioContent();
-  return content.projects.find((project) => project.slug === slug) ?? null;
+export const getProjectBySlug = async (
+  slug: string,
+) => {
+  const content =
+    await getPortfolioContent();
+
+  return (
+    content.projects.find(
+      (project) =>
+        project.slug === slug,
+    ) ??
+    null
+  );
 };
+
+export const getProjectSlugRedirect =
+  cache(
+    async (
+      slug: string,
+    ): Promise<
+      string | null
+    > => {
+      const oldSlug =
+        slug.trim();
+
+      if (
+        !oldSlug ||
+        !isSupabaseConfigured()
+      ) {
+        return null;
+      }
+
+      const supabase =
+        createSupabasePublicClient();
+
+      const historyResult =
+        await supabase
+          .from(
+            "project_slug_history",
+          )
+          .select(
+            "project_id",
+          )
+          .eq(
+            "old_slug",
+            oldSlug,
+          )
+          .maybeSingle();
+
+      if (
+        historyResult.error
+      ) {
+        console.warn(
+          "Project slug history lookup failed.",
+          {
+            incidentId:
+              "CMS-PUBLIC-PROJECT-SLUG-HISTORY",
+          },
+        );
+
+        return null;
+      }
+
+      const projectId =
+        typeof historyResult
+          .data
+          ?.project_id ===
+          "string"
+          ? historyResult
+              .data
+              .project_id
+          : "";
+
+      if (!projectId) {
+        return null;
+      }
+
+      const projectResult =
+        await supabase
+          .from(
+            "projects",
+          )
+          .select(
+            "slug",
+          )
+          .eq(
+            "id",
+            projectId,
+          )
+          .eq(
+            "published",
+            true,
+          )
+          .eq(
+            "status",
+            "published",
+          )
+          .eq(
+            "deletion_status",
+            "active",
+          )
+          .maybeSingle();
+
+      if (
+        projectResult.error
+      ) {
+        console.warn(
+          "Canonical project slug lookup failed.",
+          {
+            incidentId:
+              "CMS-PUBLIC-PROJECT-SLUG-TARGET",
+          },
+        );
+
+        return null;
+      }
+
+      const canonicalSlug =
+        readText(
+          projectResult
+            .data
+            ?.slug,
+        );
+
+      if (
+        !canonicalSlug ||
+        canonicalSlug ===
+          oldSlug
+      ) {
+        return null;
+      }
+
+      return canonicalSlug;
+    },
+  );
 
 const fallbackAdminContentSnapshot = (): AdminContentSnapshot => ({
   profile: [

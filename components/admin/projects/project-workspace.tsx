@@ -384,15 +384,48 @@ export function ProjectWorkspace({
   const [status, setStatus] =
     useState("");
 
-  const [saving, setSaving] =
+   const [saving, setSaving] =
     useState(false);
 
   const [
-  mediaCountValue,
-  setMediaCountValue,
-] = useState(
-  mediaCount,
-);
+    slugDraft,
+    setSlugDraft,
+  ] = useState(
+    initialProject.slug,
+  );
+
+  const [
+    slugStatus,
+    setSlugStatus,
+  ] = useState("");
+
+  const [
+    renamingSlug,
+    setRenamingSlug,
+  ] = useState(false);
+
+  const [
+    mediaCountValue,
+    setMediaCountValue,
+  ] = useState(
+    mediaCount,
+  );
+
+  const normalizedSlugDraft =
+    slugDraft.trim();
+
+  const slugChanged =
+    normalizedSlugDraft !==
+    project.slug;
+
+  const slugValid =
+    normalizedSlugDraft.length >=
+      1 &&
+    normalizedSlugDraft.length <=
+      200 &&
+    /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(
+      normalizedSlugDraft,
+    );
 
   const dirty = useMemo(
     () =>
@@ -500,7 +533,7 @@ export function ProjectWorkspace({
     );
   };
 
-  const removeLink = (
+    const removeLink = (
     index: number,
   ) => {
     setLinks(
@@ -511,6 +544,129 @@ export function ProjectWorkspace({
         ),
     );
   };
+
+  const renameSlug =
+    async () => {
+      if (
+        renamingSlug ||
+        saving ||
+        dirty ||
+        !slugChanged ||
+        !slugValid
+      ) {
+        return;
+      }
+
+      const nextSlug =
+        normalizedSlugDraft;
+
+      const confirmed =
+        window.confirm(
+          [
+            `Rename project slug?`,
+            ``,
+            `Current: /projects/${project.slug}`,
+            `New: /projects/${nextSlug}`,
+            ``,
+            `The old URL will become a permanent redirect to the new URL.`,
+            `The old slug will also remain permanently reserved.`,
+          ].join("\n"),
+        );
+
+      if (!confirmed) {
+        return;
+      }
+
+      setRenamingSlug(
+        true,
+      );
+
+      setSlugStatus(
+        "Renaming project slug...",
+      );
+
+      try {
+        const response =
+          await adminFetch(
+            `/api/admin/projects/${project.id}/slug`,
+            {
+              method:
+                "PATCH",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+
+              body:
+                JSON.stringify({
+                  expectedUpdatedAt:
+                    project.updated_at,
+
+                  slug:
+                    nextSlug,
+                }),
+            },
+          );
+
+        const data =
+          await readJsonObject(
+            response,
+          );
+
+        const savedProject =
+          data.project &&
+          typeof data.project ===
+            "object" &&
+          !Array.isArray(
+            data.project,
+          )
+            ? data.project as
+                unknown as
+                ProjectWorkspaceProject
+            : null;
+
+        if (
+          !response.ok ||
+          data.ok !== true ||
+          !savedProject
+        ) {
+          setSlugStatus(
+            adminApiError(
+              data,
+            ),
+          );
+
+          return;
+        }
+
+        const previousSlug =
+          typeof data.previousSlug ===
+            "string"
+            ? data.previousSlug
+            : project.slug;
+
+        setProject(
+          savedProject,
+        );
+
+        setSlugDraft(
+          savedProject.slug,
+        );
+
+        setSlugStatus(
+          `Slug renamed from /projects/${previousSlug} to /projects/${savedProject.slug}.`,
+        );
+      } catch {
+        setSlugStatus(
+          "The project slug could not be renamed.",
+        );
+      } finally {
+        setRenamingSlug(
+          false,
+        );
+      }
+    };
 
   const save = async () => {
   if (
@@ -845,28 +1001,117 @@ export function ProjectWorkspace({
                 />
               </label>
 
-              <label className="grid gap-2 text-sm text-gray-300">
-                <span>
+                            <div className="grid gap-2 text-sm text-gray-300">
+                <label
+                  htmlFor={`project-slug-${project.id}`}
+                >
                   Slug
-                </span>
+                </label>
 
                 <input
-                  readOnly
+                  id={`project-slug-${project.id}`}
                   value={
-                    project.slug
+                    slugDraft
                   }
-                  className={`${inputClass} cursor-not-allowed opacity-60`}
+                  onChange={(
+                    event,
+                  ) =>
+                    setSlugDraft(
+                      event.target
+                        .value,
+                    )
+                  }
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={
+                    false
+                  }
+                  maxLength={
+                    200
+                  }
+                  className={
+                    inputClass
+                  }
                 />
 
-                <span className="text-xs text-gray-500">
-                  Slug
-                  renaming is
-                  intentionally
-                  protected until
-                  the redirect
-                  system is added.
-                </span>
-              </label>
+                <p className="break-all font-mono text-xs text-gray-500">
+                  Current URL:
+                  {" "}
+                  /projects/
+                  {project.slug}
+                </p>
+
+                <p className="text-xs leading-5 text-gray-500">
+                  Use lowercase
+                  letters, numbers
+                  and single
+                  hyphens only.
+                  Renaming creates
+                  a permanent
+                  redirect from the
+                  old project URL.
+                </p>
+
+                {slugChanged &&
+                  !slugValid && (
+                    <p className="text-xs text-red-200">
+                      Invalid slug.
+                      Example:
+                      personal-portfolio-platform
+                    </p>
+                  )}
+
+                {slugChanged &&
+                  dirty && (
+                    <p className="text-xs text-amber-200">
+                      Save the other
+                      Workspace
+                      changes before
+                      renaming the
+                      slug.
+                    </p>
+                  )}
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void renameSlug()
+                    }
+                    disabled={
+                      renamingSlug ||
+                      saving ||
+                      dirty ||
+                      !slugChanged ||
+                      !slugValid
+                    }
+                    className="inline-flex min-h-11 items-center rounded-lg border border-amber-300/20 bg-amber-300/10 px-4 py-2 text-sm font-semibold text-amber-100 transition hover:bg-amber-300/15 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {renamingSlug
+                      ? "Renaming..."
+                      : "Rename slug"}
+                  </button>
+
+                  {slugChanged &&
+                    slugValid &&
+                    !dirty && (
+                      <span className="text-xs text-amber-100">
+                        This changes
+                        the canonical
+                        project URL.
+                      </span>
+                    )}
+                </div>
+
+                <p
+                  aria-live="polite"
+                  className="min-h-5 text-xs text-cyan-100"
+                >
+                  {
+                    slugStatus
+                  }
+                </p>
+              </div>
 
               <label className="grid gap-2 text-sm text-gray-300">
                 <span>
