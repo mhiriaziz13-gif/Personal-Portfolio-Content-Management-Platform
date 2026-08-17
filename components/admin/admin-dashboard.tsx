@@ -2150,27 +2150,50 @@ export const AdminDashboard = ({
                           </div>
                           <p className="mt-1 line-clamp-2 text-sm text-gray-400">{String(row.headline ?? row.summary ?? row.role ?? row.issuer ?? row.degree ?? row.url ?? row.body ?? "")}</p>
                         </div>
-                        <div className="flex shrink-0 gap-2">
-                          <button type="button" aria-label={`Edit ${inputCardTitle(row, index)}`} onClick={() => beginEdit(active, index)} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-white/10 bg-white/5 p-2.5 hover:bg-white/10">
-                            <FiEdit2 aria-hidden="true" />
-                          </button>
+                                                <div className="flex shrink-0 gap-2">
                           {active.table === "projects" &&
-  typeof row.id === "string" && (
-    <Link
-      href={`/admin/projects/${row.id}`}
-      className="inline-flex min-h-11 items-center justify-center rounded-lg border border-cyan-300/20 bg-cyan-300/10 px-3 py-2 text-sm font-medium text-cyan-100 hover:bg-cyan-300/15"
-    >
-      Workspace
-    </Link>
-  )}
-                          <button
-                            type="button"
-                            aria-label={`${archiveAction ? "Archive" : "Delete"} ${inputCardTitle(row, index)}`}
-                            onClick={() => void remove(active, index)}
-                            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-red-300/20 bg-red-500/10 p-2.5 text-red-100 hover:bg-red-500/20"
-                          >
-                            <FiTrash2 aria-hidden="true" />
-                          </button>
+                          typeof row.id === "string" ? (
+                            <Link
+                              href={`/admin/projects/${row.id}`}
+                              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-cyan-300/20 bg-cyan-300/10 px-3 py-2 text-sm font-medium text-cyan-100 hover:bg-cyan-300/15"
+                            >
+                              Workspace
+                            </Link>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                aria-label={`Edit ${inputCardTitle(row, index)}`}
+                                onClick={() =>
+                                  beginEdit(
+                                    active,
+                                    index,
+                                  )
+                                }
+                                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-white/10 bg-white/5 p-2.5 hover:bg-white/10"
+                              >
+                                <FiEdit2
+                                  aria-hidden="true"
+                                />
+                              </button>
+
+                              <button
+                                type="button"
+                                aria-label={`${archiveAction ? "Archive" : "Delete"} ${inputCardTitle(row, index)}`}
+                                onClick={() =>
+                                  void remove(
+                                    active,
+                                    index,
+                                  )
+                                }
+                                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-red-300/20 bg-red-500/10 p-2.5 text-red-100 hover:bg-red-500/20"
+                              >
+                                <FiTrash2
+                                  aria-hidden="true"
+                                />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </article>
                     );
