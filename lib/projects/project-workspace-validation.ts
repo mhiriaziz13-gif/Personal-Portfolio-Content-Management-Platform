@@ -1,9 +1,40 @@
 import { z } from "zod";
-
 import {
   assetUrlSchema,
   externalUrlSchema,
 } from "@/lib/security/validation";
+
+export const projectSlugSchema =
+  z
+    .string()
+    .trim()
+    .min(
+      1,
+      "Slug is required.",
+    )
+    .max(
+      200,
+      "Slug is too long.",
+    )
+    .regex(
+      /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+      "Use lowercase letters, numbers and single hyphens only.",
+    );
+
+export const projectSlugRenameSchema =
+  z
+    .object({
+      expectedUpdatedAt:
+        z
+          .string()
+          .datetime({
+            offset: true,
+          }),
+
+      slug:
+        projectSlugSchema,
+    })
+    .strict();
 
 const optionalText = (max = 5000) =>
   z.preprocess(
