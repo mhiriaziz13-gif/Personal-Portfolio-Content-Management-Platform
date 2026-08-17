@@ -14,10 +14,9 @@ const project = (
   image: "/projects/project-placeholder-1.png",
   tags: [],
   tools: [],
-  featured: false,
+   featured: false,
   status: "published",
   group: "",
-  projectsPageOrder: 0,
   sortOrder: 0,
   sections: [],
   media: [],
@@ -27,7 +26,7 @@ const project = (
 });
 
 describe("related project selection", () => {
-  it("excludes the current project and ranks shared evidence before type-only matches", () => {
+  it("excludes the current project and unrelated projects while ranking stronger evidence first", () => {
     const current = project("current", {
       tags: ["Commercial Analytics", "CRM"],
       tools: ["Power BI"],
@@ -55,10 +54,13 @@ describe("related project selection", () => {
         unrelated,
         sharedEvidence,
       ]).map((candidate) => candidate.slug),
-    ).toEqual(["shared-evidence", "type-only", "unrelated"]);
+    ).toEqual([
+      "shared-evidence",
+      "type-only",
+    ]);
   });
 
-  it("matches tags and tools case-insensitively, breaks ties by order, and caps at three", () => {
+  it("matches case-insensitively, prioritizes tags over tools, breaks ties by order, and caps at three", () => {
     const current = project("current", {
       tags: ["BI"],
       tools: ["SQL"],
@@ -74,6 +76,10 @@ describe("related project selection", () => {
       getRelatedProjects(current, candidates).map(
         (candidate) => candidate.slug,
       ),
-    ).toEqual(["first", "second", "third"]);
+    ).toEqual([
+      "first",
+      "fourth",
+      "second",
+    ]);
   });
 });
