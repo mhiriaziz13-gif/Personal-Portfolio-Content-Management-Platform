@@ -35,7 +35,20 @@ export const projectSlugRenameSchema =
         projectSlugSchema,
     })
     .strict();
+export const projectHardDeleteSchema =
+  z
+    .object({
+      expectedUpdatedAt:
+        z
+          .string()
+          .datetime({
+            offset: true,
+          }),
 
+      confirmSlug:
+        projectSlugSchema,
+    })
+    .strict();
 const optionalText = (max = 5000) =>
   z.preprocess(
     (value) => value ?? "",
