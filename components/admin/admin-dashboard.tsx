@@ -1573,8 +1573,8 @@ export const AdminDashboard = ({
           <p className="mt-3 px-4 pb-1 text-[0.65rem] font-semibold uppercase tracking-widest text-gray-500">
             Builders
           </p>
-          {navButton("page_builder", "Page Builder")}
-          {navButton("project_builder", "Project Builder")}
+         {navButton("page_builder", "Page Builder")}
+          {navButton("project_builder", "Project Hub")}
           <p className="mt-3 px-4 pb-1 text-[0.65rem] font-semibold uppercase tracking-widest text-gray-500">Tools</p>
           {navButton("contact_messages", "Contact Messages", stats.unread)}
           {navButton("uploads", "Media Library")}
@@ -1626,12 +1626,12 @@ export const AdminDashboard = ({
                   type="button"
                   onClick={() => selectView("project_builder")}
                   className="min-h-11 rounded-lg border border-purple-300/20 bg-purple-300/10 p-4 text-left hover:bg-purple-300/15"
-                >
+                                >
                   <span className="font-semibold text-white">
-                    Project Builder
+                    Project Hub
                   </span>
                   <span className="mt-1 block text-sm text-gray-300">
-                    Project metadata, publication checks, evidence, and media.
+                    Project overview, publication checks, evidence, and Workspace access.
                   </span>
                 </button>
               </div>
@@ -1922,8 +1922,8 @@ export const AdminDashboard = ({
                       type="button"
                       onClick={() => selectView("project_builder")}
                       className="min-h-11 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
-                    >
-                      Back to Project Builder
+                     >
+                      Back to Project Hub
                     </button>
                   )}
                                    {editing === null &&
