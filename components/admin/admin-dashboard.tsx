@@ -622,6 +622,44 @@ const recordIssues = (
   linkedProjectIssue(table, row, records.projects ?? []),
 ].filter((issue): issue is string => Boolean(issue));
 
+const isCmsView = (value: string | null): value is View =>
+  value !== null &&
+  (
+    value === "overview" ||
+    value === "page_builder" ||
+    value === "project_builder" ||
+    value === "contact_messages" ||
+    value === "uploads" ||
+    value === "settings" ||
+    sections.some((section) => section.table === value)
+  );
+
+const cmsViewFromLocation = (): View => {
+  if (typeof window === "undefined") {
+    return "overview";
+  }
+
+  const requestedView = new URLSearchParams(
+    window.location.search,
+  ).get("view");
+
+  return isCmsView(requestedView)
+    ? requestedView
+    : "overview";
+};
+
+const cmsViewHref = (target: View) => {
+  const url = new URL(window.location.href);
+
+  if (target === "overview") {
+    url.searchParams.delete("view");
+  } else {
+    url.searchParams.set("view", target);
+  }
+
+  return `${url.pathname}${url.search}${url.hash}`;
+};
+
 export const AdminDashboard = ({
   content,
   email,
@@ -1164,7 +1202,44 @@ export const AdminDashboard = ({
     setContentStatus("");
   };
 
+  useEffect(() => {
+    const syncViewFromHistory = () => {
+      setView(cmsViewFromLocation());
+      setEditing(null);
+      setDraft({});
+      setContentStatus("");
+    };
+
+    syncViewFromHistory();
+
+    window.addEventListener(
+      "popstate",
+      syncViewFromHistory,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "popstate",
+        syncViewFromHistory,
+      );
+    };
+  }, []);
+
   const selectView = (target: View) => {
+    if (target === view) {
+      cancelEdit();
+      return;
+    }
+
+    window.history.pushState(
+      {
+        ...(window.history.state ?? {}),
+        cmsView: target,
+      },
+      "",
+      cmsViewHref(target),
+    );
+
     setView(target);
     cancelEdit();
   };
@@ -1288,14 +1363,14 @@ export const AdminDashboard = ({
       setContentStatus("This entry is no longer available. Reload the CMS.");
       return;
     }
-    setView(table);
+    selectView(table);
     beginEdit(section, index);
   };
 
   const addBuilderRecord = (table: BuilderTable, defaults: Row) => {
     const section = sectionForTable(table);
     if (!section) return;
-    setView(table);
+    selectView(table);
     setEditing(-1);
     setDraft({ ...emptyRow(section), ...defaults });
     setContentStatus("");
