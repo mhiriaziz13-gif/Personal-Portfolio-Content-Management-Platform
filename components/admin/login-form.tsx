@@ -126,7 +126,7 @@ export const LoginForm = ({ nextPath, initialMfaRequired = false, initialError, 
 
       if (data.mfaRequired) {
         if (data.redirectTo) {
-          window.location.href = data.redirectTo;
+          window.location.replace(data.redirectTo);
           return;
         }
         setFactorId(data.factorId);
@@ -135,7 +135,7 @@ export const LoginForm = ({ nextPath, initialMfaRequired = false, initialError, 
         return;
       }
 
-      window.location.href = data.redirectTo ?? "/admin";
+      window.location.replace(data.redirectTo ?? "/admin");
     } catch {
       setStatus("Login could not be completed. Please try again.");
     } finally {
@@ -191,7 +191,7 @@ export const LoginForm = ({ nextPath, initialMfaRequired = false, initialError, 
         return;
       }
 
-      window.location.href = nextPath || data.redirectTo || "/admin";
+      window.location.replace(nextPath || data.redirectTo || "/admin");
     } catch {
       setStatus("Invalid authenticator code.");
     } finally {

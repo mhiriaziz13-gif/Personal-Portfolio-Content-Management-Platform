@@ -185,6 +185,7 @@ const sections: Section[] = [
       { key: "title", label: "Title", required: true },
       { key: "slug", label: "Slug", required: true },
       { key: "type", label: "Type" },
+      { key: "organisation", label: "Organisation / client" },
       { key: "status", label: "Status", kind: "select", options: ["draft", "preparation", "published", "archived"], required: true },
       { key: "project_group", label: "Project group", kind: "select", options: ["Featured Projects", "Professional Projects", "Additional Projects", "Technical Foundations", "Preparation", "Archived"] },
       { key: "summary", label: "Summary", kind: "textarea" },
@@ -197,11 +198,24 @@ const sections: Section[] = [
         accept: imageAccept,
         allowedMimeTypes: imageMimeTypes,
       },
+      {
+        key: "card_image_url",
+        label: "Project card image",
+        kind: "asset-image",
+        bucket: "project-images",
+        accept: imageAccept,
+        allowedMimeTypes: imageMimeTypes,
+      },
       { key: "tags", label: "Tags", kind: "list" },
       { key: "tools", label: "Tools", kind: "list" },
       { key: "github_url", label: "GitHub URL", kind: "external-url" },
       { key: "linkedin_url", label: "LinkedIn URL", kind: "external-url" },
       { key: "demo_url", label: "Demo URL", kind: "external-url" },
+      {
+        key: "case_study_url",
+        label: "External case study URL",
+        kind: "external-url",
+      },
       { key: "seo_title", label: "SEO title" },
       { key: "seo_description", label: "SEO description", kind: "textarea" },
       { key: "open_graph_image", label: "Open Graph image", kind: "asset-image", bucket: "project-images", accept: imageAccept, allowedMimeTypes: imageMimeTypes },
@@ -622,9 +636,46 @@ export const AdminDashboard = ({
   const [messages, setMessages] = useState<ContactMessage[]>(() =>
     sortAndDedupeMessages(parseContactMessages(content.contact_messages)),
   );
-  const [editing, setEditing] = useState<number | null>(null);
-  const [draft, setDraft] = useState<Row>({});
-  const [contentStatus, setContentStatus] = useState("");
+    const [editing, setEditing] =
+    useState<number | null>(
+      null,
+    );
+
+  const [draft, setDraft] =
+    useState<Row>({});
+
+    const [
+    selectedProjectContentId,
+    setSelectedProjectContentId,
+  ] = useState(() => {
+    const projects =
+      rowsFor(
+        content,
+        "projects",
+      );
+
+    const preferred =
+      projects.find(
+        (project) =>
+          project.published ===
+            true &&
+          project.status ===
+            "published",
+      ) ??
+      projects[0];
+
+    return String(
+      preferred?.id ?? "",
+    );
+  });
+
+  const [
+    selectedProjectSectionItemId,
+    setSelectedProjectSectionItemId,
+  ] = useState("");
+
+  const [contentStatus, setContentStatus] =
+    useState("");
   const [messageStatus, setMessageStatus] = useState("");
   const [pendingMessageId, setPendingMessageId] = useState<string | null>(null);
   const [logoutPending, setLogoutPending] = useState(false);
@@ -638,10 +689,214 @@ export const AdminDashboard = ({
   );
 
   const active = sections.find((section) => section.table === view);
+    const projectContentProjects =
+    useMemo(
+      () =>
+        [
+          ...(
+            records.projects ??
+            []
+          ),
+        ].sort(
+          (
+            left,
+            right,
+          ) => {
+            const leftPublished =
+              left.status ===
+                "published"
+                ? 0
+                : 1;
+
+            const rightPublished =
+              right.status ===
+                "published"
+                ? 0
+                : 1;
+
+            if (
+              leftPublished !==
+              rightPublished
+            ) {
+              return (
+                leftPublished -
+                rightPublished
+              );
+            }
+
+            return String(
+              left.title ??
+                left.slug ??
+                "",
+            ).localeCompare(
+              String(
+                right.title ??
+                  right.slug ??
+                  "",
+              ),
+            );
+          },
+        ),
+      [
+        records.projects,
+      ],
+    );
+
+  const selectedProjectContent =
+    useMemo(
+      () =>
+        projectContentProjects.find(
+          (project) =>
+            String(
+              project.id ??
+                "",
+            ) ===
+            selectedProjectContentId,
+        ) ??
+        null,
+      [
+        projectContentProjects,
+        selectedProjectContentId,
+      ],
+    );
+
+  const projectContentSections =
+    useMemo(
+      () =>
+        (
+          records.project_sections ??
+          []
+        )
+          .filter(
+            (section) =>
+              String(
+                section.project_id ??
+                  "",
+              ) ===
+                selectedProjectContentId &&
+              section.is_archived !==
+                true,
+          )
+          .sort(
+            (
+              left,
+              right,
+            ) =>
+              Number(
+                left.sort_order ??
+                  0,
+              ) -
+              Number(
+                right.sort_order ??
+                  0,
+              ),
+          ),
+      [
+        records.project_sections,
+        selectedProjectContentId,
+      ],
+    );
+
+  const activeSelectedProjectSectionItemId =
+    projectContentSections.some(
+      (section) =>
+        String(
+          section.id ?? "",
+        ) ===
+        selectedProjectSectionItemId,
+    )
+      ? selectedProjectSectionItemId
+      : String(
+          projectContentSections[0]
+            ?.id ?? "",
+        );
+
+  const selectedProjectSectionItemSection =
+    useMemo(
+      () =>
+        projectContentSections.find(
+          (section) =>
+            String(
+              section.id ?? "",
+            ) ===
+            activeSelectedProjectSectionItemId,
+        ) ?? null,
+      [
+        projectContentSections,
+        activeSelectedProjectSectionItemId,
+      ],
+    );
+
+  const projectSectionItems =
+    useMemo(
+      () =>
+        (
+          records.project_section_items ??
+          []
+        )
+          .filter(
+            (item) =>
+              String(
+                item.project_section_id ??
+                  "",
+              ) ===
+              activeSelectedProjectSectionItemId,
+          )
+          .sort(
+            (
+              left,
+              right,
+            ) =>
+              Number(
+                left.display_order ??
+                  0,
+              ) -
+              Number(
+                right.display_order ??
+                  0,
+              ),
+          ),
+      [
+        records.project_section_items,
+        activeSelectedProjectSectionItemId,
+      ],
+    );
+
+  const activeListRows =
+    active?.table ===
+    "project_sections"
+      ? projectContentSections
+      : active?.table ===
+          "project_section_items"
+        ? projectSectionItems
+        : active
+          ? records[
+              active.table
+            ] ?? []
+          : [];
+
   const activeFields = useMemo(() => {
     if (!active) return [];
 
-    return active.fields.map((field) => field.key === "project_id"
+    return active.fields
+      .filter(
+        (field) =>
+          !(
+            (
+              active.table ===
+                "project_sections" &&
+              field.key ===
+                "project_id"
+            ) ||
+            (
+              active.table ===
+                "project_section_items" &&
+              field.key ===
+                "project_section_id"
+            )
+          ),
+      )
+      .map((field) => field.key === "project_id"
       ? {
           ...field,
           options: (records.projects ?? []).map((project) => ({
@@ -846,12 +1101,61 @@ export const AdminDashboard = ({
   setContentStatus("");
 };
 
-  const beginAdd = (section: Section) => {
+  const beginAdd = (
+    section: Section,
+  ) => {
+    if (
+      section.table ===
+        "project_section_items" &&
+      !activeSelectedProjectSectionItemId
+    ) {
+      setContentStatus(
+        "Select a project section before adding an item.",
+      );
+
+      return;
+    }
+
     setEditing(-1);
-    const row = emptyRow(section);
-    if (section.table === "volunteering") row.stable_key = `volunteering-${Date.now()}`;
-    setDraft(row);
-    setContentStatus("");
+
+    const row =
+      emptyRow(
+        section,
+      );
+
+    if (
+      section.table ===
+        "volunteering"
+    ) {
+      row.stable_key =
+        `volunteering-${Date.now()}`;
+    }
+
+    if (
+      section.table ===
+        "project_sections" &&
+      selectedProjectContentId
+    ) {
+      row.project_id =
+        selectedProjectContentId;
+    }
+
+    if (
+      section.table ===
+        "project_section_items" &&
+      activeSelectedProjectSectionItemId
+    ) {
+      row.project_section_id =
+        activeSelectedProjectSectionItemId;
+    }
+
+    setDraft(
+      row,
+    );
+
+    setContentStatus(
+      "",
+    );
   };
 
   const cancelEdit = () => {
@@ -1270,7 +1574,7 @@ export const AdminDashboard = ({
             Builders
           </p>
           {navButton("page_builder", "Page Builder")}
-          {navButton("project_builder", "Project Builder")}
+          {navButton("project_builder", "Project Hub")}
           <p className="mt-3 px-4 pb-1 text-[0.65rem] font-semibold uppercase tracking-widest text-gray-500">Tools</p>
           {navButton("contact_messages", "Contact Messages", stats.unread)}
           {navButton("uploads", "Media Library")}
@@ -1320,14 +1624,14 @@ export const AdminDashboard = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() => selectView("project_builder")}
+                                   onClick={() => selectView("project_builder")}
                   className="min-h-11 rounded-lg border border-purple-300/20 bg-purple-300/10 p-4 text-left hover:bg-purple-300/15"
                 >
                   <span className="font-semibold text-white">
-                    Project Builder
+                    Project Hub
                   </span>
                   <span className="mt-1 block text-sm text-gray-300">
-                    Project metadata, publication checks, evidence, and media.
+                    Project overview, publication checks, evidence, and Workspace access.
                   </span>
                 </button>
               </div>
@@ -1391,6 +1695,204 @@ export const AdminDashboard = ({
 
           {active && (
             <div>
+                                          {(
+                active.table ===
+                  "project_sections" ||
+                active.table ===
+                  "project_section_items"
+              ) && (
+                <section className="mb-6 rounded-xl border border-cyan-300/15 bg-cyan-300/5 p-5">
+                  <div
+                    className={
+                      active.table ===
+                      "project_section_items"
+                        ? "grid gap-4 lg:grid-cols-2"
+                        : "grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end"
+                    }
+                  >
+                    <label className="grid gap-2 text-sm text-gray-300">
+                      <span className="font-semibold text-white">
+                        Project
+                      </span>
+
+                      <select
+                        value={
+                          selectedProjectContentId
+                        }
+                        onChange={(
+                          event,
+                        ) => {
+                          setSelectedProjectContentId(
+                            event
+                              .target
+                              .value,
+                          );
+
+                          setSelectedProjectSectionItemId(
+                            "",
+                          );
+
+                          cancelEdit();
+                        }}
+                        className="min-h-11 w-full rounded-lg border border-white/10 bg-[#151030] px-3 py-2.5 text-white outline-none transition focus:border-cyan-300/60"
+                      >
+                        {projectContentProjects.map(
+                          (
+                            project,
+                          ) => (
+                            <option
+                              key={String(
+                                project.id,
+                              )}
+                              value={String(
+                                project.id,
+                              )}
+                            >
+                              {String(
+                                project.title ??
+                                  project.slug ??
+                                  "Untitled project",
+                              )}
+                            </option>
+                          ),
+                        )}
+                      </select>
+                    </label>
+
+                    {active.table ===
+                    "project_section_items" ? (
+                      <label className="grid gap-2 text-sm text-gray-300">
+                        <span className="font-semibold text-white">
+                          Section
+                        </span>
+
+                        <select
+                          value={
+                            activeSelectedProjectSectionItemId
+                          }
+                          onChange={(
+                            event,
+                          ) => {
+                            setSelectedProjectSectionItemId(
+                              event
+                                .target
+                                .value,
+                            );
+
+                            cancelEdit();
+                          }}
+                          disabled={
+                            projectContentSections.length ===
+                            0
+                          }
+                          className="min-h-11 w-full rounded-lg border border-white/10 bg-[#151030] px-3 py-2.5 text-white outline-none transition focus:border-cyan-300/60 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {projectContentSections.length ===
+                          0 ? (
+                            <option value="">
+                              No active sections
+                            </option>
+                          ) : (
+                            projectContentSections.map(
+                              (
+                                section,
+                              ) => (
+                                <option
+                                  key={String(
+                                    section.id,
+                                  )}
+                                  value={String(
+                                    section.id,
+                                  )}
+                                >
+                                  {String(
+                                    section.title ??
+                                      "Untitled section",
+                                  )}
+                                </option>
+                              ),
+                            )
+                          )}
+                        </select>
+                      </label>
+                    ) : (
+                      <div className="text-sm text-gray-400">
+                        <strong className="text-white">
+                          {
+                            projectContentSections.length
+                          }
+                        </strong>{" "}
+                        active sections
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-2 text-xs">
+                    {selectedProjectContent && (
+                      <>
+                        <span className="rounded-full bg-white/5 px-3 py-1 text-gray-300">
+                          {String(
+                            selectedProjectContent.status ??
+                              "unknown",
+                          )}
+                        </span>
+
+                        <span className="rounded-full bg-white/5 px-3 py-1 font-mono text-gray-400">
+                          /projects/
+                          {String(
+                            selectedProjectContent.slug ??
+                              "",
+                          )}
+                        </span>
+                      </>
+                    )}
+
+                    {active.table ===
+                      "project_section_items" && (
+                      <>
+                        <span className="rounded-full bg-white/5 px-3 py-1 text-gray-300">
+                          {
+                            projectContentSections.length
+                          }{" "}
+                          active sections
+                        </span>
+
+                        <span className="rounded-full bg-white/5 px-3 py-1 text-gray-300">
+                          {
+                            projectSectionItems.length
+                          }{" "}
+                          items in selected
+                          section
+                        </span>
+
+                        {selectedProjectSectionItemSection && (
+                          <span className="rounded-full bg-cyan-300/10 px-3 py-1 text-cyan-100">
+                            Section:{" "}
+                            {String(
+                              selectedProjectSectionItemSection.title ??
+                                "Untitled section",
+                            )}
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </div>
+
+                  {active.table ===
+                    "project_section_items" &&
+                    projectContentSections.length ===
+                      0 && (
+                      <p className="mt-4 text-sm text-amber-200">
+                        This project
+                        currently has no
+                        active sections.
+                        Add a section in
+                        Project page
+                        content first.
+                      </p>
+                    )}
+                </section>
+              )}
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <h2 className="text-2xl font-bold text-white">{active.label}</h2>
@@ -1421,12 +1923,36 @@ export const AdminDashboard = ({
                       onClick={() => selectView("project_builder")}
                       className="min-h-11 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
                     >
-                      Back to Project Builder
+                      Back to Project Hub
                     </button>
                   )}
-                  {editing === null && (!active.singleton || !(records[active.table]?.length)) && (
-                    <button type="button" onClick={() => beginAdd(active)} className="button-primary inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white">
-                      <FiPlus aria-hidden="true" />Add
+                                   {editing === null &&
+                    (
+                      !active.singleton ||
+                      !(
+                        records[
+                          active.table
+                        ]?.length
+                      )
+                    ) && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        beginAdd(
+                          active,
+                        )
+                      }
+                      disabled={
+                        active.table ===
+                          "project_section_items" &&
+                        !activeSelectedProjectSectionItemId
+                      }
+                      className="button-primary inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <FiPlus
+                        aria-hidden="true"
+                      />
+                      Add
                     </button>
                   )}
                 </div>
@@ -1549,7 +2075,41 @@ export const AdminDashboard = ({
                 </form>
               ) : (
                 <div className="mt-6 grid gap-3">
-                  {(records[active.table] ?? []).map((row, index) => {
+                                                  {activeListRows.map(
+                    (
+                      row,
+                      visibleIndex,
+                    ) => {
+                      const sourceRows =
+                        active.table ===
+                        "project_sections"
+                          ? records
+                              .project_sections ??
+                            []
+                          : active.table ===
+                              "project_section_items"
+                            ? records
+                                .project_section_items ??
+                              []
+                            : null;
+
+                      const index =
+                        sourceRows
+                          ? sourceRows.findIndex(
+                              (
+                                candidate,
+                              ) =>
+                                String(
+                                  candidate.id ??
+                                    "",
+                                ) ===
+                                String(
+                                  row.id ??
+                                    "",
+                                ),
+                            )
+                          : visibleIndex;
+
                     const completeness = active.table === "projects"
                       ? getProjectCompleteness(
                         row,
@@ -1590,23 +2150,68 @@ export const AdminDashboard = ({
                           </div>
                           <p className="mt-1 line-clamp-2 text-sm text-gray-400">{String(row.headline ?? row.summary ?? row.role ?? row.issuer ?? row.degree ?? row.url ?? row.body ?? "")}</p>
                         </div>
-                        <div className="flex shrink-0 gap-2">
-                          <button type="button" aria-label={`Edit ${inputCardTitle(row, index)}`} onClick={() => beginEdit(active, index)} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-white/10 bg-white/5 p-2.5 hover:bg-white/10">
-                            <FiEdit2 aria-hidden="true" />
-                          </button>
-                          <button
-                            type="button"
-                            aria-label={`${archiveAction ? "Archive" : "Delete"} ${inputCardTitle(row, index)}`}
-                            onClick={() => void remove(active, index)}
-                            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-red-300/20 bg-red-500/10 p-2.5 text-red-100 hover:bg-red-500/20"
-                          >
-                            <FiTrash2 aria-hidden="true" />
-                          </button>
+                                                <div className="flex shrink-0 gap-2">
+                          {active.table === "projects" &&
+                          typeof row.id === "string" ? (
+                            <Link
+                              href={`/admin/projects/${row.id}`}
+                              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-cyan-300/20 bg-cyan-300/10 px-3 py-2 text-sm font-medium text-cyan-100 hover:bg-cyan-300/15"
+                            >
+                              Workspace
+                            </Link>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                aria-label={`Edit ${inputCardTitle(row, index)}`}
+                                onClick={() =>
+                                  beginEdit(
+                                    active,
+                                    index,
+                                  )
+                                }
+                                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-white/10 bg-white/5 p-2.5 hover:bg-white/10"
+                              >
+                                <FiEdit2
+                                  aria-hidden="true"
+                                />
+                              </button>
+
+                              <button
+                                type="button"
+                                aria-label={`${archiveAction ? "Archive" : "Delete"} ${inputCardTitle(row, index)}`}
+                                onClick={() =>
+                                  void remove(
+                                    active,
+                                    index,
+                                  )
+                                }
+                                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-red-300/20 bg-red-500/10 p-2.5 text-red-100 hover:bg-red-500/20"
+                              >
+                                <FiTrash2
+                                  aria-hidden="true"
+                                />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </article>
                     );
                   })}
-                  {!(records[active.table]?.length) && <p className="py-8 text-center text-sm text-gray-400">No entries yet.</p>}
+                                                     {activeListRows.length ===
+                    0 && (
+                    <p className="py-8 text-center text-sm text-gray-400">
+                      {active.table ===
+                      "project_sections"
+                        ? "No active sections for this project yet."
+                        : active.table ===
+                            "project_section_items"
+                          ? activeSelectedProjectSectionItemId
+                            ? "No items for this section yet."
+                            : "Select a project with at least one active section."
+                          : "No entries yet."}
+                    </p>
+                  )}
                   <p className="text-sm text-cyan-100" aria-live="polite">{contentStatus}</p>
                 </div>
               )}

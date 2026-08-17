@@ -72,9 +72,9 @@ const columns: Record<EditableCmsTable, readonly string[]> = {
     ...common, "project_section_id", "label", "value", "description",
     "display_order", "is_visible",
   ],
-  project_media: [
-    ...common, "project_id", "media_url", "alt_text", "caption", "media_type",
-    "display_order", "is_visible",
+    project_media: [
+    ...common, "project_id", "project_section_id", "media_url", "alt_text",
+    "caption", "media_type", "display_order", "is_visible",
   ],
   volunteering: [
     ...common, "stable_key", "role", "organisation", "start_date", "end_date",

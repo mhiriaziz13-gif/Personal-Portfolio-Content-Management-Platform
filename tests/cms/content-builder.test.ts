@@ -136,16 +136,18 @@ describe("owner-facing CMS builders", () => {
       }),
     );
 
-    expect(markup).toContain("Project Builder");
+    expect(markup).toContain("Project Hub");
     expect(markup).toContain("RPA workflow");
     expect(markup).toContain("Publication checklist");
-    expect(markup).toContain("Add section");
-    expect(markup).toContain("Add media");
+    expect(markup).toContain("Open Project Workspace");
     expect(markup).toContain("Overview");
     expect(markup).toContain("compact");
+    expect(markup).toContain("Read-only summary");
     expect(markup).toContain("Facts &amp; supporting evidence");
-    expect(markup).toContain("Add fact");
+    expect(markup).toContain("Read-only in Project Hub");
     expect(markup).toContain("Project media");
-    expect(markup).toContain("Add project media");
+    expect(markup).toContain(
+      "Media management is centralized in the Project Workspace.",
+    );
   });
 });

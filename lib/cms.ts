@@ -94,7 +94,7 @@ const publicColumns = {
   projectSectionItems:
     "id,project_section_id,label,value,description,display_order,is_visible,updated_at",
   projectMedia:
-    "id,project_id,media_url,alt_text,caption,media_type,display_order,is_visible,updated_at",
+    "id,project_id,project_section_id,media_url,alt_text,caption,media_type,display_order,is_visible,updated_at",
   experience:
     "id,company,role,location,start_date,end_date,date_label,icon_bg,logo_url,logo_alt,points,tools,sort_order,published,updated_at",
   education:
@@ -818,25 +818,76 @@ const mapProjectSectionItems = (
     }))
     .filter((item) => item.value || item.description);
 
-const mapProjectMedia = (rows: CmsRow[]): ProjectMediaContent[] =>
+const mapProjectMedia = (
+  rows: CmsRow[],
+): ProjectMediaContent[] =>
   sortByOrder(rows)
-    .map((row): ProjectMediaContent => {
-      const mediaType = readText(row.media_type);
-      return {
-        id: readText(row.id),
-        projectId: readText(row.project_id),
-        mediaUrl: normalizeCmsAssetPath(row.media_url),
-        altText: readText(row.alt_text),
-        caption: readText(row.caption),
-        mediaType:
-          mediaType === "video" || mediaType === "document"
-            ? mediaType
-            : "image",
-        displayOrder: Number(row.display_order ?? 0),
-        updatedAt: readTimestamp(row.updated_at),
-      };
-    })
-    .filter((item) => item.mediaUrl && item.altText);
+    .map(
+      (
+        row,
+      ): ProjectMediaContent => {
+        const mediaType =
+          readText(
+            row.media_type,
+          );
+
+        return {
+          id:
+            readText(
+              row.id,
+            ),
+
+          projectId:
+            readText(
+              row.project_id,
+            ),
+
+          projectSectionId:
+            readText(
+              row.project_section_id,
+            ) || null,
+
+          mediaUrl:
+            normalizeCmsAssetPath(
+              row.media_url,
+            ),
+
+          altText:
+            readText(
+              row.alt_text,
+            ),
+
+          caption:
+            readText(
+              row.caption,
+            ),
+
+          mediaType:
+            mediaType ===
+              "video" ||
+            mediaType ===
+              "document"
+              ? mediaType
+              : "image",
+
+          displayOrder:
+            Number(
+              row.display_order ??
+              0,
+            ),
+
+          updatedAt:
+            readTimestamp(
+              row.updated_at,
+            ),
+        };
+      },
+    )
+    .filter(
+      (item) =>
+        item.mediaUrl &&
+        item.altText,
+    );
 
 const mapProjects = (
   projectRows: CmsRow[],
@@ -849,11 +900,49 @@ const mapProjects = (
 
   return sortProjectsByPageOrder(projectRows)
     .map((row, index): ProjectContent => {
-      const projectId = readText(row.id);
-      const slug = readText(row.slug);
-      const projectMedia = media.filter(
-        (item) => item.projectId === projectId,
-      );
+            const projectId =
+        readText(
+          row.id,
+        );
+
+      const slug =
+        readText(
+          row.slug,
+        );
+
+      const visibleProjectSectionIds =
+        new Set(
+          projectSectionRows
+            .filter(
+              (section) =>
+                readText(
+                  section.project_id,
+                ) ===
+                projectId,
+            )
+            .map(
+              (section) =>
+                readText(
+                  section.id,
+                ),
+            )
+            .filter(Boolean),
+        );
+
+      const projectMedia =
+        media.filter(
+          (item) =>
+            item.projectId ===
+              projectId &&
+            (
+              item.projectSectionId ===
+                null ||
+              visibleProjectSectionIds.has(
+                item.projectSectionId,
+              )
+            ),
+        );
+
       const sections = sortByOrder(
         projectSectionRows.filter(
           (section) => readText(section.project_id) === projectId,
@@ -874,9 +963,13 @@ const mapProjects = (
             (item) => item.projectSectionId === readText(section.id),
           ),
           media:
-            sectionType === "media_gallery"
-              ? projectMedia
-              : [],
+  projectMedia.filter(
+    (item) =>
+      item.projectSectionId ===
+      readText(
+        section.id,
+      ),
+  ),
           sortOrder: Number(section.sort_order ?? 0),
           sectionType,
           layoutVariant: normalizeCmsLayoutVariant(
@@ -1268,10 +1361,141 @@ const getPortfolioContentImpl = async (): Promise<PortfolioContent> => {
 
 export const getPortfolioContent = cache(getPortfolioContentImpl);
 
-export const getProjectBySlug = async (slug: string) => {
-  const content = await getPortfolioContent();
-  return content.projects.find((project) => project.slug === slug) ?? null;
+export const getProjectBySlug = async (
+  slug: string,
+) => {
+  const content =
+    await getPortfolioContent();
+
+  return (
+    content.projects.find(
+      (project) =>
+        project.slug === slug,
+    ) ??
+    null
+  );
 };
+
+export const getProjectSlugRedirect =
+  cache(
+    async (
+      slug: string,
+    ): Promise<
+      string | null
+    > => {
+      const oldSlug =
+        slug.trim();
+
+      if (
+        !oldSlug ||
+        !isSupabaseConfigured()
+      ) {
+        return null;
+      }
+
+      const supabase =
+        createSupabasePublicClient();
+
+      const historyResult =
+        await supabase
+          .from(
+            "project_slug_history",
+          )
+          .select(
+            "project_id",
+          )
+          .eq(
+            "old_slug",
+            oldSlug,
+          )
+          .maybeSingle();
+
+      if (
+        historyResult.error
+      ) {
+        console.warn(
+          "Project slug history lookup failed.",
+          {
+            incidentId:
+              "CMS-PUBLIC-PROJECT-SLUG-HISTORY",
+          },
+        );
+
+        return null;
+      }
+
+      const projectId =
+        typeof historyResult
+          .data
+          ?.project_id ===
+          "string"
+          ? historyResult
+              .data
+              .project_id
+          : "";
+
+      if (!projectId) {
+        return null;
+      }
+
+      const projectResult =
+        await supabase
+          .from(
+            "projects",
+          )
+          .select(
+            "slug",
+          )
+          .eq(
+            "id",
+            projectId,
+          )
+          .eq(
+            "published",
+            true,
+          )
+          .eq(
+            "status",
+            "published",
+          )
+          .eq(
+            "deletion_status",
+            "active",
+          )
+          .maybeSingle();
+
+      if (
+        projectResult.error
+      ) {
+        console.warn(
+          "Canonical project slug lookup failed.",
+          {
+            incidentId:
+              "CMS-PUBLIC-PROJECT-SLUG-TARGET",
+          },
+        );
+
+        return null;
+      }
+
+      const canonicalSlug =
+        readText(
+          projectResult
+            .data
+            ?.slug,
+        );
+
+      if (
+        !canonicalSlug ||
+        canonicalSlug ===
+          oldSlug
+      ) {
+        return null;
+      }
+
+      return canonicalSlug;
+    },
+  );
 
 const fallbackAdminContentSnapshot = (): AdminContentSnapshot => ({
   profile: [

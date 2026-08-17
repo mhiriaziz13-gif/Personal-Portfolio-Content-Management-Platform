@@ -3,14 +3,21 @@ export const revalidate = 60;
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import {
+  notFound,
+  permanentRedirect,
+} from "next/navigation";
 
 import { ProjectViewTracker } from "@/components/analytics/project-view-tracker";
 import { TrackedLink } from "@/components/analytics/tracked-link";
 import { Breadcrumbs } from "@/components/seo/breadcrumbs";
 import { JsonLd } from "@/components/seo/json-ld";
 import { ProjectSocialLinks } from "@/components/sub/project-social-links";
-import { getPortfolioContent, getProjectBySlug } from "@/lib/cms";
+import {
+  getPortfolioContent,
+  getProjectBySlug,
+  getProjectSlugRedirect,
+} from "@/lib/cms";
 import { hasMeaningfulProjectSection } from "@/lib/content-completeness";
 import type {
   ProjectMediaContent,
@@ -28,32 +35,101 @@ type PageProps = {
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
-  const { slug } = await params;
-  const project = await getProjectBySlug(slug);
+  const {
+    slug,
+  } = await params;
+
+  let project =
+    await getProjectBySlug(
+      slug,
+    );
+
+  if (!project) {
+    const redirectSlug =
+      await getProjectSlugRedirect(
+        slug,
+      );
+
+    if (
+      redirectSlug
+    ) {
+      project =
+        await getProjectBySlug(
+          redirectSlug,
+        );
+    }
+  }
+
   if (!project) {
     return createPageMetadata({
-      title: "Project not found",
-      description: "This project is not available.",
-      path: `/projects/${slug}`,
-      noindex: true,
+      title:
+        "Project not found",
+
+      description:
+        "This project is not available.",
+
+      path:
+        `/projects/${slug}`,
+
+      noindex:
+        true,
     });
   }
 
   return createPageMetadata({
-    title: project.seoTitle || project.title,
-    description: (project.seoDescription || project.description).slice(0, 160),
-    path: `/projects/${project.slug}`,
-    image: project.openGraphImage || project.image,
+    title:
+      project.seoTitle ||
+      project.title,
+
+    description:
+      (
+        project.seoDescription ||
+        project.description
+      ).slice(
+        0,
+        160,
+      ),
+
+    path:
+      `/projects/${project.slug}`,
+
+    image:
+      project.openGraphImage ||
+      project.image,
   });
 }
 
-export default async function ProjectDetailPage({ params }: PageProps) {
-  const { slug } = await params;
-  const project = await getProjectBySlug(slug);
+export default async function ProjectDetailPage({
+  params,
+}: PageProps) {
+  const {
+    slug,
+  } = await params;
 
-  if (!project) notFound();
+  const project =
+    await getProjectBySlug(
+      slug,
+    );
 
-  const content = await getPortfolioContent();
+  if (!project) {
+    const redirectSlug =
+      await getProjectSlugRedirect(
+        slug,
+      );
+
+    if (
+      redirectSlug
+    ) {
+      permanentRedirect(
+        `/projects/${redirectSlug}`,
+      );
+    }
+
+    notFound();
+  }
+
+  const content =
+    await getPortfolioContent();
   const related = getRelatedProjects(project, content.projects);
   const sections = (project.sections ?? []).filter(
     hasMeaningfulProjectSection,

@@ -1,5 +1,3 @@
-"use client";
-
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
@@ -591,19 +589,56 @@ export function ProjectBuilder(callbacks: BuilderCallbacks) {
     .sort(
       (left, right) => number(left.sort_order) - number(right.sort_order),
     );
-  const projectSections = sections.map((section) => ({
-    ...section,
-    items: (callbacks.records.project_section_items ?? []).filter(
-      (item) =>
-        String(item.project_section_id ?? "") === rowId(section) &&
-        item.is_visible !== false,
-    ),
-    media: (callbacks.records.project_media ?? []).filter(
-      (item) =>
-        String(item.project_id ?? "") === activeSelectedId &&
-        item.is_visible !== false,
-    ),
-  }));
+    const projectSections =
+    sections.map(
+      (section) => ({
+        ...section,
+
+        items:
+          (
+            callbacks.records
+              .project_section_items ??
+            []
+          ).filter(
+            (item) =>
+              String(
+                item.project_section_id ??
+                  "",
+              ) ===
+                rowId(section) &&
+              item.is_visible !==
+                false,
+          ),
+
+        media:
+          text(
+            section.section_type,
+          ) ===
+          "media_gallery"
+            ? (
+                callbacks.records
+                  .project_media ??
+                []
+              ).filter(
+                (item) =>
+                  String(
+                    item.project_id ??
+                      "",
+                  ) ===
+                    activeSelectedId &&
+                  String(
+                    item.project_section_id ??
+                      "",
+                  ) ===
+                    rowId(
+                      section,
+                    ) &&
+                  item.is_visible !==
+                    false,
+              )
+            : [],
+      }),
+    );
   const media = [...(callbacks.records.project_media ?? [])]
     .filter(
       (item) => String(item.project_id ?? "") === activeSelectedId,
@@ -631,10 +666,10 @@ export function ProjectBuilder(callbacks: BuilderCallbacks) {
     <div>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-white">Project Builder</h2>
+                    <h2 className="text-2xl font-bold text-white">Project Hub</h2>
           <p className="mt-2 max-w-2xl text-sm text-gray-400">
-            Edit one project by name, then arrange concise evidence-based
-            sections and accessible media.
+            Choose a project, review its current content state, then open the
+            canonical Project Workspace for project-level editing.
           </p>
         </div>
         <BuilderSelect
@@ -665,47 +700,14 @@ export function ProjectBuilder(callbacks: BuilderCallbacks) {
               {project.published === true ? "Published flag on" : "Unpublished"}
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              className={buttonClass}
-              onClick={() => callbacks.onEdit("projects", activeSelectedId)}
-            >
-              Edit project
-            </button>
-            <button
-              type="button"
+                    <div className="flex flex-wrap gap-2">
+            <Link
+              href={`/admin/projects/${activeSelectedId}`}
               className="button-primary inline-flex min-h-11 items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold text-white"
-              onClick={() =>
-                callbacks.onAdd("project_sections", {
-                  project_id: activeSelectedId,
-                  section_type: "rich_text",
-                  layout_variant: "default",
-                  title: "Overview",
-                  sort_order: sections.at(-1)
-                    ? number(sections.at(-1)?.sort_order) + 10
-                    : 0,
-                  is_visible: true,
-                  is_archived: false,
-                })
-              }
             >
-              Add section
-            </button>
-            <button
-              type="button"
-              className={buttonClass}
-              onClick={() =>
-                callbacks.onAdd("project_media", {
-                  project_id: activeSelectedId,
-                  media_type: "image",
-                  display_order: 0,
-                  is_visible: true,
-                })
-              }
-            >
-              Add media
-            </button>
+              Open Project Workspace
+            </Link>
+
             {project.published === true &&
             text(project.status) === "published" &&
             text(project.slug) ? (
@@ -798,14 +800,9 @@ export function ProjectBuilder(callbacks: BuilderCallbacks) {
                       {definition.description}
                     </p>
                   </div>
-                  <OrderedBlockActions
-                    table="project_sections"
-                    id={rowId(section)}
-                    index={index}
-                    count={sections.length}
-                    visible={section.is_visible !== false}
-                    callbacks={callbacks}
-                  />
+                                    <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-gray-400">
+                    Read-only summary
+                  </span>
                 </div>
                 <section
                   aria-label={`${text(section.title) || definition.label} facts`}
@@ -820,21 +817,9 @@ export function ProjectBuilder(callbacks: BuilderCallbacks) {
                         Add concise label-and-value facts or supporting notes.
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      className={buttonClass}
-                      onClick={() =>
-                        callbacks.onAdd("project_section_items", {
-                          project_section_id: rowId(section),
-                          display_order: facts.at(-1)
-                            ? number(facts.at(-1)?.display_order) + 10
-                            : 0,
-                          is_visible: true,
-                        })
-                      }
-                    >
-                      Add fact
-                    </button>
+                                        <span className="text-xs text-gray-500">
+                      Read-only in Project Hub
+                    </span>
                   </div>
                   <div className="mt-3 grid gap-3">
                     {facts.map((fact, factIndex) => (
@@ -856,12 +841,9 @@ export function ProjectBuilder(callbacks: BuilderCallbacks) {
                             </p>
                           )}
                         </div>
-                        <SupportingItemActions
-                          table="project_section_items"
-                          id={rowId(fact)}
-                          visible={fact.is_visible !== false}
-                          callbacks={callbacks}
-                        />
+                                                <span className="shrink-0 text-xs text-gray-500">
+                          Read-only
+                        </span>
                       </div>
                     ))}
                     {facts.length === 0 && (
@@ -882,8 +864,11 @@ export function ProjectBuilder(callbacks: BuilderCallbacks) {
           )}
         </div>
       </section>
-      <section className="mt-8" aria-labelledby="project-media-library">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+            <section
+        className="mt-8 rounded-lg border border-white/10 bg-white/5 p-5"
+        aria-labelledby="project-media-library"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h3
               id="project-media-library"
@@ -891,58 +876,23 @@ export function ProjectBuilder(callbacks: BuilderCallbacks) {
             >
               Project media
             </h3>
-            <p className="mt-1 text-sm text-gray-400">
-              Screenshots and documents available to media-gallery sections.
+
+            <p className="mt-2 max-w-2xl text-sm text-gray-400">
+              Project media is now managed from the unified
+              Project Workspace so every asset can be assigned
+              safely to the correct Case Study section.
             </p>
           </div>
-          <button
-            type="button"
-            className={buttonClass}
-            onClick={() =>
-              callbacks.onAdd("project_media", {
-                project_id: activeSelectedId,
-                media_type: "image",
-                display_order: media.at(-1)
-                  ? number(media.at(-1)?.display_order) + 10
-                  : 0,
-                is_visible: true,
-              })
-            }
-          >
-            Add project media
-          </button>
+
+                    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-gray-400">
+            {media.length} media item
+            {media.length === 1 ? "" : "s"}
+          </span>
         </div>
-        <div className="mt-4 grid gap-3">
-          {media.map((item, mediaIndex) => (
-            <article
-              key={rowId(item)}
-              className="flex flex-col gap-3 rounded-lg border border-white/10 bg-white/5 p-4 lg:flex-row lg:items-center lg:justify-between"
-            >
-              <div className="min-w-0">
-                <h4 className="truncate text-sm font-medium text-gray-100">
-                  {text(item.alt_text)
-                    || text(item.caption)
-                    || `Project media ${mediaIndex + 1}`}
-                </h4>
-                <p className="mt-1 truncate text-xs text-gray-500">
-                  {text(item.media_type) || "image"}
-                  {text(item.media_url) ? ` — ${text(item.media_url)}` : ""}
-                </p>
-              </div>
-              <SupportingItemActions
-                table="project_media"
-                id={rowId(item)}
-                visible={item.is_visible !== false}
-                callbacks={callbacks}
-              />
-            </article>
-          ))}
-          {media.length === 0 && (
-            <p className="rounded-lg border border-dashed border-white/10 p-6 text-center text-sm text-gray-400">
-              No project media yet.
-            </p>
-          )}
-        </div>
+
+                <p className="mt-4 text-sm text-gray-500">
+          Media management is centralized in the Project Workspace.
+        </p>
       </section>
       <p className="mt-5 text-sm text-cyan-100" aria-live="polite">
         {callbacks.status}
