@@ -113,18 +113,18 @@ begin
       message = 'CMS06 patch postflight failed: mutate_cms_content disappeared';
   end if;
 
-  if pg_catalog.position(
+  if pg_catalog.strpos(
+    v_definition,
     E'         and item.is_visible\n         and project_link.parts[1] is not null\n         and not exists ('
-    in v_definition
   ) = 0 then
     raise exception using
       errcode = 'P0001',
       message = 'CMS06 patch postflight failed: NULL project-link guard was not installed';
   end if;
 
-  if pg_catalog.position(
+  if pg_catalog.strpos(
+    v_definition,
     'cms_published_page_has_unpublished_project_link'
-    in v_definition
   ) = 0 then
     raise exception using
       errcode = 'P0001',
