@@ -636,9 +636,41 @@ export const AdminDashboard = ({
   const [messages, setMessages] = useState<ContactMessage[]>(() =>
     sortAndDedupeMessages(parseContactMessages(content.contact_messages)),
   );
-  const [editing, setEditing] = useState<number | null>(null);
-  const [draft, setDraft] = useState<Row>({});
-  const [contentStatus, setContentStatus] = useState("");
+    const [editing, setEditing] =
+    useState<number | null>(
+      null,
+    );
+
+  const [draft, setDraft] =
+    useState<Row>({});
+
+  const [
+    selectedProjectContentId,
+    setSelectedProjectContentId,
+  ] = useState(() => {
+    const projects =
+      rowsFor(
+        content,
+        "projects",
+      );
+
+    const preferred =
+      projects.find(
+        (project) =>
+          project.published ===
+            true &&
+          project.status ===
+            "published",
+      ) ??
+      projects[0];
+
+    return String(
+      preferred?.id ?? "",
+    );
+  });
+
+  const [contentStatus, setContentStatus] =
+    useState("");
   const [messageStatus, setMessageStatus] = useState("");
   const [pendingMessageId, setPendingMessageId] = useState<string | null>(null);
   const [logoutPending, setLogoutPending] = useState(false);
@@ -652,10 +684,127 @@ export const AdminDashboard = ({
   );
 
   const active = sections.find((section) => section.table === view);
+    const projectContentProjects =
+    useMemo(
+      () =>
+        [
+          ...(
+            records.projects ??
+            []
+          ),
+        ].sort(
+          (
+            left,
+            right,
+          ) => {
+            const leftPublished =
+              left.status ===
+                "published"
+                ? 0
+                : 1;
+
+            const rightPublished =
+              right.status ===
+                "published"
+                ? 0
+                : 1;
+
+            if (
+              leftPublished !==
+              rightPublished
+            ) {
+              return (
+                leftPublished -
+                rightPublished
+              );
+            }
+
+            return String(
+              left.title ??
+                left.slug ??
+                "",
+            ).localeCompare(
+              String(
+                right.title ??
+                  right.slug ??
+                  "",
+              ),
+            );
+          },
+        ),
+      [
+        records.projects,
+      ],
+    );
+
+  const selectedProjectContent =
+    useMemo(
+      () =>
+        projectContentProjects.find(
+          (project) =>
+            String(
+              project.id ??
+                "",
+            ) ===
+            selectedProjectContentId,
+        ) ??
+        null,
+      [
+        projectContentProjects,
+        selectedProjectContentId,
+      ],
+    );
+
+  const projectContentSections =
+    useMemo(
+      () =>
+        (
+          records.project_sections ??
+          []
+        )
+          .filter(
+            (section) =>
+              String(
+                section.project_id ??
+                  "",
+              ) ===
+                selectedProjectContentId &&
+              section.is_archived !==
+                true,
+          )
+          .sort(
+            (
+              left,
+              right,
+            ) =>
+              Number(
+                left.sort_order ??
+                  0,
+              ) -
+              Number(
+                right.sort_order ??
+                  0,
+              ),
+          ),
+      [
+        records.project_sections,
+        selectedProjectContentId,
+      ],
+    );
   const activeFields = useMemo(() => {
     if (!active) return [];
 
-    return active.fields.map((field) => field.key === "project_id"
+        return active.fields
+      .filter(
+        (field) =>
+          !(
+            active.table ===
+              "project_sections" &&
+            field.key ===
+              "project_id"
+          ),
+      )
+      .map((field) => field.key === "project_id"
       ? {
           ...field,
           options: (records.projects ?? []).map((project) => ({
@@ -860,12 +1009,40 @@ export const AdminDashboard = ({
   setContentStatus("");
 };
 
-  const beginAdd = (section: Section) => {
+   const beginAdd = (
+    section: Section,
+  ) => {
     setEditing(-1);
-    const row = emptyRow(section);
-    if (section.table === "volunteering") row.stable_key = `volunteering-${Date.now()}`;
-    setDraft(row);
-    setContentStatus("");
+
+    const row =
+      emptyRow(
+        section,
+      );
+
+    if (
+      section.table ===
+        "volunteering"
+    ) {
+      row.stable_key =
+        `volunteering-${Date.now()}`;
+    }
+
+    if (
+      section.table ===
+        "project_sections" &&
+      selectedProjectContentId
+    ) {
+      row.project_id =
+        selectedProjectContentId;
+    }
+
+    setDraft(
+      row,
+    );
+
+    setContentStatus(
+      "",
+    );
   };
 
   const cancelEdit = () => {
@@ -1405,6 +1582,85 @@ export const AdminDashboard = ({
 
           {active && (
             <div>
+                            {active.table ===
+                "project_sections" && (
+                <section className="mb-6 rounded-xl border border-cyan-300/15 bg-cyan-300/5 p-5">
+                  <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+                    <label className="grid gap-2 text-sm text-gray-300">
+                      <span className="font-semibold text-white">
+                        Project
+                      </span>
+
+                      <select
+                        value={
+                          selectedProjectContentId
+                        }
+                        onChange={(
+                          event,
+                        ) => {
+                          setSelectedProjectContentId(
+                            event
+                              .target
+                              .value,
+                          );
+
+                          cancelEdit();
+                        }}
+                        className="min-h-11 w-full rounded-lg border border-white/10 bg-[#151030] px-3 py-2.5 text-white outline-none transition focus:border-cyan-300/60"
+                      >
+                        {projectContentProjects.map(
+                          (
+                            project,
+                          ) => (
+                            <option
+                              key={String(
+                                project.id,
+                              )}
+                              value={String(
+                                project.id,
+                              )}
+                            >
+                              {String(
+                                project.title ??
+                                  project.slug ??
+                                  "Untitled project",
+                              )}
+                            </option>
+                          ),
+                        )}
+                      </select>
+                    </label>
+
+                    <div className="text-sm text-gray-400">
+                      <strong className="text-white">
+                        {
+                          projectContentSections.length
+                        }
+                      </strong>{" "}
+                      active sections
+                    </div>
+                  </div>
+
+                  {selectedProjectContent && (
+                    <div className="mt-4 flex flex-wrap gap-2 text-xs">
+                      <span className="rounded-full bg-white/5 px-3 py-1 text-gray-300">
+                        {String(
+                          selectedProjectContent.status ??
+                            "unknown",
+                        )}
+                      </span>
+
+                      <span className="rounded-full bg-white/5 px-3 py-1 font-mono text-gray-400">
+                        /projects/
+                        {String(
+                          selectedProjectContent.slug ??
+                            "",
+                        )}
+                      </span>
+                    </div>
+                  )}
+                </section>
+              )}
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <h2 className="text-2xl font-bold text-white">{active.label}</h2>
@@ -1563,7 +1819,38 @@ export const AdminDashboard = ({
                 </form>
               ) : (
                 <div className="mt-6 grid gap-3">
-                  {(records[active.table] ?? []).map((row, index) => {
+                                    {(
+                    active.table ===
+                    "project_sections"
+                      ? projectContentSections
+                      : records[
+                          active.table
+                        ] ?? []
+                  ).map(
+                    (
+                      row,
+                      visibleIndex,
+                    ) => {                    const index =
+                      active.table ===
+                      "project_sections"
+                        ? (
+                            records
+                              .project_sections ??
+                            []
+                          ).findIndex(
+                            (
+                              candidate,
+                            ) =>
+                              String(
+                                candidate.id ??
+                                  "",
+                              ) ===
+                              String(
+                                row.id ??
+                                  "",
+                              ),
+                          )
+                        : visibleIndex;
                     const completeness = active.table === "projects"
                       ? getProjectCompleteness(
                         row,
@@ -1629,7 +1916,23 @@ export const AdminDashboard = ({
                       </article>
                     );
                   })}
-                  {!(records[active.table]?.length) && <p className="py-8 text-center text-sm text-gray-400">No entries yet.</p>}
+                                   {(
+                    active.table ===
+                    "project_sections"
+                      ? projectContentSections
+                          .length ===
+                        0
+                      : !records[
+                          active.table
+                        ]?.length
+                  ) && (
+                    <p className="py-8 text-center text-sm text-gray-400">
+                      {active.table ===
+                      "project_sections"
+                        ? "No active sections for this project yet."
+                        : "No entries yet."}
+                    </p>
+                  )}
                   <p className="text-sm text-cyan-100" aria-live="polite">{contentStatus}</p>
                 </div>
               )}
