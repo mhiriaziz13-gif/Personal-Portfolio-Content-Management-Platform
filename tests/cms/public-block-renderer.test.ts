@@ -26,7 +26,22 @@ vi.mock("@/components/main/experience", () => ({
     createElement("section", { "data-mock-block": "experience" }),
 }));
 vi.mock("@/components/main/skills", () => ({
-  Skills: () => createElement("section", { "data-mock-block": "skills" }),
+  Skills: ({
+    showRelatedProjects = false,
+    projects = [],
+  }: {
+    showRelatedProjects?: boolean;
+    projects?: unknown[];
+  }) =>
+    createElement("section", {
+      "data-mock-block": "skills",
+      "data-show-related-projects": String(
+        showRelatedProjects,
+      ),
+      "data-project-count": String(
+        projects.length,
+      ),
+    }),
 }));
 vi.mock("@/components/main/certifications-section", () => ({
   CertificationsSection: () =>
@@ -162,5 +177,87 @@ describe("public controlled block rendering", () => {
     );
 
     expect(markup).toBe('<h1 class="sr-only">About</h1>');
+  });
+    it("enables dynamic project recommendations only for the CMS expertise skills block", () => {
+    const expertiseSection = section({
+      id: "expertise-skills",
+      pageKey: "expertise",
+      sectionType: "skills",
+    });
+
+    const expertisePage: PageContent = {
+      ...page([
+        expertiseSection,
+      ]),
+      id: "expertise-page",
+      pageKey: "expertise",
+      title: "Expertise",
+      slug: "/expertise",
+      navigationLabel: "Expertise",
+    };
+
+    const expertiseMarkup =
+      renderToStaticMarkup(
+        createElement(
+          CmsPageSections,
+          {
+            content: {
+              ...fallbackPortfolioContent,
+              pages: [
+                expertisePage,
+              ],
+            },
+            pageKey: "expertise",
+          },
+        ),
+      );
+
+    expect(
+      expertiseMarkup,
+    ).toContain(
+      'data-mock-block="skills"',
+    );
+
+    expect(
+      expertiseMarkup,
+    ).toContain(
+      'data-show-related-projects="true"',
+    );
+
+    expect(
+      expertiseMarkup,
+    ).toContain(
+      `data-project-count="${fallbackPortfolioContent.projects.length}"`,
+    );
+
+    const aboutSection = section({
+      id: "about-skills",
+      pageKey: "about",
+      sectionType: "skills",
+    });
+
+    const aboutMarkup =
+      renderToStaticMarkup(
+        createElement(
+          CmsPageSections,
+          {
+            content: {
+              ...fallbackPortfolioContent,
+              pages: [
+                page([
+                  aboutSection,
+                ]),
+              ],
+            },
+            pageKey: "about",
+          },
+        ),
+      );
+
+    expect(
+      aboutMarkup,
+    ).toContain(
+      'data-show-related-projects="false"',
+    );
   });
 });

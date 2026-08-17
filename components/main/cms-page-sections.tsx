@@ -140,6 +140,10 @@ function CmsSection({
       return (
         <Skills
           skillCategories={content.skillCategories}
+          projects={content.projects}
+          showRelatedProjects={
+            section.pageKey === "expertise"
+          }
           variant={variant}
         />
       );

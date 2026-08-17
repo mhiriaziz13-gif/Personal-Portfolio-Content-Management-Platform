@@ -10,7 +10,7 @@ import { Breadcrumbs } from "@/components/seo/breadcrumbs";
 import { PageIntro } from "@/components/seo/page-intro";
 import { getPortfolioContent } from "@/lib/cms";
 import { resolveCmsPageRoute } from "@/lib/cms-page-routing";
-import type { ProjectContent, SkillCategory } from "@/lib/cms-types";
+import { getProjectsForExpertise } from "@/lib/expertise-projects";
 import { createCmsPageMetadata } from "@/lib/seo/metadata";
 
 const explanations: Record<string, string> = {
@@ -134,35 +134,4 @@ export default async function ExpertisePage() {
       <Skills skillCategories={content.skillCategories} />
     </main>
   );
-}
-
-const normalizeTerm = (value: string) => value.trim().toLowerCase();
-
-function getProjectsForExpertise(
-  category: SkillCategory,
-  projects: ProjectContent[],
-) {
-  const expertiseTerms = new Set(category.skills.map(normalizeTerm));
-  expertiseTerms.add(normalizeTerm(category.title));
-
-  return projects
-    .map((project) => {
-      const projectTerms = [
-        ...project.tags,
-        ...(project.tools ?? []),
-        project.type ?? "",
-      ].map(normalizeTerm);
-      const score = projectTerms.filter((term) =>
-        expertiseTerms.has(term),
-      ).length;
-      return { project, score };
-    })
-    .filter(({ score }) => score > 0)
-    .sort(
-      (left, right) =>
-        right.score - left.score ||
-        (left.project.sortOrder ?? 0) - (right.project.sortOrder ?? 0),
-    )
-    .slice(0, 3)
-    .map(({ project }) => project);
 }
