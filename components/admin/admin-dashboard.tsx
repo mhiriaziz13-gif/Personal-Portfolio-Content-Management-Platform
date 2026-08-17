@@ -1572,8 +1572,8 @@ export const AdminDashboard = ({
           {navButton("overview", "Overview")}
           <p className="mt-3 px-4 pb-1 text-[0.65rem] font-semibold uppercase tracking-widest text-gray-500">
             Builders
-          </p>
-         {navButton("page_builder", "Page Builder")}
+                    </p>
+          {navButton("page_builder", "Page Builder")}
           {navButton("project_builder", "Project Hub")}
           <p className="mt-3 px-4 pb-1 text-[0.65rem] font-semibold uppercase tracking-widest text-gray-500">Tools</p>
           {navButton("contact_messages", "Contact Messages", stats.unread)}
@@ -1624,9 +1624,9 @@ export const AdminDashboard = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() => selectView("project_builder")}
+                                   onClick={() => selectView("project_builder")}
                   className="min-h-11 rounded-lg border border-purple-300/20 bg-purple-300/10 p-4 text-left hover:bg-purple-300/15"
-                                >
+                >
                   <span className="font-semibold text-white">
                     Project Hub
                   </span>
@@ -1922,7 +1922,7 @@ export const AdminDashboard = ({
                       type="button"
                       onClick={() => selectView("project_builder")}
                       className="min-h-11 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
-                     >
+                    >
                       Back to Project Hub
                     </button>
                   )}
