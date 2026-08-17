@@ -1572,7 +1572,7 @@ export const AdminDashboard = ({
           {navButton("overview", "Overview")}
           <p className="mt-3 px-4 pb-1 text-[0.65rem] font-semibold uppercase tracking-widest text-gray-500">
             Builders
-                    </p>
+          </p>
           {navButton("page_builder", "Page Builder")}
           {navButton("project_builder", "Project Hub")}
           <p className="mt-3 px-4 pb-1 text-[0.65rem] font-semibold uppercase tracking-widest text-gray-500">Tools</p>
