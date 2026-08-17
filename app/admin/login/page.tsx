@@ -16,21 +16,18 @@ const readParam = (value: string | string[] | undefined) =>
 export default async function AdminLoginPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const nextPath = safeRedirect(readParam(params.next), "/admin");
-  const requestedMfa = readParam(params.mfa) === "required";
   const initialError = readParam(params.error);
   const resetSuccess = readParam(params.reset) === "success";
 
-  let admin: Awaited<ReturnType<typeof getAuthenticatedAdmin>> = null;
+let admin: Awaited<ReturnType<typeof getAuthenticatedAdmin>> = null;
 
-  if (requestedMfa) {
-    try {
-      admin = await getAuthenticatedAdmin();
-    } catch {
-      admin = null;
-    }
+  try {
+    admin = await getAuthenticatedAdmin();
+  } catch {
+    admin = null;
   }
 
-  if (requestedMfa && admin) {
+  if (admin) {
     if (!admin.mfaRequired || admin.mfaSatisfied) {
       redirect(nextPath);
     }
@@ -41,8 +38,7 @@ export default async function AdminLoginPage({ searchParams }: PageProps) {
   }
 
   const initialMfaRequired = Boolean(
-    requestedMfa &&
-      admin &&
+    admin &&
       admin.mfaRequired &&
       !admin.mfaSatisfied,
   );
