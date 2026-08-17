@@ -399,10 +399,25 @@ export function ProjectWorkspace({
     setSlugStatus,
   ] = useState("");
 
-  const [
+   const [
     renamingSlug,
     setRenamingSlug,
   ] = useState(false);
+
+  const [
+    deletingProject,
+    setDeletingProject,
+  ] = useState(false);
+
+  const [
+    deleteConfirmSlug,
+    setDeleteConfirmSlug,
+  ] = useState("");
+
+  const [
+    deleteStatus,
+    setDeleteStatus,
+  ] = useState("");
 
   const [
     mediaCountValue,
@@ -427,7 +442,7 @@ export function ProjectWorkspace({
       normalizedSlugDraft,
     );
 
-  const dirty = useMemo(
+    const dirty = useMemo(
     () =>
       comparable(
         draft,
@@ -439,6 +454,25 @@ export function ProjectWorkspace({
       links,
     ],
   );
+
+  const hardDeleteStateReady =
+    project.status ===
+      "archived" &&
+    project.published ===
+      false;
+
+  const deleteConfirmationMatches =
+    deleteConfirmSlug ===
+    project.slug;
+
+  const hardDeleteReady =
+    hardDeleteStateReady &&
+    !dirty &&
+    !slugChanged &&
+    !saving &&
+    !renamingSlug &&
+    !deletingProject &&
+    deleteConfirmationMatches;
 
   const setField = <
     Key extends keyof Draft,
@@ -547,8 +581,9 @@ export function ProjectWorkspace({
 
   const renameSlug =
     async () => {
-      if (
+           if (
         renamingSlug ||
+        deletingProject ||
         saving ||
         dirty ||
         !slugChanged ||
@@ -668,13 +703,133 @@ export function ProjectWorkspace({
       }
     };
 
-  const save = async () => {
-  if (
-    saving ||
-    !dirty
-  ) {
-    return;
-  }
+    const hardDeleteProject =
+    async () => {
+      if (
+        !hardDeleteReady
+      ) {
+        return;
+      }
+
+      const actionTitle =
+        project
+          .deletion_status ===
+        "pending"
+          ? "Resume permanent project deletion?"
+          : project
+                .deletion_status ===
+              "failed"
+            ? "Retry permanent project deletion?"
+            : "Permanently delete this project?";
+
+      const confirmed =
+        window.confirm(
+          [
+            actionTitle,
+            "",
+            `Project: ${project.title}`,
+            `Slug: ${project.slug}`,
+            "",
+            "This action permanently deletes the project database content.",
+            "Uploads used only by this project may also be permanently removed from Storage.",
+            "Shared files are preserved.",
+            "",
+            "The current slug and all historical slugs remain permanently reserved.",
+            "",
+            "This action cannot be undone.",
+          ].join("\n"),
+        );
+
+      if (!confirmed) {
+        return;
+      }
+
+      setDeletingProject(
+        true,
+      );
+
+      setDeleteStatus(
+        project
+          .deletion_status ===
+        "pending"
+          ? "Resuming permanent project deletion..."
+          : project
+                .deletion_status ===
+              "failed"
+            ? "Retrying permanent project deletion..."
+            : "Permanently deleting project...",
+      );
+
+      try {
+        const response =
+          await adminFetch(
+            `/api/admin/projects/${project.id}/hard-delete`,
+            {
+              method:
+                "DELETE",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+
+              body:
+                JSON.stringify({
+                  expectedUpdatedAt:
+                    project.updated_at,
+
+                  confirmSlug:
+                    deleteConfirmSlug,
+                }),
+            },
+          );
+
+        const data =
+          await readJsonObject(
+            response,
+          );
+
+        if (
+          !response.ok ||
+          data.ok !== true ||
+          data.phase !==
+            "deleted"
+        ) {
+          setDeleteStatus(
+            `${adminApiError(
+              data,
+            )} Reload this workspace before trying again.`,
+          );
+
+          return;
+        }
+
+        setDeleteStatus(
+          "Project permanently deleted. Returning to the CMS...",
+        );
+
+        window.location.assign(
+          "/admin",
+        );
+      } catch {
+        setDeleteStatus(
+          "The permanent deletion request could not be completed. Reload this workspace before trying again.",
+        );
+      } finally {
+        setDeletingProject(
+          false,
+        );
+      }
+    };
+
+    const save = async () => {
+    if (
+      saving ||
+      deletingProject ||
+      !dirty
+    ) {
+      return;
+    }
     setSaving(true);
     setStatus(
       "Saving project workspace...",
@@ -919,8 +1074,9 @@ export function ProjectWorkspace({
   onClick={() =>
     void save()
   }
-  disabled={
+    disabled={
     saving ||
+    deletingProject ||
     !dirty
   }
               className="button-primary inline-flex min-h-11 items-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
@@ -1078,8 +1234,9 @@ export function ProjectWorkspace({
                     onClick={() =>
                       void renameSlug()
                     }
-                    disabled={
+                                        disabled={
                       renamingSlug ||
+                      deletingProject ||
                       saving ||
                       dirty ||
                       !slugChanged ||
@@ -1704,24 +1861,6 @@ export function ProjectWorkspace({
       )}
 
       {tab ===
-        "media" && (
-        <ProjectMediaManager
-          projectId={
-            project.id
-          }
-          initialMedia={
-            initialMedia
-          }
-          sections={
-            initialSections
-          }
-          onCountChange={
-            setMediaCountValue
-          }
-        />
-      )}
-
-      {tab ===
         "case_study" && (
         <ProjectCaseStudyEditor
           projectId={
@@ -2088,37 +2227,257 @@ export function ProjectWorkspace({
                 />
               </label>
             </div>
+                    </section>
+
+          <section className="rounded-xl border border-red-400/30 bg-red-500/5 p-5 lg:col-span-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-red-200">
+              Danger Zone
+            </p>
+
+            <h2 className="mt-2 text-xl font-semibold text-white">
+              Permanent project
+              deletion
+            </h2>
+
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-gray-300">
+              Permanently delete
+              this project and
+              remove managed files
+              that are exclusive to
+              it. Files referenced
+              by other CMS content
+              or other projects are
+              preserved.
+            </p>
+
+            <div className="mt-5 rounded-lg border border-red-300/15 bg-black/20 p-4 text-sm text-gray-300">
+              <p>
+                Required project
+                state:{" "}
+                <strong className="text-white">
+                  archived +
+                  unpublished
+                </strong>
+              </p>
+
+              <p className="mt-2">
+                Saved state:{" "}
+                <strong
+                  className={
+                    hardDeleteStateReady
+                      ? "text-emerald-200"
+                      : "text-amber-200"
+                  }
+                >
+                  {project.status}
+                  {" / "}
+                  {project.published
+                    ? "published"
+                    : "unpublished"}
+                </strong>
+              </p>
+
+              <p className="mt-2">
+                Deletion
+                lifecycle:{" "}
+                <strong className="text-white">
+                  {
+                    project.deletion_status
+                  }
+                </strong>
+              </p>
+
+              {project
+                .deletion_requested_at && (
+                <p className="mt-2">
+                  Deletion
+                  requested at:{" "}
+                  {
+                    project
+                      .deletion_requested_at
+                  }
+                </p>
+              )}
+
+              {project
+                .deletion_error_code && (
+                <p className="mt-2 text-red-200">
+                  Last deletion
+                  error:{" "}
+                  {
+                    project
+                      .deletion_error_code
+                  }
+                </p>
+              )}
+            </div>
+
+            {!hardDeleteStateReady && (
+              <p className="mt-4 text-sm text-amber-200">
+                Archive and
+                unpublish this
+                project, then save
+                the Workspace
+                before permanent
+                deletion becomes
+                available.
+              </p>
+            )}
+
+            {dirty && (
+              <p className="mt-3 text-sm text-amber-200">
+                Save all Workspace
+                changes before
+                permanently
+                deleting this
+                project.
+              </p>
+            )}
+
+            {slugChanged && (
+              <p className="mt-3 text-sm text-amber-200">
+                The slug field has
+                an unapplied
+                change. Rename it
+                or restore the
+                saved slug before
+                permanent
+                deletion.
+              </p>
+            )}
+
+            {project
+              .deletion_status ===
+              "pending" && (
+              <p className="mt-3 text-sm text-amber-200">
+                A previous
+                permanent
+                deletion reached
+                the pending stage.
+                The action below
+                will resume and
+                reconcile that
+                deletion.
+              </p>
+            )}
+
+            {project
+              .deletion_status ===
+              "failed" && (
+              <p className="mt-3 text-sm text-red-200">
+                A previous
+                permanent
+                deletion failed.
+                Reloaded state can
+                be retried after
+                reviewing the
+                recorded error.
+              </p>
+            )}
+
+            <label className="mt-5 grid max-w-2xl gap-2 text-sm text-gray-300">
+              <span>
+                Type the current
+                slug exactly to
+                confirm:
+              </span>
+
+              <code className="break-all rounded-md border border-red-300/15 bg-black/30 px-3 py-2 text-red-100">
+                {
+                  project.slug
+                }
+              </code>
+
+              <input
+                value={
+                  deleteConfirmSlug
+                }
+                onChange={(
+                  event,
+                ) =>
+                  setDeleteConfirmSlug(
+                    event.target
+                      .value,
+                  )
+                }
+                autoCapitalize="none"
+                autoCorrect="off"
+                autoComplete="off"
+                spellCheck={
+                  false
+                }
+                disabled={
+                  deletingProject ||
+                  !hardDeleteStateReady ||
+                  dirty ||
+                  slugChanged ||
+                  saving ||
+                  renamingSlug
+                }
+                className={
+                  inputClass
+                }
+                placeholder={
+                  project.slug
+                }
+              />
+            </label>
+
+            {deleteConfirmSlug &&
+              !deleteConfirmationMatches && (
+                <p className="mt-2 text-xs text-red-200">
+                  The confirmation
+                  does not exactly
+                  match the current
+                  project slug.
+                </p>
+              )}
+
+            <div className="mt-5 flex flex-wrap items-center gap-4">
+              <button
+                type="button"
+                onClick={() =>
+                  void hardDeleteProject()
+                }
+                disabled={
+                  !hardDeleteReady
+                }
+                className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-red-300/30 bg-red-500/15 px-5 py-2 text-sm font-semibold text-red-100 transition hover:bg-red-500/25 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <FiTrash2
+                  aria-hidden="true"
+                />
+
+                {deletingProject
+                  ? "Deleting permanently..."
+                  : project
+                        .deletion_status ===
+                      "pending"
+                    ? "Resume permanent deletion"
+                    : project
+                          .deletion_status ===
+                        "failed"
+                      ? "Retry permanent deletion"
+                      : "Permanently delete project"}
+              </button>
+
+              <p className="text-xs leading-5 text-gray-500">
+                This action cannot
+                be undone.
+              </p>
+            </div>
+
+            <p
+              aria-live="polite"
+              className="mt-4 min-h-5 text-sm text-red-100"
+            >
+              {
+                deleteStatus
+              }
+            </p>
           </section>
         </div>
       )}
-
-      <section className="mt-5 rounded-xl border border-purple-300/15 bg-purple-300/5 p-5">
-        <h2 className="font-semibold text-white">
-          Case Study & Media
-        </h2>
-
-        <p className="mt-2 text-sm leading-6 text-gray-300">
-          This project currently
-          contains {sectionCount}{" "}
-          case-study sections and{" "}
-          {mediaCount} media items.
-          They remain managed by
-          the existing Project
-          Builder during Wave 2B.
-          Wave 2C will move these
-          tools directly into this
-          workspace.
-        </p>
-
-        <Link
-          href="/admin"
-          className="mt-4 inline-flex min-h-11 items-center rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm text-gray-100 hover:bg-white/10"
-        >
-          Open current Project
-          Builder
-        </Link>
-      </section>
-
       <div className="sticky bottom-4 mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#100b24]/95 p-4 shadow-2xl backdrop-blur">
         <p
           aria-live="polite"
@@ -2135,8 +2494,9 @@ export function ProjectWorkspace({
   onClick={() =>
     void save()
   }
-  disabled={
+    disabled={
     saving ||
+    deletingProject ||
     !dirty
   }
   className="button-primary inline-flex min-h-11 items-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
