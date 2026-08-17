@@ -644,7 +644,7 @@ export const AdminDashboard = ({
   const [draft, setDraft] =
     useState<Row>({});
 
-  const [
+    const [
     selectedProjectContentId,
     setSelectedProjectContentId,
   ] = useState(() => {
@@ -668,6 +668,11 @@ export const AdminDashboard = ({
       preferred?.id ?? "",
     );
   });
+
+  const [
+    selectedProjectSectionItemId,
+    setSelectedProjectSectionItemId,
+  ] = useState("");
 
   const [contentStatus, setContentStatus] =
     useState("");
@@ -791,17 +796,104 @@ export const AdminDashboard = ({
         selectedProjectContentId,
       ],
     );
+
+  const activeSelectedProjectSectionItemId =
+    projectContentSections.some(
+      (section) =>
+        String(
+          section.id ?? "",
+        ) ===
+        selectedProjectSectionItemId,
+    )
+      ? selectedProjectSectionItemId
+      : String(
+          projectContentSections[0]
+            ?.id ?? "",
+        );
+
+  const selectedProjectSectionItemSection =
+    useMemo(
+      () =>
+        projectContentSections.find(
+          (section) =>
+            String(
+              section.id ?? "",
+            ) ===
+            activeSelectedProjectSectionItemId,
+        ) ?? null,
+      [
+        projectContentSections,
+        activeSelectedProjectSectionItemId,
+      ],
+    );
+
+  const projectSectionItems =
+    useMemo(
+      () =>
+        (
+          records.project_section_items ??
+          []
+        )
+          .filter(
+            (item) =>
+              String(
+                item.project_section_id ??
+                  "",
+              ) ===
+              activeSelectedProjectSectionItemId,
+          )
+          .sort(
+            (
+              left,
+              right,
+            ) =>
+              Number(
+                left.display_order ??
+                  0,
+              ) -
+              Number(
+                right.display_order ??
+                  0,
+              ),
+          ),
+      [
+        records.project_section_items,
+        activeSelectedProjectSectionItemId,
+      ],
+    );
+
+  const activeListRows =
+    active?.table ===
+    "project_sections"
+      ? projectContentSections
+      : active?.table ===
+          "project_section_items"
+        ? projectSectionItems
+        : active
+          ? records[
+              active.table
+            ] ?? []
+          : [];
+
   const activeFields = useMemo(() => {
     if (!active) return [];
 
-        return active.fields
+    return active.fields
       .filter(
         (field) =>
           !(
-            active.table ===
-              "project_sections" &&
-            field.key ===
-              "project_id"
+            (
+              active.table ===
+                "project_sections" &&
+              field.key ===
+                "project_id"
+            ) ||
+            (
+              active.table ===
+                "project_section_items" &&
+              field.key ===
+                "project_section_id"
+            )
           ),
       )
       .map((field) => field.key === "project_id"
@@ -1009,9 +1101,21 @@ export const AdminDashboard = ({
   setContentStatus("");
 };
 
-   const beginAdd = (
+  const beginAdd = (
     section: Section,
   ) => {
+    if (
+      section.table ===
+        "project_section_items" &&
+      !activeSelectedProjectSectionItemId
+    ) {
+      setContentStatus(
+        "Select a project section before adding an item.",
+      );
+
+      return;
+    }
+
     setEditing(-1);
 
     const row =
@@ -1034,6 +1138,15 @@ export const AdminDashboard = ({
     ) {
       row.project_id =
         selectedProjectContentId;
+    }
+
+    if (
+      section.table ===
+        "project_section_items" &&
+      activeSelectedProjectSectionItemId
+    ) {
+      row.project_section_id =
+        activeSelectedProjectSectionItemId;
     }
 
     setDraft(
@@ -1582,10 +1695,21 @@ export const AdminDashboard = ({
 
           {active && (
             <div>
-                            {active.table ===
-                "project_sections" && (
+                                          {(
+                active.table ===
+                  "project_sections" ||
+                active.table ===
+                  "project_section_items"
+              ) && (
                 <section className="mb-6 rounded-xl border border-cyan-300/15 bg-cyan-300/5 p-5">
-                  <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+                  <div
+                    className={
+                      active.table ===
+                      "project_section_items"
+                        ? "grid gap-4 lg:grid-cols-2"
+                        : "grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end"
+                    }
+                  >
                     <label className="grid gap-2 text-sm text-gray-300">
                       <span className="font-semibold text-white">
                         Project
@@ -1602,6 +1726,10 @@ export const AdminDashboard = ({
                             event
                               .target
                               .value,
+                          );
+
+                          setSelectedProjectSectionItemId(
+                            "",
                           );
 
                           cancelEdit();
@@ -1631,34 +1759,138 @@ export const AdminDashboard = ({
                       </select>
                     </label>
 
-                    <div className="text-sm text-gray-400">
-                      <strong className="text-white">
-                        {
-                          projectContentSections.length
-                        }
-                      </strong>{" "}
-                      active sections
-                    </div>
+                    {active.table ===
+                    "project_section_items" ? (
+                      <label className="grid gap-2 text-sm text-gray-300">
+                        <span className="font-semibold text-white">
+                          Section
+                        </span>
+
+                        <select
+                          value={
+                            activeSelectedProjectSectionItemId
+                          }
+                          onChange={(
+                            event,
+                          ) => {
+                            setSelectedProjectSectionItemId(
+                              event
+                                .target
+                                .value,
+                            );
+
+                            cancelEdit();
+                          }}
+                          disabled={
+                            projectContentSections.length ===
+                            0
+                          }
+                          className="min-h-11 w-full rounded-lg border border-white/10 bg-[#151030] px-3 py-2.5 text-white outline-none transition focus:border-cyan-300/60 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {projectContentSections.length ===
+                          0 ? (
+                            <option value="">
+                              No active sections
+                            </option>
+                          ) : (
+                            projectContentSections.map(
+                              (
+                                section,
+                              ) => (
+                                <option
+                                  key={String(
+                                    section.id,
+                                  )}
+                                  value={String(
+                                    section.id,
+                                  )}
+                                >
+                                  {String(
+                                    section.title ??
+                                      "Untitled section",
+                                  )}
+                                </option>
+                              ),
+                            )
+                          )}
+                        </select>
+                      </label>
+                    ) : (
+                      <div className="text-sm text-gray-400">
+                        <strong className="text-white">
+                          {
+                            projectContentSections.length
+                          }
+                        </strong>{" "}
+                        active sections
+                      </div>
+                    )}
                   </div>
 
-                  {selectedProjectContent && (
-                    <div className="mt-4 flex flex-wrap gap-2 text-xs">
-                      <span className="rounded-full bg-white/5 px-3 py-1 text-gray-300">
-                        {String(
-                          selectedProjectContent.status ??
-                            "unknown",
-                        )}
-                      </span>
+                  <div className="mt-4 flex flex-wrap gap-2 text-xs">
+                    {selectedProjectContent && (
+                      <>
+                        <span className="rounded-full bg-white/5 px-3 py-1 text-gray-300">
+                          {String(
+                            selectedProjectContent.status ??
+                              "unknown",
+                          )}
+                        </span>
 
-                      <span className="rounded-full bg-white/5 px-3 py-1 font-mono text-gray-400">
-                        /projects/
-                        {String(
-                          selectedProjectContent.slug ??
-                            "",
+                        <span className="rounded-full bg-white/5 px-3 py-1 font-mono text-gray-400">
+                          /projects/
+                          {String(
+                            selectedProjectContent.slug ??
+                              "",
+                          )}
+                        </span>
+                      </>
+                    )}
+
+                    {active.table ===
+                      "project_section_items" && (
+                      <>
+                        <span className="rounded-full bg-white/5 px-3 py-1 text-gray-300">
+                          {
+                            projectContentSections.length
+                          }{" "}
+                          active sections
+                        </span>
+
+                        <span className="rounded-full bg-white/5 px-3 py-1 text-gray-300">
+                          {
+                            projectSectionItems.length
+                          }{" "}
+                          items in selected
+                          section
+                        </span>
+
+                        {selectedProjectSectionItemSection && (
+                          <span className="rounded-full bg-cyan-300/10 px-3 py-1 text-cyan-100">
+                            Section:{" "}
+                            {String(
+                              selectedProjectSectionItemSection.title ??
+                                "Untitled section",
+                            )}
+                          </span>
                         )}
-                      </span>
-                    </div>
-                  )}
+                      </>
+                    )}
+                  </div>
+
+                  {active.table ===
+                    "project_section_items" &&
+                    projectContentSections.length ===
+                      0 && (
+                      <p className="mt-4 text-sm text-amber-200">
+                        This project
+                        currently has no
+                        active sections.
+                        Add a section in
+                        Project page
+                        content first.
+                      </p>
+                    )}
                 </section>
               )}
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -1694,9 +1926,33 @@ export const AdminDashboard = ({
                       Back to Project Builder
                     </button>
                   )}
-                  {editing === null && (!active.singleton || !(records[active.table]?.length)) && (
-                    <button type="button" onClick={() => beginAdd(active)} className="button-primary inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white">
-                      <FiPlus aria-hidden="true" />Add
+                                   {editing === null &&
+                    (
+                      !active.singleton ||
+                      !(
+                        records[
+                          active.table
+                        ]?.length
+                      )
+                    ) && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        beginAdd(
+                          active,
+                        )
+                      }
+                      disabled={
+                        active.table ===
+                          "project_section_items" &&
+                        !activeSelectedProjectSectionItemId
+                      }
+                      className="button-primary inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <FiPlus
+                        aria-hidden="true"
+                      />
+                      Add
                     </button>
                   )}
                 </div>
@@ -1819,38 +2075,41 @@ export const AdminDashboard = ({
                 </form>
               ) : (
                 <div className="mt-6 grid gap-3">
-                                    {(
-                    active.table ===
-                    "project_sections"
-                      ? projectContentSections
-                      : records[
-                          active.table
-                        ] ?? []
-                  ).map(
+                                                  {activeListRows.map(
                     (
                       row,
                       visibleIndex,
-                    ) => {                    const index =
-                      active.table ===
-                      "project_sections"
-                        ? (
-                            records
+                    ) => {
+                      const sourceRows =
+                        active.table ===
+                        "project_sections"
+                          ? records
                               .project_sections ??
                             []
-                          ).findIndex(
-                            (
-                              candidate,
-                            ) =>
-                              String(
-                                candidate.id ??
-                                  "",
-                              ) ===
-                              String(
-                                row.id ??
-                                  "",
-                              ),
-                          )
-                        : visibleIndex;
+                          : active.table ===
+                              "project_section_items"
+                            ? records
+                                .project_section_items ??
+                              []
+                            : null;
+
+                      const index =
+                        sourceRows
+                          ? sourceRows.findIndex(
+                              (
+                                candidate,
+                              ) =>
+                                String(
+                                  candidate.id ??
+                                    "",
+                                ) ===
+                                String(
+                                  row.id ??
+                                    "",
+                                ),
+                            )
+                          : visibleIndex;
+
                     const completeness = active.table === "projects"
                       ? getProjectCompleteness(
                         row,
@@ -1916,21 +2175,18 @@ export const AdminDashboard = ({
                       </article>
                     );
                   })}
-                                   {(
-                    active.table ===
-                    "project_sections"
-                      ? projectContentSections
-                          .length ===
-                        0
-                      : !records[
-                          active.table
-                        ]?.length
-                  ) && (
+                                                     {activeListRows.length ===
+                    0 && (
                     <p className="py-8 text-center text-sm text-gray-400">
                       {active.table ===
                       "project_sections"
                         ? "No active sections for this project yet."
-                        : "No entries yet."}
+                        : active.table ===
+                            "project_section_items"
+                          ? activeSelectedProjectSectionItemId
+                            ? "No items for this section yet."
+                            : "Select a project with at least one active section."
+                          : "No entries yet."}
                     </p>
                   )}
                   <p className="text-sm text-cyan-100" aria-live="polite">{contentStatus}</p>
