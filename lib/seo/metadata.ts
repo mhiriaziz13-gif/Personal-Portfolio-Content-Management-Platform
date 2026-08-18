@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 
 import type { PortfolioContent } from "@/lib/cms-types";
-import { isProductionDeployment, siteSeo } from "@/lib/seo/config";
+import {
+  isProductionDeployment,
+  publicIdentity,
+  siteSeo,
+} from "@/lib/seo/config";
 import { absoluteUrl, resolveMediaUrl } from "@/lib/seo/urls";
 
 export const publicPageDefinitions = [
@@ -80,7 +84,10 @@ type PageMetadata = {
   openGraphTitle?: string;
   openGraphDescription?: string;
 };
-
+const createMetadataTitle = (title: string): Metadata["title"] =>
+  title.includes(publicIdentity.name)
+    ? { absolute: title }
+    : title;
 export const createPageMetadata = ({
   title,
   description,
@@ -93,7 +100,7 @@ export const createPageMetadata = ({
   const canonical = absoluteUrl(path);
   const shouldIndex = isProductionDeployment && !noindex;
   return {
-    title,
+    title: createMetadataTitle(title),
     description,
     alternates: { canonical },
     robots: { index: shouldIndex, follow: shouldIndex, nocache: !shouldIndex },

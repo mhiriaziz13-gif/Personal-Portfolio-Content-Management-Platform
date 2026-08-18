@@ -1,6 +1,9 @@
 import type { MetadataRoute } from "next";
 
-import type { PortfolioContent } from "@/lib/cms-types";
+import type {
+  PortfolioContent,
+  ProjectContent,
+} from "@/lib/cms-types";
 import { getPublishedPublicPages } from "@/lib/seo/metadata";
 import { absoluteUrl } from "@/lib/seo/urls";
 
@@ -11,7 +14,10 @@ const hasConfirmedDelivery = (
   content: PortfolioContent | null,
   group: "profile" | "projects",
 ) => content?.delivery.source === "cms" && content.delivery[group] === "ok";
-
+const isDiscoverableProject = (project: ProjectContent) =>
+  project.status === "published" &&
+  Boolean(project.slug.trim()) &&
+  Boolean(project.description.trim());
 export const createSitemapEntries = (
   content: PortfolioContent | null,
 ): MetadataRoute.Sitemap => {
@@ -24,12 +30,7 @@ export const createSitemapEntries = (
   const projects: MetadataRoute.Sitemap = (
     hasConfirmedDelivery(content, "projects") ? content?.projects ?? [] : []
   )
-    .filter(
-      (project) =>
-        project.status === "published" &&
-        Boolean(project.slug) &&
-        Boolean(project.description),
-    )
+    .filter(isDiscoverableProject)
     .map((project) => ({
       url: absoluteUrl(`/projects/${project.slug}`),
       ...(project.updatedAt ? { lastModified: project.updatedAt } : {}),
@@ -50,12 +51,7 @@ export const createLlmsText = (content: PortfolioContent | null) => {
   const projects = (
     hasConfirmedDelivery(content, "projects") ? content?.projects ?? [] : []
   )
-    .filter(
-      (project) =>
-        project.status === "published" &&
-        Boolean(project.slug) &&
-        Boolean(project.description.trim()),
-    )
+    .filter(isDiscoverableProject)
     .map(
       (project) =>
         `- [${cleanText(project.title)}](${absoluteUrl(`/projects/${project.slug}`)}): ${cleanText(project.description)}`,
