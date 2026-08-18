@@ -222,4 +222,119 @@ describe("related project recommendations", () => {
       "candidate-3",
     ]);
   });
+  it("discovers a completely new future project from metadata only", () => {
+    const current = makeProject({
+      slug:
+        "commercial-performance-hub",
+      title:
+        "Commercial Performance Hub",
+      type:
+        "Business Intelligence",
+      tags: [
+        "Commercial Analytics",
+        "KPI Analysis",
+      ],
+      tools: [
+        "Power BI",
+      ],
+    });
+
+    const futureProject = makeProject({
+      slug:
+        "future-revenue-intelligence-dashboard",
+      title:
+        "Revenue Intelligence Dashboard",
+      type:
+        "Business Analytics · Revenue Intelligence",
+      tags: [
+        "Revenue Analytics",
+        "KPI Dashboard",
+        "Commercial Performance",
+      ],
+      tools: [
+        "SQL",
+      ],
+      projectsPageOrder: 1,
+    });
+
+    expect(
+      getRelatedProjects(
+        current,
+        [
+          current,
+          futureProject,
+        ],
+      ).map(
+        (project) =>
+          project.slug,
+      ),
+    ).toEqual([
+      "future-revenue-intelligence-dashboard",
+    ]);
+  });
+
+  it("does not create a relationship from generic project vocabulary", () => {
+    const current = makeProject({
+      slug:
+        "operations-platform",
+      title:
+        "Operations Platform",
+      type:
+        "Platform Management",
+      tags: [
+        "Project Management",
+      ],
+    });
+
+    const candidate = makeProject({
+      slug:
+        "unrelated-platform",
+      title:
+        "Unrelated Platform",
+      type:
+        "Platform Development",
+      tags: [
+        "Professional Project",
+      ],
+    });
+
+    expect(
+      getRelatedProjects(
+        current,
+        [
+          current,
+          candidate,
+        ],
+      ),
+    ).toEqual([]);
+  });
+
+  it("normalizes punctuation and ecommerce spelling for exact evidence", () => {
+    const current = makeProject({
+      slug:
+        "commerce-current",
+      title:
+        "Commerce Current",
+      tags: [
+        "E-commerce Analytics",
+      ],
+    });
+
+    const candidate = makeProject({
+      slug:
+        "commerce-candidate",
+      title:
+        "Commerce Candidate",
+      tags: [
+        "Ecommerce Analytics",
+      ],
+    });
+
+    expect(
+      scoreProjectRelation(
+        current,
+        candidate,
+      ),
+    ).toBeGreaterThanOrEqual(6);
+  });
 });

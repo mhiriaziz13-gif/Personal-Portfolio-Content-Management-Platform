@@ -454,7 +454,22 @@ export function ProjectWorkspace({
       links,
     ],
   );
+  const recommendationHasType =
+    draft.type.trim().length > 0;
 
+  const recommendationHasTags =
+    draft.tags.some(
+      (tag) => tag.trim().length > 0,
+    );
+
+  const recommendationHasTools =
+    draft.tools.some(
+      (tool) => tool.trim().length > 0,
+    );
+
+  const recommendationPublishReady =
+    recommendationHasType &&
+    recommendationHasTags;
   const hardDeleteStateReady =
     project.status ===
       "archived" &&
@@ -1077,7 +1092,11 @@ export function ProjectWorkspace({
     disabled={
     saving ||
     deletingProject ||
-    !dirty
+    !dirty ||
+    (
+      draft.status === "published" &&
+      !recommendationPublishReady
+    )
   }
               className="button-primary inline-flex min-h-11 items-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -2073,7 +2092,78 @@ export function ProjectWorkspace({
                 </option>
               </select>
             </label>
+            <div className="mt-5 rounded-lg border border-cyan-300/15 bg-cyan-300/5 p-4">
+              <h3 className="text-sm font-semibold text-cyan-100">
+                Recommendation readiness
+              </h3>
 
+              <p className="mt-2 text-xs leading-5 text-gray-400">
+                Published projects need enough domain metadata
+                to enter dynamic recommendations without
+                project-specific code.
+              </p>
+
+              <div className="mt-4 grid gap-3 text-sm">
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-gray-300">
+                    Project type
+                  </span>
+                  <span
+                    className={
+                      recommendationHasType
+                        ? "text-emerald-200"
+                        : "text-red-200"
+                    }
+                  >
+                    {recommendationHasType
+                      ? "Ready"
+                      : "Required"}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-gray-300">
+                    Domain tags
+                  </span>
+                  <span
+                    className={
+                      recommendationHasTags
+                        ? "text-emerald-200"
+                        : "text-red-200"
+                    }
+                  >
+                    {recommendationHasTags
+                      ? "Ready"
+                      : "Required"}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-gray-300">
+                    Tools / technologies
+                  </span>
+                  <span
+                    className={
+                      recommendationHasTools
+                        ? "text-emerald-200"
+                        : "text-amber-200"
+                    }
+                  >
+                    {recommendationHasTools
+                      ? "Ready"
+                      : "Recommended"}
+                  </span>
+                </div>
+              </div>
+
+              {draft.status === "published" &&
+                !recommendationPublishReady && (
+                  <p className="mt-4 rounded-md border border-red-300/20 bg-red-400/10 p-3 text-xs leading-5 text-red-100">
+                    Publishing is blocked until a project type
+                    and at least one domain tag are provided.
+                  </p>
+                )}
+            </div>
             <div className="mt-5 rounded-lg border border-white/10 bg-black/10 p-4 text-sm text-gray-300">
               <p>
                 Public flag:{" "}

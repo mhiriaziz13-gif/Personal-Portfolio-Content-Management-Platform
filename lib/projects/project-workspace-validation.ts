@@ -209,7 +209,29 @@ export const projectWorkspaceValuesSchema = z
           "Published status and public visibility must match.",
       });
     }
+    if (
+      value.status === "published" &&
+      !value.type.trim()
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["type"],
+        message:
+          "Add a project type before publishing.",
+      });
+    }
 
+    if (
+      value.status === "published" &&
+      value.tags.length === 0
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["tags"],
+        message:
+          "Add at least one domain tag before publishing.",
+      });
+    }
     if (
       value.status === "archived" &&
       value.featured

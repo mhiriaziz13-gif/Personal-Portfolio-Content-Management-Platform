@@ -11,6 +11,8 @@ describe("project completeness", () => {
       {
         slug: "commercial-analytics",
         title: "Commercial analytics",
+        type: "Business Analytics",
+        tags: ["Commercial Analytics"],
         summary: "A measurable commercial analytics engagement.",
         cover_image_url: "/cover.webp",
         status: "published",
@@ -71,7 +73,7 @@ describe("project completeness", () => {
     }, [{ body: "Draft evidence", is_visible: true }]);
 
     expect(result.publishable).toBe(true);
-    expect(result.warnings).toHaveLength(4);
+    expect(result.warnings).toHaveLength(7);
   });
 
   it("blocks inconsistent publication state and invalid CTA URLs", () => {
@@ -87,5 +89,52 @@ describe("project completeness", () => {
     expect(result.publishable).toBe(false);
     expect(result.blockingIssues.join(" ")).toContain("published=true");
     expect(result.blockingIssues.join(" ")).toContain("CTA URLs");
+  });
+  it("blocks consistently published projects without required recommendation metadata", () => {
+    const result = getProjectCompleteness({
+      slug: "published-project",
+      title: "Published Project",
+      type: "",
+      tags: [],
+      tools: [],
+      summary: "Published summary",
+      status: "published",
+      published: true,
+    }, [{ body: "Published evidence", is_visible: true }]);
+
+    expect(result.publishable).toBe(false);
+    expect(result.blockingIssues).toContain(
+      "Add a project type before publishing.",
+    );
+    expect(result.blockingIssues).toContain(
+      "Add at least one domain tag before publishing.",
+    );
+    expect(result.warnings).toContain(
+      "Add tools/technologies to improve recommendation quality.",
+    );
+  });
+
+  it("allows published projects with type and domain tags while keeping tools optional", () => {
+    const result = getProjectCompleteness({
+      slug: "revenue-intelligence",
+      title: "Revenue Intelligence",
+      type: "Business Analytics",
+      tags: ["Revenue Analytics"],
+      tools: [],
+      summary: "Commercial analytics evidence.",
+      status: "published",
+      published: true,
+    }, [{ body: "Evidence", is_visible: true }]);
+
+    expect(result.publishable).toBe(true);
+    expect(result.warnings).toContain(
+      "Add tools/technologies to improve recommendation quality.",
+    );
+    expect(result.blockingIssues).not.toContain(
+      "Add a project type before publishing.",
+    );
+    expect(result.blockingIssues).not.toContain(
+      "Add at least one domain tag before publishing.",
+    );
   });
 });
