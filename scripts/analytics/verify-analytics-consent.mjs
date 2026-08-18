@@ -27,6 +27,10 @@ const gtmLoader = read("components/analytics/google-tag-manager-loader.tsx");
 const gtmRuntime = read("lib/analytics/google-tag-manager.ts");
 const pageView = read("components/analytics/page-view-tracker.tsx");
 const pageViewContract = read("lib/analytics/page-view.ts");
+const navbar = read("components/main/navbar.tsx");
+const mobileNavigation = read("components/main/mobile-navigation.tsx");
+const projectSocialLinks = read("components/sub/project-social-links.tsx");
+const projectDetailPage = read("app/projects/[slug]/page.tsx");
 const contactForm = read("components/main/contact-form.tsx");
 const contactRoute = read("app/api/contact/route.ts");
 const privacy = read("lib/security/privacy.ts");
@@ -71,6 +75,28 @@ check(
     && !pageView.includes("window.location.href")
     && pageViewContract.includes("pathname.split"),
   "Virtual page views are not deduplicated or URL-minimized.",
+);
+check(
+  navbar.includes('event: "resume_view_click"')
+    && navbar.includes('cta_location: "navbar"'),
+  "Desktop navbar Resume CTA is not tracked.",
+);
+
+check(
+  mobileNavigation.includes('event: "resume_view_click"')
+    && mobileNavigation.includes('cta_location: "mobile_navigation"'),
+  "Mobile navigation Resume CTA is not tracked.",
+);
+check(
+  projectSocialLinks.includes("project_slug:")
+    && projectSocialLinks.includes("projectSlug"),
+  "Project social-link analytics do not carry a stable project slug.",
+);
+
+check(
+  projectDetailPage.includes('event: "project_demo_click"')
+    && projectDetailPage.includes("project_slug: project.slug"),
+  "Project demo analytics do not carry a stable project slug.",
 );
 check(
   deferred.includes("useAnalyticsConsent")

@@ -186,20 +186,22 @@ export default async function ProjectDetailPage({
           <p className="mt-5 max-w-3xl text-base leading-8 text-gray-300">
             {project.description}
           </p>
-          <ProjectSocialLinks
-            githubUrl={project.githubUrl}
-            linkedinUrl={project.linkedinUrl}
-            projectTitle={project.title}
-            className="mt-5"
-          />
+<ProjectSocialLinks
+  githubUrl={project.githubUrl}
+  linkedinUrl={project.linkedinUrl}
+  projectSlug={project.slug}
+  projectTitle={project.title}
+  className="mt-5"
+/>
           {project.demoUrl ? (
             <TrackedLink
               href={project.demoUrl}
-              analyticsEvent={{
-                event: "project_demo_click",
-                project_title: project.title,
-                cta_location: "project_page",
-              }}
+analyticsEvent={{
+  event: "project_demo_click",
+  project_slug: project.slug,
+  project_title: project.title,
+  cta_location: "project_page",
+}}
               target="_blank"
               rel="noreferrer noopener"
               className="button-secondary mt-5 inline-flex min-h-11 items-center rounded-lg px-4 py-2.5 text-sm font-semibold"
