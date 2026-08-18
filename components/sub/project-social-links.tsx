@@ -4,6 +4,7 @@ import { TrackedLink } from "@/components/analytics/tracked-link";
 type ProjectSocialLinksProps = {
   githubUrl?: string;
   linkedinUrl?: string;
+  projectSlug: string;
   projectTitle: string;
   className?: string;
 };
@@ -11,6 +12,7 @@ type ProjectSocialLinksProps = {
 export const ProjectSocialLinks = ({
   githubUrl,
   linkedinUrl,
+  projectSlug,
   projectTitle,
   className = "",
 }: ProjectSocialLinksProps) => {
@@ -21,7 +23,14 @@ export const ProjectSocialLinks = ({
       {githubUrl && (
         <TrackedLink
           href={githubUrl}
-          analyticsEvent={{ event: "project_repository_click", project_title: projectTitle, cta_location: className.includes("border-b") ? "project_card" : "project_page" }}
+          analyticsEvent={{
+  event: "project_repository_click",
+  project_slug: projectSlug,
+  project_title: projectTitle,
+  cta_location: className.includes("border-b")
+    ? "project_card"
+    : "project_page",
+}}
           target="_blank"
           rel="noopener noreferrer"
           aria-label={`View ${projectTitle} on GitHub`}
@@ -34,7 +43,14 @@ export const ProjectSocialLinks = ({
       {linkedinUrl && (
         <TrackedLink
           href={linkedinUrl}
-          analyticsEvent={{ event: "project_cta_click", project_title: projectTitle, cta_location: className.includes("border-b") ? "project_card" : "project_page" }}
+          analyticsEvent={{
+  event: "project_cta_click",
+  project_slug: projectSlug,
+  project_title: projectTitle,
+  cta_location: className.includes("border-b")
+    ? "project_card"
+    : "project_page",
+}}
           target="_blank"
           rel="noopener noreferrer"
           aria-label={`View ${projectTitle} on LinkedIn`}

@@ -10,7 +10,7 @@ import {
   getPrimaryNavigationLinks,
   getResumeNavigationLink,
 } from "@/lib/navigation";
-
+import { TrackedLink } from "@/components/analytics/tracked-link";
 export const Navbar = ({ profile = fallbackPortfolioContent.profile, navLinks = fallbackPortfolioContent.navLinks }: { profile?: ProfileContent; navLinks?: NavLink[] }) => {
   const pathname = usePathname();
   const primaryLinks = getPrimaryNavigationLinks(navLinks);
@@ -54,18 +54,22 @@ export const Navbar = ({ profile = fallbackPortfolioContent.profile, navLinks = 
               </Link>
             ))}
           </div>
-          {resumeLink ? (
-            <Link
-              href={resumeLink.href}
-              prefetch={false}
-              aria-current={
-                isActivePath(pathname, resumeLink.href) ? "page" : undefined
-              }
-              className="button-primary inline-flex min-h-11 items-center justify-center rounded-full px-5 py-2 text-sm font-bold text-white"
-            >
-              {resumeLink.title}
-            </Link>
-          ) : null}
+{resumeLink ? (
+  <TrackedLink
+    href={resumeLink.href}
+    prefetch={false}
+    analyticsEvent={{
+      event: "resume_view_click",
+      cta_location: "navbar",
+    }}
+    aria-current={
+      isActivePath(pathname, resumeLink.href) ? "page" : undefined
+    }
+    className="button-primary inline-flex min-h-11 items-center justify-center rounded-full px-5 py-2 text-sm font-bold text-white"
+  >
+    {resumeLink.title}
+  </TrackedLink>
+) : null}
         </div>
 
         <MobileNavigation navLinks={navLinks} pathname={pathname} />

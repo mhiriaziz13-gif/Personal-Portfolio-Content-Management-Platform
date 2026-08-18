@@ -9,7 +9,7 @@ import {
   getPrimaryNavigationLinks,
   getResumeNavigationLink,
 } from "@/lib/navigation";
-
+import { TrackedLink } from "@/components/analytics/tracked-link";
 export const MobileNavigation = ({
   navLinks,
   pathname,
@@ -137,20 +137,24 @@ export const MobileNavigation = ({
                   {link.title}
                 </Link>
               ))}
-              {resumeLink ? (
-                <Link
-                  href={resumeLink.href}
-                  aria-current={
-                    isActivePath(pathname, resumeLink.href)
-                      ? "page"
-                      : undefined
-                  }
-                  className="button-primary mt-2 inline-flex min-h-11 items-center justify-center rounded-lg px-4 py-3 font-bold text-white"
-                  onClick={closeAndRestoreFocus}
-                >
-                  {resumeLink.title}
-                </Link>
-              ) : null}
+{resumeLink ? (
+  <TrackedLink
+    href={resumeLink.href}
+    analyticsEvent={{
+      event: "resume_view_click",
+      cta_location: "mobile_navigation",
+    }}
+    aria-current={
+      isActivePath(pathname, resumeLink.href)
+        ? "page"
+        : undefined
+    }
+    className="button-primary mt-2 inline-flex min-h-11 items-center justify-center rounded-lg px-4 py-3 font-bold text-white"
+    onClick={closeAndRestoreFocus}
+  >
+    {resumeLink.title}
+  </TrackedLink>
+) : null}
             </div>
           </div>
         </div>

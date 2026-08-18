@@ -151,6 +151,65 @@ describe("typed application events", () => {
     expect(pushAnalyticsEvent(event)).toBe(false);
     expect(dataLayer).toHaveLength(1);
   });
+it("preserves the recruiter funnel event payloads", () => {
+  const dataLayer: Array<Record<string, unknown>> = [];
+
+  vi.stubGlobal("window", {
+    dataLayer,
+    localStorage: {
+      getItem: () =>
+        JSON.stringify({
+          version: 1,
+          analytics: "granted",
+          updatedAt: "2026-08-18T12:00:00.000Z",
+        }),
+    },
+    location: {
+      hostname: PRODUCTION_ANALYTICS_HOSTNAME,
+      pathname: "/projects",
+    },
+  });
+
+  const events = [
+    {
+      event: "resume_view_click",
+      cta_location: "navbar",
+    },
+    {
+      event: "resume_view_click",
+      cta_location: "mobile_navigation",
+    },
+    {
+      event: "project_repository_click",
+      project_slug: "portfolio-platform",
+      project_title: "Portfolio Platform",
+      cta_location: "project_page",
+    },
+    {
+      event: "project_demo_click",
+      project_slug: "portfolio-platform",
+      project_title: "Portfolio Platform",
+      cta_location: "project_page",
+    },
+    {
+      event: "profile_link_click",
+      platform: "linkedin",
+      link_location: "contact",
+    },
+    {
+      event: "contact_submit_success",
+      form_name: "portfolio_contact",
+      contact_method: "api",
+      cta_location: "contact_page",
+    },
+  ] as const;
+
+  events.forEach((event) => {
+    expect(pushAnalyticsEvent(event)).toBe(true);
+  });
+
+  expect(dataLayer).toEqual(events);
+});
 });
 
 describe("virtual page-view contract", () => {

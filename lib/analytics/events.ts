@@ -38,10 +38,15 @@ export type AnalyticsEvent =
         | "projects_page"
         | "related_projects";
     }
-  | {
-      event: "resume_view_click";
-      cta_location: "hero" | "homepage" | "contact_section";
-    }
+| {
+    event: "resume_view_click";
+    cta_location:
+      | "hero"
+      | "homepage"
+      | "contact_section"
+      | "navbar"
+      | "mobile_navigation";
+  }
   | {
       event: "resume_download";
       cv_variant: PublicResumeVariant;
@@ -79,11 +84,15 @@ export type AnalyticsEvent =
       cta_location: "hero" | "project_page" | "resume_page" | "footer";
       cta_label: string;
     }
-  | {
-      event: "project_cta_click" | "project_demo_click" | "project_repository_click";
-      project_title: string;
-      cta_location: "project_card" | "project_page";
-    }
+| {
+    event:
+      | "project_cta_click"
+      | "project_demo_click"
+      | "project_repository_click";
+    project_slug: string;
+    project_title: string;
+    cta_location: "project_card" | "project_page";
+  }
   | {
       event: "outbound_linkedin_click" | "outbound_github_click";
       link_location: "project_card" | "project_page" | "navbar" | "footer" | "contact" | "about";
