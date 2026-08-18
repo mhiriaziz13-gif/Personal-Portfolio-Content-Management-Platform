@@ -61,4 +61,20 @@ describe("public structured data", () => {
     expect(schema).not.toHaveProperty("author");
     expect(schema.description).toBe("Visible project summary.");
   });
+  it("keeps Person expertise factual and profile-driven", () => {
+    const profile = fallbackPortfolioContent.profile;
+    const person = personSchema(profile);
+
+    expect(person).not.toHaveProperty("jobTitle");
+    expect(person).not.toHaveProperty("alumniOf");
+
+    expect(person.knowsAbout).toEqual(
+      profile.aboutFocus,
+    );
+
+    expect(person.sameAs).toEqual([
+      profile.linkedIn,
+      profile.github,
+    ]);
+  });
 });

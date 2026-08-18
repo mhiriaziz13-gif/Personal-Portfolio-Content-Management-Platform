@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { fallbackPortfolioContent } from "@/data/fallback-portfolio";
 import {
   createCmsPageMetadata,
+  createPageMetadata,
   publicPageDefinitions,
 } from "@/lib/seo/metadata";
 
@@ -18,7 +19,20 @@ describe("public metadata", () => {
       publicPageDefinitions.length,
     );
   });
+  it("does not append the global name template to an already complete title", () => {
+    const metadata = createPageMetadata({
+      title:
+        "About Ahmed Aziz Mhiri | Marketing, Data & Digital Transformation",
+      description:
+        "Professional profile of Ahmed Aziz Mhiri.",
+      path: "/about",
+    });
 
+    expect(metadata.title).toEqual({
+      absolute:
+        "About Ahmed Aziz Mhiri | Marketing, Data & Digital Transformation",
+    });
+  });
   it("uses published CMS metadata and social fields when present", () => {
     const content = {
       ...fallbackPortfolioContent,

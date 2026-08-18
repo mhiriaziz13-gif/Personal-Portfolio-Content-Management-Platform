@@ -115,4 +115,38 @@ describe("published discoverability surfaces", () => {
       /(?:October|Oct\.?)\s+2027|Summer\s+2027/i,
     );
   });
+  it("excludes published projects without meaningful public metadata", () => {
+    const incompleteProjects: ProjectContent[] = [
+      {
+        ...publishedProject,
+        id: "blank-slug-project",
+        slug: "   ",
+        title: "Blank slug project",
+      },
+      {
+        ...publishedProject,
+        id: "blank-description-project",
+        slug: "blank-description-project",
+        title: "Blank description project",
+        description: "   ",
+      },
+    ];
+
+    const content: PortfolioContent = {
+      ...cmsContent,
+      projects: [...cmsContent.projects, ...incompleteProjects],
+    };
+
+    const sitemap = createSitemapEntries(content)
+      .map((entry) => entry.url)
+      .join(" ");
+
+    const llms = createLlmsText(content);
+
+    expect(sitemap).not.toContain("blank-description-project");
+    expect(sitemap).not.toContain("blank-slug-project");
+
+    expect(llms).not.toContain("Blank description project");
+    expect(llms).not.toContain("Blank slug project");
+  });
 });

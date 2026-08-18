@@ -6,16 +6,36 @@ import type {
 import { siteSeo } from "@/lib/seo/config";
 import { absoluteUrl, resolveMediaUrl } from "@/lib/seo/urls";
 
-export const personSchema = (profile: ProfileContent) => ({
-  "@type": "Person", "@id": `${siteSeo.url}/#person`, name: profile.name, url: siteSeo.url,
-  ...(profile.avatarPath ? { image: resolveMediaUrl(profile.avatarPath) } : {}),
-  ...(profile.shortProfile ? { description: profile.shortProfile } : {}),
-  ...(profile.mainTitle ? { jobTitle: profile.mainTitle } : {}),
-  sameAs: [profile.linkedIn, profile.github].filter(Boolean),
-  ...(profile.location ? { homeLocation: { "@type": "Place", name: profile.location } } : {}),
-  knowsAbout: ["Marketing analytics", "Commercial analytics", "Business intelligence", "Customer insights", "Process automation"],
-  alumniOf: { "@type": "CollegeOrUniversity", name: "Institut des Hautes Études Commerciales de Carthage — IHEC Carthage" },
-});
+export const personSchema = (profile: ProfileContent) => {
+  const knowsAbout = profile.aboutFocus
+    .map((topic) => topic.trim())
+    .filter(Boolean);
+
+  return {
+    "@type": "Person",
+    "@id": `${siteSeo.url}/#person`,
+    name: profile.name,
+    url: siteSeo.url,
+    ...(profile.avatarPath
+      ? { image: resolveMediaUrl(profile.avatarPath) }
+      : {}),
+    ...(profile.shortProfile
+      ? { description: profile.shortProfile }
+      : {}),
+    sameAs: [profile.linkedIn, profile.github].filter(Boolean),
+    ...(profile.location
+      ? {
+          homeLocation: {
+            "@type": "Place",
+            name: profile.location,
+          },
+        }
+      : {}),
+    ...(knowsAbout.length > 0
+      ? { knowsAbout }
+      : {}),
+  };
+};
 
 export const websiteSchema = () => ({ "@type": "WebSite", "@id": `${siteSeo.url}/#website`, url: siteSeo.url, name: siteSeo.siteName, inLanguage: "en", publisher: { "@id": `${siteSeo.url}/#person` } });
 export const breadcrumbSchema = (items: { name: string; href: string }[]) => ({ "@type": "BreadcrumbList", itemListElement: items.map((item, index) => ({ "@type": "ListItem", position: index + 1, name: item.name, item: absoluteUrl(item.href) })) });
