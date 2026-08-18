@@ -11,6 +11,9 @@ export type ProjectSectionLike = {
 export type ProjectLike = {
   slug?: unknown;
   title?: unknown;
+  type?: unknown;
+  tags?: unknown;
+  tools?: unknown;
   summary?: unknown;
   description?: unknown;
   seo_title?: unknown;
@@ -85,6 +88,9 @@ export const getProjectCompleteness = (
   const blockingIssues: string[] = [];
   const warnings: string[] = [];
   const visibleSections = sections.filter(isVisibleProjectSection);
+    const isPublishedProject =
+    project.status === "published"
+    && project.published === true;
 
   if (!hasText(project.title)) blockingIssues.push("Add a project title.");
   if (!hasText(project.slug)) blockingIssues.push("Add a project slug.");
@@ -96,6 +102,37 @@ export const getProjectCompleteness = (
   ) {
     blockingIssues.push(
       "Use both status=published and published=true for a published project.",
+    );
+  }
+    if (isPublishedProject) {
+    if (!hasText(project.type)) {
+      blockingIssues.push(
+        "Add a project type before publishing.",
+      );
+    }
+
+    if (!hasNonEmptyList(project.tags)) {
+      blockingIssues.push(
+        "Add at least one domain tag before publishing.",
+      );
+    }
+  } else {
+    if (!hasText(project.type)) {
+      warnings.push(
+        "Add a project type to improve recommendation quality.",
+      );
+    }
+
+    if (!hasNonEmptyList(project.tags)) {
+      warnings.push(
+        "Add at least one domain tag to improve recommendation quality.",
+      );
+    }
+  }
+
+  if (!hasNonEmptyList(project.tools)) {
+    warnings.push(
+      "Add tools/technologies to improve recommendation quality.",
     );
   }
   if (visibleSections.some((section) => !hasMeaningfulProjectSection(section))) {

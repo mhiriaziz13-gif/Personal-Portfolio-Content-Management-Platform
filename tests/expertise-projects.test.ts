@@ -206,4 +206,107 @@ describe("expertise project recommendations", () => {
       "project-3",
     ]);
   });
+  it("discovers a completely new future project from adjacent business metadata", () => {
+    const category: SkillCategory = {
+      title:
+        "Data & Business Intelligence",
+      skills: [
+        "Commercial Analytics",
+        "KPI Analysis",
+        "Business Intelligence",
+      ],
+    };
+
+    const futureProject = makeProject({
+      slug:
+        "future-revenue-intelligence-dashboard",
+      title:
+        "Revenue Intelligence Dashboard",
+      type:
+        "Business Analytics · Revenue Intelligence",
+      tags: [
+        "Revenue Analytics",
+        "KPI Dashboard",
+        "Commercial Performance",
+      ],
+      tools: [
+        "SQL",
+      ],
+      projectsPageOrder: 9,
+    });
+
+    expect(
+      getProjectsForExpertise(
+        category,
+        [futureProject],
+      ).map(
+        (project) =>
+          project.slug,
+      ),
+    ).toEqual([
+      "future-revenue-intelligence-dashboard",
+    ]);
+  });
+
+  it("does not recommend a project from generic noisy vocabulary alone", () => {
+    const category: SkillCategory = {
+      title:
+        "Automation & Operations",
+      skills: [
+        "Platform Management",
+        "Process Automation",
+      ],
+    };
+
+    const genericProject = makeProject({
+      slug:
+        "generic-platform-project",
+      title:
+        "Generic Platform Project",
+      type:
+        "Platform Development",
+      tags: [
+        "Project Management",
+      ],
+    });
+
+    expect(
+      getProjectsForExpertise(
+        category,
+        [genericProject],
+      ),
+    ).toEqual([]);
+  });
+
+  it("normalizes punctuation and ecommerce spelling consistently", () => {
+    const category: SkillCategory = {
+      title:
+        "E-commerce Analytics",
+      skills: [
+        "Customer Analytics",
+      ],
+    };
+
+    const project = makeProject({
+      slug:
+        "commerce-project",
+      title:
+        "Commerce Project",
+      tags: [
+        "Ecommerce Analytics",
+      ],
+    });
+
+    expect(
+      getProjectsForExpertise(
+        category,
+        [project],
+      ).map(
+        (candidate) =>
+          candidate.slug,
+      ),
+    ).toEqual([
+      "commerce-project",
+    ]);
+  });
 });
