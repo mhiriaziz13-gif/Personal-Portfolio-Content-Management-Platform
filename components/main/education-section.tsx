@@ -21,25 +21,38 @@ const getDateRange = ({ startDate, endDate }: EducationContent) => {
 
 const EducationCard = ({ education }: { education: EducationContent }) => {
   const dateRange = getDateRange(education);
-
+const statusItems = education.status
+  .split("·")
+  .map((item) => item.trim())
+  .filter(Boolean);
   return (
     <article className="rounded-lg border border-white/10 bg-[#100b24]/90 p-6 shadow-xl shadow-[#2A0E61]/20 backdrop-blur-md transition duration-300 hover:border-cyan-300/25">
-      <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h3 className="text-xl font-bold text-white">{education.degree}</h3>
-          <p className="mt-2 text-base font-semibold text-cyan-100">
-            {education.institution}
-          </p>
-        </div>
+<div>
+  <h3 className="text-xl font-bold text-white">{education.degree}</h3>
+  <p className="mt-2 text-base font-semibold text-cyan-100">
+    {education.institution}
+  </p>
+</div>
 
-        {education.status.trim() && (
-          <span className="inline-flex w-fit shrink-0 items-center gap-2 rounded-full border border-purple-300/25 bg-purple-300/10 px-3 py-1.5 text-xs font-semibold text-purple-100">
-            <CheckBadgeIcon className="h-4 w-4" aria-hidden="true" />
-            {education.status}
-          </span>
-        )}
-      </div>
-
+{statusItems.length > 0 && (
+  <ul
+    className="mt-5 flex flex-wrap gap-2"
+    aria-label={`${education.degree} academic details`}
+  >
+    {statusItems.map((item) => (
+      <li
+        key={item}
+        className="inline-flex max-w-full items-center gap-2 rounded-full border border-purple-300/25 bg-purple-300/10 px-3 py-1.5 text-xs font-semibold leading-5 text-purple-100"
+      >
+        <CheckBadgeIcon
+          className="h-4 w-4 shrink-0"
+          aria-hidden="true"
+        />
+        <span>{item}</span>
+      </li>
+    ))}
+  </ul>
+)}
       {(dateRange || education.location.trim()) && (
         <div className="mt-5 flex flex-wrap gap-x-5 gap-y-3 text-sm text-gray-300">
           {dateRange && (
