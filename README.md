@@ -1,87 +1,111 @@
-# Ahmed Aziz Mhiri — Marketing & Commercial Analytics, Big Data & Digital Transformation
+# Ahmed Aziz Mhiri — Portfolio & Content Management Platform
 
 [![Live Portfolio](https://img.shields.io/badge/Live%20Portfolio-Visit-000000?style=for-the-badge&logo=vercel)](https://ahmedaziz-portfolio.vercel.app/?utm_source=github&utm_medium=referral&utm_campaign=portfolio_growth_2026&utm_content=repository_badge)
-[![Next.js](https://img.shields.io/badge/Next.js-16.2.9-000000?style=for-the-badge&logo=nextdotjs)](https://nextjs.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-16.2.12-000000?style=for-the-badge&logo=nextdotjs)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Supabase](https://img.shields.io/badge/Supabase-CMS%20%26%20Auth-3FCF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
 [![Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-000000?style=for-the-badge&logo=vercel)](https://vercel.com/)
 
-A production-grade 3D personal portfolio for **Ahmed Aziz Mhiri**, a **Marketing & Commercial Analyst** and **Digital Transformation Project Manager** working across Business Intelligence, Big Data, AI, CRM automation and engineering.
+A production-grade 3D professional portfolio and content-management platform for **Ahmed Aziz Mhiri**, focused on **Marketing & Commercial Analytics, Business Intelligence, Digital Transformation and Automation**, with **Big Data & Applied AI** as complementary technical depth.
 
-> **Turning customer, commercial and operational data into clearer decisions, smarter processes and measurable digital outcomes.**
+> **Turning business data into decisions, growth and digital solutions.**
 
-The platform combines a high-impact public portfolio, a Supabase-backed CMS, secure administration, structured project case studies, modern search-engine infrastructure and a performance-conscious 3D experience.
+The platform combines a recruiter-oriented public portfolio with a Supabase-backed CMS, secure administration, structured project case studies, analytics, technical SEO, AI-readable discovery and a performance-conscious 3D experience.
+
+---
 
 ## Live links
 
 - **Portfolio:** [View the live portfolio](https://ahmedaziz-portfolio.vercel.app/?utm_source=github&utm_medium=referral&utm_campaign=portfolio_growth_2026&utm_content=repository_readme)
-- **LinkedIn:** [linkedin.com/in/ahmed-aziz-mhiri](https://linkedin.com/in/ahmed-aziz-mhiri)
+- **LinkedIn:** [linkedin.com/in/ahmed-aziz-mhiri](https://www.linkedin.com/in/ahmed-aziz-mhiri/)
 - **GitHub:** [github.com/mhiriaziz13-gif](https://github.com/mhiriaziz13-gif)
 - **Sitemap:** [sitemap.xml](https://ahmedaziz-portfolio.vercel.app/sitemap.xml)
 - **AI-readable summary:** [llms.txt](https://ahmedaziz-portfolio.vercel.app/llms.txt)
 
+---
+
 ## Professional positioning
 
-This portfolio presents a business-oriented analytics profile rather than a pure software-engineering or machine-learning profile.
+The portfolio presents a **business-oriented analytics and digital-transformation profile**, rather than positioning its owner as a pure software engineer, data scientist or machine-learning engineer.
 
-Core areas:
+Core areas include:
 
-- Marketing and commercial analytics
-- Business intelligence and KPI reporting
-- Big Data and applied AI
-- Customer and operational insight
-- Revenue and performance analysis
-- Process automation and auditability
-- CRM and marketing automation
-- Digital transformation and systems integration
+- Marketing & Commercial Analytics
+- Business Intelligence and KPI reporting
+- Digital Transformation
+- Revenue, sales and operational analytics
+- CRM & Marketing Automation
+- Process Automation and auditability
+- Customer and operational insights
+- Big Data Analytics
+- Applied AI for business use cases
 - Digital growth and customer journeys
 - Hospitality and tourism business systems
 
-Target role families include Marketing & Commercial Analyst, Business Intelligence Analyst, Marketing Data Analyst, CRM & Marketing Automation Analyst and Digital Transformation Analyst.
+Technology is presented as an enabler of business outcomes rather than as the primary professional identity.
+
+---
 
 ## Selected case studies
 
-The site presents published, evidence-led case studies including:
+The portfolio contains published, evidence-led case studies across professional, freelance and academic work.
 
-1. **RPA for Invoice Control & Booking Reconciliation**  
-   UiPath-based reconciliation across invoices, vouchers, reservations, stay data and commercial rules, with structured JSON outputs, HTML reporting and exception review.
+### RPA for Invoice Control & Booking Reconciliation
 
-2. **Digital Transformation for a Men's Barbershop**  
-   Website, online booking, local SEO, customer communication, social content, email marketing and paid-social support.
+UiPath-based workflow for tourism invoice control, booking reconciliation, commercial-rule validation, structured reporting, exception management and human review.
 
-3. **AI-Ready E-Learning Platform**  
-   Secure multilingual learning-platform contribution using Angular, Spring Boot, REST APIs, microservices, Ollama, local LLaMA 3.2 and RAG over PDF/CSV knowledge sources.
+Public material is sanitised and excludes production workflow files, confidential commercial values and operational data.
 
-4. **Library Management Application**  
-   Full-stack management application using Angular, Spring Boot, REST APIs and a relational database.
+### Digital Transformation for a Men's Barbershop
 
-5. **Hotel KPI & Cost Control Analysis**  
-   Occupancy, operational-cost, revenue-related KPI, budget-variance and financial-reporting analysis for management decision support.
+Client-oriented digital transformation covering website development, online booking, local digital presence, customer communication, digital marketing and customer-journey improvement.
 
-No confidential customer, reservation, hotel-contract, invoice or financial data is published.
+### AI-Ready E-Learning Platform
 
-## Main capabilities
+Academic/internship contribution to a multilingual learning platform using Angular, Spring Boot, REST APIs, microservices, Ollama, local LLM integration and RAG over document-based knowledge sources.
+
+### Library Management Application
+
+Full-stack academic application covering application architecture, REST APIs, relational data and business workflows.
+
+### Hotel KPI & Cost Control Analysis
+
+Professional management-control and analytics work involving occupancy, operational costs, budget variance, revenue-related KPIs and decision-support reporting.
+
+No confidential customer, reservation, hotel-contract, invoice or private financial data is published.
+
+---
+
+## Platform capabilities
 
 ### Public portfolio
 
 - Responsive 3D interface
 - Server-rendered public content
-- Dedicated About, Expertise, Projects, Experience, Education, Certifications, Resume and Contact pages
+- About, Expertise, Projects, Experience, Education, Certifications, Resume and Contact pages
 - Dynamic project detail pages
-- Crawlable navigation, breadcrumbs and related-content links
-- CMS-governed resume variants with downloads enabled only for validated files
+- Crawlable navigation and breadcrumbs
+- Related-project and expertise recommendations
+- CMS-governed resume variants
+- Validated resume downloads
 - Accessible semantic content layered over deferred visual effects
+- Mobile and desktop responsive behavior
 
 ### CMS and content governance
 
 - Supabase-backed content management
 - Published/unpublished content controls
 - CMS-authoritative production rendering
-- Repository fallback content for documented local-development mode only
-- Project sections and metadata support
-- Profile, hero, skills, projects, experience, education, certifications, resumes and social-link management
+- Repository fallback content for documented local-development mode
+- Structured project sections and metadata
+- Profile and hero management
+- Skills management
+- Experience and education management
+- Certification management
+- Resume management
+- Social-link management
 - Media and upload workflows
-- Public-safe content rules for confidential business projects
+- Public-safe handling of confidential business projects
 
 ### Authentication and administration
 
@@ -91,39 +115,66 @@ No confidential customer, reservation, hotel-contract, invoice or financial data
 - Remembered-device flow
 - Password recovery
 - hCaptcha bot protection
-- Admin authorization and protected CMS routes
-- POST-only logout flow
+- Admin authorization
+- Protected CMS routes
+- POST-only logout
 - Supabase Row Level Security
+- CSRF protection for sensitive mutations
+- Origin validation
 
 ### SEO, AEO and AI discovery
 
 - Typed route-level metadata
 - Canonical URL architecture
-- Open Graph and Twitter metadata
+- Open Graph metadata
+- Twitter card metadata
 - Dynamic project metadata
-- JSON-LD for Person, WebSite, CreativeWork and BreadcrumbList entities
+- JSON-LD structured data
+- `Person`
+- `WebSite`
+- `CreativeWork`
+- `BreadcrumbList`
 - Production/preview indexing controls
 - `robots.txt`
 - `sitemap.xml`
 - `llms.txt`
 - `humans.txt`
-- Web app manifest
-- Search-engine verification support
-- Local SEO and content audit scripts
+- Web application manifest
+- Google and Bing verification support
+- Automated SEO and content audits
 
-`llms.txt` is provided as a supplementary machine-readable summary. It does not guarantee indexing, rankings or citations by AI systems.
+`llms.txt` is provided as a supplementary machine-readable summary. It does not guarantee indexing, ranking, citation or inclusion by AI systems.
 
-### Performance and observability
+### Analytics and observability
 
-- Next.js App Router and Server Components
-- Incremental revalidation for public CMS content
-- Deferred analytics
-- Deferred Three.js and background media
-- Vercel Analytics and Speed Insights
-- Google Analytics support
-- Microsoft Clarity support
-- Production security verification
-- Automated SEO and content-structure audits
+- Google Tag Manager
+- Google Analytics
+- Microsoft Clarity
+- Vercel Web Analytics
+- Vercel Speed Insights
+- Consent-aware analytics activation
+- Public/private route separation
+- Deferred analytics loading
+- Recruiter-oriented interaction events
+
+### Performance and quality
+
+- Next.js App Router
+- React Server Components
+- Incremental CMS revalidation
+- Deferred Three.js rendering
+- Deferred background media
+- Automated TypeScript validation
+- ESLint
+- Vitest
+- Playwright
+- Accessibility testing
+- Lighthouse auditing
+- Security verification
+- SEO auditing
+- Content-structure auditing
+
+---
 
 ## Technology stack
 
@@ -152,15 +203,21 @@ No confidential customer, reservation, hotel-contract, invoice or financial data
 - TOTP MFA
 - Row Level Security
 - Zod
-- Origin and method validation
-- Security headers and Content Security Policy
+- CSRF protection
+- Origin validation
+- HTTP method validation
+- Content Security Policy
+- Security headers
 
 ### Analytics
 
-- Vercel Analytics
-- Vercel Speed Insights
+- Google Tag Manager
 - Google Analytics
 - Microsoft Clarity
+- Vercel Analytics
+- Vercel Speed Insights
+
+---
 
 ## Public routes
 
@@ -178,11 +235,13 @@ No confidential customer, reservation, hotel-contract, invoice or financial data
 | `/contact` | Contact form and professional links |
 | `/robots.txt` | Search-crawler directives |
 | `/sitemap.xml` | Canonical public URL discovery |
-| `/llms.txt` | Concise AI-readable site summary |
+| `/llms.txt` | AI-readable public summary |
 | `/humans.txt` | Human-readable project attribution |
 | `/manifest.webmanifest` | Web application metadata |
 
-Operational routes under `/admin`, `/auth` and `/api` are excluded from public discovery and protected through the appropriate authentication, authorization, noindex and response-header controls.
+Operational routes under `/admin`, `/auth` and `/api` are excluded from public discovery and protected through authentication, authorization, `noindex` and appropriate response controls.
+
+---
 
 ## Local development
 
@@ -190,24 +249,32 @@ Operational routes under `/admin`, `/auth` and `/api` are excluded from public d
 
 - Node.js compatible with Next.js 16
 - npm
-- A Supabase project for CMS/auth functionality
-- hCaptcha site configuration for protected authentication flows
+- Supabase project for CMS/auth functionality
+- hCaptcha configuration for protected authentication flows
 
 ### Installation
 
 ```bash
-git clone https://github.com/mhiriaziz13-gif/Personal-Portfolio.git
-cd Personal-Portfolio
+git clone https://github.com/mhiriaziz13-gif/Personal-Portfolio-Content-Management-Platform.git
+cd Personal-Portfolio-Content-Management-Platform
 npm ci
 cp .env.example .env.local
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open:
+
+```text
+http://localhost:3000
+```
+
+---
 
 ## Environment variables
 
-Use `.env.example` as the source of truth. Never commit production secrets.
+Use `.env.example` as the source of truth.
+
+Never commit production secrets.
 
 ```env
 # Public Supabase configuration
@@ -217,7 +284,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=
 # Server-only Supabase secret
 SUPABASE_SERVICE_ROLE_KEY=
 
-# Public hCaptcha widget configuration
+# Public CAPTCHA configuration
 NEXT_PUBLIC_CAPTCHA_PROVIDER=hcaptcha
 NEXT_PUBLIC_CAPTCHA_SITE_KEY=
 
@@ -247,24 +314,18 @@ NEXT_PUBLIC_BING_SITE_VERIFICATION=
 NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION=
 ```
 
-Important security rules:
+### Security rules
 
 - `SUPABASE_SERVICE_ROLE_KEY` is server-only and must never be exposed to browser code.
-- The hCaptcha secret belongs in Supabase Auth and the server-only
-  `HCAPTCHA_SECRET_KEY` used by `/api/contact`, never a `NEXT_PUBLIC_*`
-  variable.
-- Generate `RATE_LIMIT_HMAC_SECRET`, `PRIVACY_HMAC_SECRET`, and
-  `ADMIN_DEVICE_HMAC_SECRET` independently with at least 32 non-whitespace
-  UTF-8 bytes of randomly generated material each; the privacy and admin HMACs
-  have no fallback to another credential.
+- `HCAPTCHA_SECRET_KEY` is server-only.
+- HMAC secrets must be independently generated from strong random material.
 - Preview deployments must remain non-indexable.
-- Production canonical URLs must never be generated from an untrusted request host.
+- Production canonical URLs must not be generated from an untrusted request host.
+- Confidential operational data must never be stored in repository fixtures or public documentation.
 
-Contact notifications are attempted immediately after an accepted message is
-durably persisted. A failed attempt remains visible in the admin CMS and must
-currently be retried manually there. `next_delivery_attempt_at` supports
-reconciliation and possible future queue automation; this application does not
-currently deploy a background worker or automatic retry scheduler.
+Contact notifications are attempted after accepted messages are durably persisted. Failed attempts remain visible to the CMS administrator for manual retry.
+
+---
 
 ## Available commands
 
@@ -282,123 +343,155 @@ npm run audit:security
 npm run audit:seo
 npm run audit:lighthouse
 npm run content:audit
+npm run analytics:verify
 ```
-
-### Command purpose
 
 | Command | Purpose |
 |---|---|
-| `npm run dev` | Start the local development server |
-| `npm run type-check` | Run TypeScript validation without emitting files |
-| `npm run lint` | Run ESLint across the repository |
-| `npm run test` | Run the deterministic Vitest suite |
-| `npm run test:coverage` | Run Vitest with enforced coverage thresholds |
-| `npm run test:integration` | Run credential-gated RLS checks against an isolated Supabase project |
-| `npm run build` | Create a production Next.js build |
+| `npm run dev` | Start the development server |
+| `npm run type-check` | Run TypeScript validation |
+| `npm run lint` | Run ESLint |
+| `npm run test` | Run deterministic Vitest tests |
+| `npm run test:coverage` | Run tests with coverage thresholds |
+| `npm run test:integration` | Run isolated Supabase integration tests |
+| `npm run build` | Create a production build |
 | `npm run start` | Start the production server locally |
-| `npm run test:e2e` | Run public Chromium/mobile accessibility and browser flows; authenticated lifecycle tests require the isolated variables documented in `docs/QA_CHECKLIST.md` |
-| `npm run audit:security` | Validate runtime security invariants; set `SECURITY_TARGET_URL` |
-| `npm run audit:seo` | Audit metadata, canonicals, links, discovery files and indexability against the local production server |
-| `npm run audit:lighthouse` | Run performance, accessibility, best-practices and SEO budgets; set `LIGHTHOUSE_URL` |
-| `npm run content:audit` | Compare public CMS structure with repository content expectations |
+| `npm run test:e2e` | Run browser and accessibility flows |
+| `npm run audit:security` | Validate production security invariants |
+| `npm run audit:seo` | Audit metadata, canonicals and discoverability |
+| `npm run audit:lighthouse` | Run performance, accessibility, SEO and best-practice budgets |
+| `npm run content:audit` | Compare CMS/public content structure |
+| `npm run analytics:verify` | Validate analytics-consent behavior |
+
+---
 
 ## Search and discovery endpoints
 
-After deployment, verify:
-
-```text
-https://your-domain.example/robots.txt
-https://your-domain.example/sitemap.xml
-https://your-domain.example/llms.txt
-https://your-domain.example/humans.txt
-https://your-domain.example/manifest.webmanifest
-```
-
-The production portfolio currently uses:
+Production:
 
 ```text
 https://ahmedaziz-portfolio.vercel.app
 ```
 
+Discovery resources:
+
+```text
+/robots.txt
+/sitemap.xml
+/llms.txt
+/humans.txt
+/manifest.webmanifest
+```
+
+---
+
 ## Content publication model
 
-The production site follows these rules:
+The production application follows these rules:
 
-1. When Supabase is configured, published CMS rows are authoritative.
-2. A successful empty CMS result remains empty.
-3. Unpublished content is never restored from repository fallback data.
-4. On uncertain CMS failures, dynamic discovery output fails closed.
-5. Repository fallback content is intended for documented local-development mode.
-6. Public case-study content must remain factual, non-confidential and free of invented results.
+1. When Supabase is configured, published CMS content is authoritative.
+2. A valid empty CMS result remains empty.
+3. Unpublished content is never restored through fallback data.
+4. Discovery output fails closed when publication state cannot be trusted.
+5. Repository fallback content is intended for documented local development.
+6. Public case-study content must remain factual and non-confidential.
+7. Unsupported metrics and outcomes must not be invented.
+
+---
 
 ## Security principles
 
-This repository does not use `robots.txt` as a security mechanism.
+`robots.txt` is not treated as a security mechanism.
 
 Security depends on:
 
 - Authentication
 - Authorization
 - Supabase RLS
-- Strict HTTP methods
+- MFA
+- CSRF protection
+- Origin checks
 - Input validation
 - CAPTCHA
-- MFA
-- Origin checks
+- Strict HTTP methods
 - Protected server-side operations
+- Security headers
 - Appropriate `401`, `403` and `405` responses
 
-The logout route remains POST-only and must not be linked or prefetched as a normal GET navigation route.
+Administrative and authentication surfaces are intentionally separated from public portfolio discovery and analytics.
+
+---
 
 ## Project structure
 
 ```text
 app/                 Next.js routes, layouts, metadata and route handlers
-components/          Public UI, admin UI, security and SEO components
+components/          Public UI, admin UI, analytics, security and SEO components
 config/              Site-wide configuration
 constants/           Verified repository fallback content
-lib/                 CMS, Supabase, authentication, validation and SEO utilities
-public/              Public images, CV assets and static resources
+lib/                 CMS, Supabase, authentication, analytics and SEO utilities
+public/              Public images and static resources
 scripts/security/    Production security verification
-scripts/seo/         Technical SEO audit tooling
-scripts/content/     Public CMS/content comparison tooling
-docs/                SEO, content, branding, security and release documentation
-supabase/             Database migrations and Supabase project assets
+scripts/seo/         Technical SEO auditing
+scripts/content/     Public CMS/content auditing
+scripts/analytics/   Analytics-consent verification
+docs/                SEO, branding, security and operating documentation
+supabase/             Database migrations and Supabase assets
+tests/                Unit, integration and behavior tests
 ```
+
+---
 
 ## Deployment
 
-The application is designed for Vercel.
+The application is deployed on Vercel.
 
 Before a production release:
 
-1. Configure the required Vercel environment variables.
+1. Configure required environment variables.
 2. Configure Supabase authentication providers and redirect URLs.
-3. Configure hCaptcha in Supabase Auth.
-4. Validate Preview deployments remain `noindex`.
-5. Run type-check, lint, build, security, SEO and content audits.
-6. Test email/password login, GitHub OAuth, MFA, password recovery, CMS writes, uploads and POST-only logout.
-7. Validate structured data and social previews.
-8. Submit the production sitemap through Google Search Console and Bing Webmaster Tools.
+3. Configure hCaptcha.
+4. Ensure preview deployments remain `noindex`.
+5. Run type-check, lint, tests and production build validation.
+6. Run security and SEO checks.
+7. Validate authentication and MFA flows.
+8. Validate CMS writes and uploads.
+9. Validate analytics consent.
+10. Validate structured data and social previews.
 
-## Documentation
+---
 
-The `docs/` directory contains the maintained implementation and operating guidance, including:
+## Quality and launch validation
 
-- SEO and content audit
-- Personal-brand strategy
-- Search-intent and entity map
-- AI-search discoverability guidance
-- CMS content publication map
-- Off-site SEO and earned-backlink playbook
-- Search-engine submission runbook
-- SEO measurement plan
-- International SEO roadmap
-- Content information still requiring verification
+The portfolio has been evaluated across:
+
+- Automated quality gates
+- Production functional QA
+- Recruiter/content positioning
+- Responsive UX
+- Accessibility
+- Performance
+- Security
+- Privacy
+- Authentication boundaries
+- CMS behavior
+- SEO
+- Discoverability
+- Analytics consistency
+- Production launch readiness
+
+The public project documentation avoids unsupported claims and does not treat automated audits as proof of business outcomes.
+
+---
 
 ## Accuracy and privacy
 
-This portfolio intentionally avoids unsupported metrics, fake testimonials, fabricated outcomes and confidential operational data.
+The project intentionally avoids:
+
+- Unsupported performance metrics
+- Fake testimonials
+- Fabricated business outcomes
+- Confidential operational information
 
 Public content must not expose:
 
@@ -408,17 +501,25 @@ Public content must not expose:
 - Invoice values
 - Confidential commercial conditions
 - Private financial figures
-- Authentication or administrative data
+- Credentials
+- Authentication secrets
+- Administrative data
+
+---
 
 ## Author
 
-**Ahmed Aziz Mhiri**  
-Marketing & Commercial Analytics · Business Intelligence · Big Data & AI · CRM & Marketing Automation · Digital Transformation
+**Ahmed Aziz Mhiri**
+
+Marketing & Commercial Analytics · Business Intelligence · Digital Transformation · Automation  
+**Big Data & Applied AI**
 
 - [Portfolio](https://ahmedaziz-portfolio.vercel.app)
-- [LinkedIn](https://linkedin.com/in/ahmed-aziz-mhiri)
+- [LinkedIn](https://www.linkedin.com/in/ahmed-aziz-mhiri/)
 - [GitHub](https://github.com/mhiriaziz13-gif)
+
+---
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the **MIT License**.
