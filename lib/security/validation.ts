@@ -191,6 +191,29 @@ const optionalText = (max = 5000) =>
     emptyStringForNull,
     z.string().trim().max(max),
   );
+const optionalSkillIconKey = z.preprocess(
+  emptyStringForNull,
+  z
+    .string()
+    .trim()
+    .max(100)
+    .refine(
+      (value) =>
+        !value || /^(?:Fa|Si|Tb)[A-Za-z0-9]+$/.test(value),
+      "Use a React Icons export key beginning with Fa, Si or Tb, such as SiPython.",
+    ),
+);
+const optionalHexColor = z.preprocess(
+  emptyStringForNull,
+  z
+    .string()
+    .trim()
+    .max(7)
+    .refine(
+      (value) => !value || /^#[0-9A-Fa-f]{6}$/.test(value),
+      "Use a six-digit hexadecimal color such as #3776ab.",
+    ),
+);
 
 const requiredText = (max = 500) =>
   z.string().trim().min(1).max(max);
@@ -278,7 +301,7 @@ const cmsRowSchemas: Record<EditableCmsTable, z.ZodType<Record<string, unknown>>
   profile: z.object({ ...base, full_name: requiredText(), initials: optionalText(20), headline: optionalText(), secondary_line: optionalText(), tagline: optionalText(), location: optionalText(), email: z.union([emailSchema, z.literal("")]).optional().default(""), linkedin_url: externalLink, linkedin_label: optionalText(), github_url: externalLink, github_label: optionalText(), avatar_url: assetLink, availability: optionalText(), short_bio: optionalText(), about_text: optionalText(10000), about_focus: stringList, published }),
   hero: z.object({ ...base, eyebrow: optionalText(), title: optionalText(), subtitle: optionalText(), tagline: optionalText(), dynamic_titles: stringList, primary_cta_label: optionalText(), primary_cta_href: siteLink, secondary_cta_label: optionalText(), secondary_cta_href: siteLink, published }),
   about: z.object({ ...base, title: optionalText(), body: optionalText(10000), highlights: stringList, avatar_url: assetLink, published }),
-  skills: z.object({ ...base, name: requiredText(), category: requiredText(), icon_key: optionalText(), description: optionalText(2000), sort_order: sortOrder, published }),
+  skills: z.object({ ...base, name: requiredText(), category: requiredText(), icon_key: optionalSkillIconKey, icon_color: optionalHexColor, description: optionalText(2000), sort_order: sortOrder, published }),
   projects: z.object({ ...base, slug: requiredText(200).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Use a lowercase URL slug."), title: requiredText(), type: optionalText(), summary: optionalText(5000), description: optionalText(20000), cover_image_url: assetLink, card_image_url: assetLink, open_graph_image: assetLink, tags: stringList, tools: stringList, github_url: nullableExternalLink, linkedin_url: nullableExternalLink, demo_url: nullableExternalLink, case_study_url: nullableExternalLink, seo_title: optionalText(), seo_description: optionalText(5000), project_group: optionalText(), organisation: optionalText(), status: z.enum(["draft","preparation","published","archived"]).default("draft"), home_featured_order: z.number().int().nullable().optional(), projects_page_order: sortOrder, featured: z.boolean().optional().default(false), published, sort_order: sortOrder }),
   project_sections: z.object({ ...base, project_id: z.string().uuid(), section_type: z.enum(["rich_text", "media_gallery"]), layout_variant: z.enum(cmsLayoutVariants).optional().default("default"), title: requiredText(), body: optionalText(20000), bullets: stringList, sort_order: sortOrder, is_visible: z.boolean().optional().default(true), is_archived: z.boolean().optional().default(false) }).superRefine((value, context) => {
     if (!variantsForBlock(value.section_type).includes(value.layout_variant)) {

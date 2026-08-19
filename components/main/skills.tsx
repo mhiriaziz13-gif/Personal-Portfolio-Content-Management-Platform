@@ -7,6 +7,7 @@ import type { SkillCategory } from "@/constants/portfolio";
 import type { CmsLayoutVariant } from "@/lib/cms-block-registry";
 import type { ProjectContent } from "@/lib/cms-types";
 import { getProjectsForExpertise } from "@/lib/expertise-projects";
+import { normalizeSkill } from "@/lib/skills";
 export const Skills = ({
   skillCategories = fallbackPortfolioContent.skillCategories,
   projects = [],
@@ -61,12 +62,18 @@ export const Skills = ({
               </h3>
 
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                {category.skills.map((skill) => (
-                  <SkillDataProvider
-                    key={`${category.title}-${skill}`}
-                    name={skill}
-                  />
-                ))}
+{category.skills.map((skill) => {
+  const normalizedSkill = normalizeSkill(skill);
+
+  return (
+    <SkillDataProvider
+      key={`${category.title}-${normalizedSkill.name}`}
+      name={normalizedSkill.name}
+      iconKey={normalizedSkill.iconKey}
+      iconColor={normalizedSkill.iconColor}
+    />
+  );
+})}
               </div>
 
               {relatedProjects.length > 0 ? (

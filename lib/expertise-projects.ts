@@ -5,7 +5,7 @@ import {
   countSharedRecommendationValues,
   splitRecommendationTypeSegments,
 } from "@/lib/recommendation-signals";
-
+import { getSkillName } from "@/lib/skills";
 const RELATED_PROJECT_LIMIT = 3;
 
 const EXACT_TAG_WEIGHT = 6;
@@ -20,7 +20,7 @@ const expertiseTerms = (
   category: SkillCategory,
 ) => [
   category.title,
-  ...category.skills,
+  ...category.skills.map(getSkillName),
 ];
 
 const projectDomainValues = (

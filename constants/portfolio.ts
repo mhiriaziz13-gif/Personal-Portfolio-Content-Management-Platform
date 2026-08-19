@@ -1,8 +1,14 @@
 import { publicIdentity } from "@/lib/seo/config";
 
+export type SkillItem = {
+  name: string;
+  iconKey?: string;
+  iconColor?: string;
+};
+
 export type SkillCategory = {
   title: string;
-  skills: string[];
+  skills: Array<string | SkillItem>;
 };
 
 export type Project = {

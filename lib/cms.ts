@@ -86,7 +86,8 @@ const publicColumns = {
   hero:
     "id,eyebrow,title,subtitle,tagline,dynamic_titles,primary_cta_label,primary_cta_href,secondary_cta_label,secondary_cta_href,published,updated_at",
   about: "id,title,body,highlights,avatar_url,published,updated_at",
-  skills: "id,name,category,sort_order,published,updated_at",
+  skills:
+  "id,name,category,icon_key,icon_color,sort_order,published,updated_at",
   projects:
     "id,slug,title,type,summary,description,cover_image_url,placeholder_image_url,card_image_url,tags,tools,github_url,linkedin_url,demo_url,featured,published,status,project_group,home_featured_order,projects_page_order,sort_order,seo_title,seo_description,open_graph_image,created_at,updated_at",
   projectSections:
@@ -1211,16 +1212,24 @@ const getPortfolioContentImpl = async (): Promise<PortfolioContent> => {
   const hero = mapHero(presentation.hero);
   const about = mapAbout(presentation.about);
 
-  const groupedSkills = new Map<string, string[]>();
-  sortByOrder(career.skills.rows).forEach((row) => {
-    const name = readText(row.name);
-    if (!name) return;
-    const category = readText(row.category) || "Skills";
-    groupedSkills.set(category, [
-      ...(groupedSkills.get(category) ?? []),
-      name,
-    ]);
-  });
+const groupedSkills = new Map<string, SkillCategory["skills"]>();
+sortByOrder(career.skills.rows).forEach((row) => {
+  const name = readText(row.name);
+  if (!name) return;
+
+  const category = readText(row.category) || "Skills";
+
+  const skill = {
+    name,
+    iconKey: readText(row.icon_key) || undefined,
+    iconColor: readText(row.icon_color) || undefined,
+  };
+
+  groupedSkills.set(category, [
+    ...(groupedSkills.get(category) ?? []),
+    skill,
+  ]);
+});
   const skillCategories: SkillCategory[] = Array.from(
     groupedSkills.entries(),
   ).map(([title, skills]) => ({ title, skills }));
