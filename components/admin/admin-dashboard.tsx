@@ -93,6 +93,7 @@ const skillCategories = [
   "Data & Business Intelligence",
   "Marketing & Customer Growth",
   "Automation & Operations",
+  "Big Data & AI — Academic & Applied",
   "Technical Stack",
 ] as const;
 

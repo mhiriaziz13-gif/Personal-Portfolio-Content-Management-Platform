@@ -50,15 +50,18 @@ export const profilePageSchema = (profile: ProfileContent) => ({
   inLanguage: "en",
 });
 
-const isVermegTeamPrototype = (project: ProjectContent) =>
-  project.slug === "vermeg-ai-ready-e-learning-platform"
-  || project.slug === "ai-ready-elearning-platform";
+const isCollaborativeProject = (project: ProjectContent) =>
+  project.slug === "vermeg-ai-ready-e-learning-platform" ||
+  project.slug === "ai-ready-elearning-platform" ||
+  project.tags.some(
+    (tag) => tag.trim().toLowerCase() === "team project",
+  );
 
 export const projectSchema = (project: ProjectContent) => {
   const personReference = { "@id": `${siteSeo.url}/#person` };
-  const attribution = isVermegTeamPrototype(project)
-    ? { contributor: personReference }
-    : { creator: personReference, author: personReference };
+  const attribution = isCollaborativeProject(project)
+  ? { contributor: personReference }
+  : { creator: personReference, author: personReference };
 
   return {
     "@type": "CreativeWork",
