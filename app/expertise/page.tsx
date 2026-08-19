@@ -20,6 +20,8 @@ const explanations: Record<string, string> = {
     "Connects customer journeys, digital visibility and campaign activity with commercial questions and measurable evidence.",
   "Automation & Operations":
     "Translates business rules into reviewable workflows, structured outputs and exception handling.",
+  "Big Data & AI — Academic & Applied":
+    "Combines academic depth from the Master's in Big Data Analytics & E-Commerce with applied AI prototypes, while keeping these capabilities distinct from production ML engineering experience.",
   "Technical Stack":
     "Uses web, database and AI tooling to build maintainable interfaces, integrations and data-supported workflows.",
 };

@@ -12,20 +12,61 @@ import {
 const project = (
   slug: string,
   title: string,
+  tags: string[] = ["Analytics"],
 ): ProjectContent => ({
   id: slug,
   slug,
   title,
   description: "Visible project summary.",
   image: "/projects/project-1.png",
-  tags: ["Analytics"],
+  tags,
   tools: ["Excel"],
   status: "published",
   media: [],
   createdAt: "",
   updatedAt: "2026-07-29T00:00:00.000Z",
 });
+  it("uses contribution-only attribution for projects tagged as Team Project", () => {
+    const schema = projectSchema(
+      project(
+        "university-chatbot-student-services",
+        "University Chatbot for Student Services — IHEC Hackathon",
+        ["Chatbot Development", "Team Project"],
+      ),
+    );
 
+    expect(schema).toHaveProperty("contributor");
+    expect(schema).not.toHaveProperty("creator");
+    expect(schema).not.toHaveProperty("author");
+  });
+
+  it("normalizes Team Project tags before evaluating attribution", () => {
+    const schema = projectSchema(
+      project(
+        "normalized-team-project",
+        "Normalized Team Project",
+        ["  TEAM PROJECT  "],
+      ),
+    );
+
+    expect(schema).toHaveProperty("contributor");
+    expect(schema).not.toHaveProperty("creator");
+    expect(schema).not.toHaveProperty("author");
+  });
+
+  it("keeps creator and author attribution for individual projects", () => {
+    const schema = projectSchema(
+      project(
+        "chic-chac-digital-transformation",
+        "Chic-Chac Digital Transformation",
+        ["Digital Transformation"],
+      ),
+    );
+
+    expect(schema).toHaveProperty("creator");
+    expect(schema).toHaveProperty("author");
+    expect(schema).not.toHaveProperty("contributor");
+  });
 describe("public structured data", () => {
   it("connects global Person and WebSite entities", () => {
     const person = personSchema(fallbackPortfolioContent.profile);
