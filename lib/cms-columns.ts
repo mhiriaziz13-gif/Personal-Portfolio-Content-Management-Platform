@@ -15,10 +15,10 @@ const columns: Record<EditableCmsTable, readonly string[]> = {
     "secondary_cta_href", "published",
   ],
   about: [...common, "title", "body", "highlights", "avatar_url", "published"],
-  skills: [
-    ...common, "name", "category", "icon_key", "description", "sort_order",
-    "published",
-  ],
+skills: [
+  ...common, "name", "category", "icon_key", "icon_color", "description",
+  "sort_order", "published",
+],
   projects: [
     ...common, "slug", "title", "type", "summary", "description",
     "cover_image_url", "card_image_url", "open_graph_image", "tags", "tools",
