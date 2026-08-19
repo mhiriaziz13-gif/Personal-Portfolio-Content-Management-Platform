@@ -88,6 +88,11 @@ const createMetadataTitle = (title: string): Metadata["title"] =>
   title.includes(publicIdentity.name)
     ? { absolute: title }
     : title;
+
+const createOpenGraphImageAlt = (openGraphTitle: string) =>
+  openGraphTitle.includes(publicIdentity.name)
+    ? openGraphTitle
+    : `${openGraphTitle} — ${publicIdentity.name}`;
 export const createPageMetadata = ({
   title,
   description,
@@ -104,7 +109,7 @@ export const createPageMetadata = ({
     description,
     alternates: { canonical },
     robots: { index: shouldIndex, follow: shouldIndex, nocache: !shouldIndex },
-    openGraph: { title: openGraphTitle, description: openGraphDescription, url: canonical, siteName: siteSeo.siteName, locale: siteSeo.locale, type: "website", images: [{ url: resolveMediaUrl(image), width: 1200, height: 630, alt: `${openGraphTitle} — Ahmed Aziz Mhiri` }] },
+    openGraph: { title: openGraphTitle, description: openGraphDescription, url: canonical, siteName: siteSeo.siteName, locale: siteSeo.locale, type: "website", images: [{ url: resolveMediaUrl(image), width: 1200, height: 630, alt: createOpenGraphImageAlt(openGraphTitle) }] },
     twitter: { card: "summary_large_image", title, description, images: [resolveMediaUrl(image)] },
   };
 };

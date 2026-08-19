@@ -33,6 +33,22 @@ describe("public metadata", () => {
         "About Ahmed Aziz Mhiri | Marketing, Data & Digital Transformation",
     });
   });
+  it("does not duplicate the public name in Open Graph image alt text", () => {
+    const metadata = createPageMetadata({
+      title: "About Ahmed Aziz Mhiri",
+      description: "Professional profile of Ahmed Aziz Mhiri.",
+      path: "/about",
+      openGraphTitle: "About Ahmed Aziz Mhiri",
+    });
+
+    expect(metadata.openGraph).toMatchObject({
+      images: [
+        {
+          alt: "About Ahmed Aziz Mhiri",
+        },
+      ],
+    });
+  });
   it("uses published CMS metadata and social fields when present", () => {
     const content = {
       ...fallbackPortfolioContent,
