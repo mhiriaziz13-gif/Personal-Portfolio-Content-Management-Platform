@@ -41,7 +41,7 @@ describe("public SEO configuration", () => {
 
     expect(portfolioSource).toContain("publicIdentity.linkedInUrl");
     expect(portfolioSource).toContain("publicIdentity.githubUrl");
-    expect(portfolioSource).not.toContain("github.com/mhiriaziz13-gif");
+    expect(portfolioSource).not.toContain("github.com/");
     expect(portfolioSource).not.toContain(
       "linkedin.com/in/ahmed-aziz-mhiri",
     );

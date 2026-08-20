@@ -388,8 +388,8 @@ values (
   'mhiriaziz13@gmail.com',
   'https://linkedin.com/in/ahmed-aziz-mhiri',
   'linkedin.com/in/ahmed-aziz-mhiri',
-  'https://github.com/mhiriaziz13-gif',
-  'github.com/mhiriaziz13-gif',
+  'https://github.com/ahmedazizmhiri',
+  'github.com/ahmedazizmhiri',
   '/profile/avatar.png',
   'Open to selected freelance projects and building toward international full-time opportunities from 2027.',
   'Digital Transformation Project Manager at El Mouradi Hotels and Master''s candidate in Big Data Analytics & E-Commerce, combining Marketing & Commercial Analytics, Business Intelligence, automation, AI and engineering to improve decisions, workflows and digital operations.',
@@ -669,7 +669,7 @@ insert into public.resumes (label, variant, pdf_url, docx_url, sort_order, publi
 
 insert into public.social_links (label, url, icon_key, sort_order, published) values
 ('LinkedIn','https://linkedin.com/in/ahmed-aziz-mhiri','linkedin',0,true),
-('GitHub','https://github.com/mhiriaziz13-gif','github',1,true),
+('GitHub','https://github.com/ahmedazizmhiri','github',1,true),
 ('Email','mailto:mhiriaziz13@gmail.com','email',2,true);
 
 insert into public.admins (user_id, email)

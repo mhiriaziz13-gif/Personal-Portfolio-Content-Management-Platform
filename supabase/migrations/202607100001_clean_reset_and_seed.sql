@@ -376,7 +376,7 @@ create policy "Public can read public portfolio storage" on storage.objects for 
 create policy "Admins manage portfolio storage" on storage.objects for all to authenticated using (public.is_admin() and bucket_id in ('public-assets', 'project-images', 'resumes', 'uploads')) with check (public.is_admin() and bucket_id in ('public-assets', 'project-images', 'resumes', 'uploads'));
 
 insert into public.profile (full_name, initials, headline, secondary_line, tagline, location, email, linkedin_url, linkedin_label, github_url, github_label, avatar_url, availability, short_bio, about_text, about_focus, published)
-values ('Ahmed Aziz Mhiri','AAM','Data-Driven Marketing & Commercial Analytics','Marketing Analytics | Commercial Analytics | Business Intelligence | Process Automation','Turning Data into Commercial Growth','Sousse, Tunisia','mhiriaziz13@gmail.com','https://linkedin.com/in/ahmed-aziz-mhiri','linkedin.com/in/ahmed-aziz-mhiri','https://github.com/mhiriaziz13-gif','github.com/mhiriaziz13-gif','/profile/avatar.png','Available for Europe-based opportunities from Summer 2027','Master''s student in Big Data Analytics & E-Commerce with a Business Intelligence background.','I work at the intersection of data, business context and automation, turning operational and customer information into clearer decisions, smoother workflows and stronger commercial visibility.',array['Marketing and commercial analytics','Auditable automation and reporting','Business intelligence for operational decisions'],true);
+values ('Ahmed Aziz Mhiri','AAM','Data-Driven Marketing & Commercial Analytics','Marketing Analytics | Commercial Analytics | Business Intelligence | Process Automation','Turning Data into Commercial Growth','Sousse, Tunisia','mhiriaziz13@gmail.com','https://linkedin.com/in/ahmed-aziz-mhiri','linkedin.com/in/ahmed-aziz-mhiri','https://github.com/ahmedazizmhiri','github.com/ahmedazizmhiri','/profile/avatar.png','Available for Europe-based opportunities from Summer 2027','Master''s student in Big Data Analytics & E-Commerce with a Business Intelligence background.','I work at the intersection of data, business context and automation, turning operational and customer information into clearer decisions, smoother workflows and stronger commercial visibility.',array['Marketing and commercial analytics','Auditable automation and reporting','Business intelligence for operational decisions'],true);
 
 insert into public.hero (eyebrow, title, subtitle, tagline, dynamic_titles, primary_cta_label, primary_cta_href, secondary_cta_label, secondary_cta_href, published)
 values ('Data-Driven Marketing & Commercial Analytics','Ahmed Aziz Mhiri','Marketing Analytics | Commercial Analytics | Business Intelligence | Process Automation','Turning Data into Commercial Growth',array['Marketing Data Analyst','Commercial Data Analyst','Business Intelligence Analyst','Revenue Operations Analyst','CRM & Marketing Automation Specialist','Process Automation Analyst','Data Operations Analyst'],'Contact Me','/#contact','View Projects','/#projects',true);
@@ -420,7 +420,7 @@ insert into public.resumes (label, variant, pdf_url, docx_url, sort_order, publi
 
 insert into public.social_links (label, url, icon_key, sort_order, published) values
 ('LinkedIn','https://linkedin.com/in/ahmed-aziz-mhiri','linkedin',0,true),
-('GitHub','https://github.com/mhiriaziz13-gif','github',1,true),
+('GitHub','https://github.com/ahmedazizmhiri','github',1,true),
 ('Email','mailto:mhiriaziz13@gmail.com','email',2,true);
 
 insert into public.admins (user_id, email)

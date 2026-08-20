@@ -18,7 +18,7 @@ The platform combines a recruiter-oriented public portfolio with a Supabase-back
 
 - **Portfolio:** [View the live portfolio](https://ahmedaziz-portfolio.vercel.app/?utm_source=github&utm_medium=referral&utm_campaign=portfolio_growth_2026&utm_content=repository_readme)
 - **LinkedIn:** [linkedin.com/in/ahmed-aziz-mhiri](https://www.linkedin.com/in/ahmed-aziz-mhiri/)
-- **GitHub:** [github.com/mhiriaziz13-gif](https://github.com/mhiriaziz13-gif)
+- **GitHub:** [https://github.com/ahmedazizmhiri](https://github.com/ahmedazizmhiri)
 - **Sitemap:** [sitemap.xml](https://ahmedaziz-portfolio.vercel.app/sitemap.xml)
 - **AI-readable summary:** [llms.txt](https://ahmedaziz-portfolio.vercel.app/llms.txt)
 
@@ -255,7 +255,7 @@ Operational routes under `/admin`, `/auth` and `/api` are excluded from public d
 ### Installation
 
 ```bash
-git clone https://github.com/mhiriaziz13-gif/Personal-Portfolio-Content-Management-Platform.git
+git clone https://github.com/ahmedazizmhiri/Personal-Portfolio-Content-Management-Platform.git
 cd Personal-Portfolio-Content-Management-Platform
 npm ci
 cp .env.example .env.local
@@ -307,7 +307,7 @@ REQUIRE_ADMIN_MFA=true
 ADMIN_MFA_REMEMBER_DAYS=10
 
 # Public integrations
-NEXT_PUBLIC_GITHUB_USERNAME=mhiriaziz13-gif
+NEXT_PUBLIC_GITHUB_USERNAME=ahmedazizmhiri
 NEXT_PUBLIC_GTM_ID=
 NEXT_PUBLIC_CLARITY_PROJECT_ID=
 NEXT_PUBLIC_BING_SITE_VERIFICATION=
@@ -516,7 +516,7 @@ Marketing & Commercial Analytics · Business Intelligence · Digital Transformat
 
 - [Portfolio](https://ahmedaziz-portfolio.vercel.app)
 - [LinkedIn](https://www.linkedin.com/in/ahmed-aziz-mhiri/)
-- [GitHub](https://github.com/mhiriaziz13-gif)
+- [GitHub](https://github.com/ahmedazizmhiri)
 
 ---
 

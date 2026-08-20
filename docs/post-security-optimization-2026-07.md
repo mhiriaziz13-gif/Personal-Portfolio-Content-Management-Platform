@@ -2,7 +2,7 @@
 
 ## Scope and status
 
-- Repository: `mhiriaziz13-gif/3D-Portfolio`, branch `main`.
+- Repository: `ahmedazizmhiri/3D-Portfolio`, branch `main`.
 - Supabase project: `qflchsmvszbesfnomdeo` (`https://qflchsmvszbesfnomdeo.supabase.co`).
 - Validation target: a local Next.js 16.2.9 production build served at `http://localhost:3300` with Chrome 148 and Lighthouse 13.4.0.
 - No commit, push, Vercel deployment, or Supabase migration application was performed, as required by the task.

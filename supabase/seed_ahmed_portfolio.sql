@@ -28,8 +28,8 @@ with desired(
     'mhiriaziz13@gmail.com',
     'https://linkedin.com/in/ahmed-aziz-mhiri',
     'linkedin.com/in/ahmed-aziz-mhiri',
-    'https://github.com/mhiriaziz13-gif',
-    'github.com/mhiriaziz13-gif',
+    'https://github.com/ahmedazizmhiri',
+    'github.com/ahmedazizmhiri',
     '/profile/avatar.png',
     'Open to selected freelance projects and building toward international full-time opportunities from 2027.',
     'Digital Transformation Project Manager at El Mouradi Hotels and Master''s candidate in Big Data Analytics & E-Commerce, combining Marketing & Commercial Analytics, Business Intelligence, automation, AI and engineering to improve decisions, workflows and digital operations.',
@@ -256,7 +256,7 @@ where not exists (
 
 with social_seed(label, url, icon_key, sort_order) as (values
   ('LinkedIn','https://linkedin.com/in/ahmed-aziz-mhiri','linkedin',0),
-  ('GitHub','https://github.com/mhiriaziz13-gif','github',1),
+  ('GitHub','https://github.com/ahmedazizmhiri','github',1),
   ('Email','mailto:mhiriaziz13@gmail.com','email',2)
 )
 insert into public.social_links (label, url, icon_key, sort_order, published)

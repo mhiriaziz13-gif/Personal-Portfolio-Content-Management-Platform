@@ -1,5 +1,5 @@
 const FALLBACK_SITE_URL = "https://ahmedaziz-portfolio.vercel.app";
-const FALLBACK_GITHUB_URL = "https://github.com/mhiriaziz13-gif";
+const FALLBACK_GITHUB_URL = "https://github.com/ahmedazizmhiri";
 const FALLBACK_LINKEDIN_URL = "https://linkedin.com/in/ahmed-aziz-mhiri";
 
 const normalizeSiteUrl = (value: string | undefined) => {
