@@ -1,4 +1,4 @@
-# Ahmed Aziz Mhiri â€” Portfolio & Content Management Platform
+# Ahmed Aziz Mhiri — Portfolio & Content Management Platform
 
 [![Live Portfolio](https://img.shields.io/badge/Live%20Portfolio-Visit-000000?style=for-the-badge&logo=vercel)](https://ahmedaziz-portfolio.vercel.app/?utm_source=github&utm_medium=referral&utm_campaign=portfolio_growth_2026&utm_content=repository_badge)
 [![Next.js](https://img.shields.io/badge/Next.js-16.2.12-000000?style=for-the-badge&logo=nextdotjs)](https://nextjs.org/)
@@ -511,7 +511,7 @@ Public content must not expose:
 
 **Ahmed Aziz Mhiri**
 
-Marketing & Commercial Analytics Â· Business Intelligence Â· Digital Transformation Â· Automation  
+Marketing & Commercial Analytics · Business Intelligence · Digital Transformation · Automation  
 **Big Data & Applied AI**
 
 - [Portfolio](https://ahmedaziz-portfolio.vercel.app)
