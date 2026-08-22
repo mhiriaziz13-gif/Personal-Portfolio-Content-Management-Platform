@@ -400,8 +400,7 @@ const loadPublishedProject = async (projectId: string) => {
   const supabase = createSupabaseAdminClient();
   const project = await supabase
     .from("projects")
-    .select("id,slug,title,summary,description,cover_image_url,seo_title,seo_description,open_graph_image,status,published,github_url,linkedin_url,demo_url")
-    .eq("id", projectId)
+.select("id,slug,title,type,tags,tools,summary,description,cover_image_url,seo_title,seo_description,open_graph_image,status,published,github_url,linkedin_url,demo_url")    .eq("id", projectId)
     .maybeSingle();
   if (project.error) return { error: true as const, project: null };
   return {
