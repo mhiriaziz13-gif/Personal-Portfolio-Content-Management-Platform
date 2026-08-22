@@ -109,6 +109,7 @@ export type ProjectContent = StaticProject & {
   id: string;
   slug: string;
   type?: string;
+  role?: string;
   tools?: string[];
   githubUrl?: string;
   linkedinUrl?: string;

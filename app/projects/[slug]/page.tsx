@@ -140,8 +140,11 @@ export default async function ProjectDetailPage({
   const unattachedMedia = project.media.filter(
     (media) => !attachedMediaIds.has(media.id),
   );
-  const projectRole = getProjectRole(project.slug, sections);
-  const tools = project.tools?.length ? project.tools : project.tags;
+const projectRole = getProjectRole(
+  project.role,
+  project.slug,
+  sections,
+);  const tools = project.tools?.length ? project.tools : project.tags;
   const evidenceSummary =
     sections.length > 0
       ? `${sections.length} documented case-study ${
@@ -514,39 +517,65 @@ const normalizeFactLabel = (value: string) =>
   value.trim().toLowerCase().replace(/[^a-z]+/g, " ");
 
 function getProjectRole(
+  projectRole: string | undefined,
   slug: string,
   sections: ProjectSectionContent[],
 ) {
+  const explicitRole =
+    projectRole?.trim();
+
+  if (explicitRole) {
+    return explicitRole;
+  }
+
   const roleItem = sections
     .flatMap((section) => section.items)
     .find((item) => {
-      const label = normalizeFactLabel(item.label);
+      const label = normalizeFactLabel(
+        item.label,
+      );
+
       return (
         label === "role" ||
-        label === "contribution" ||
-        label === "project role"
+        label === "project role" ||
+        label === "contribution"
       );
     });
 
-  if (roleItem) return roleItem.value || roleItem.description;
+  if (roleItem) {
+    return (
+      roleItem.value ||
+      roleItem.description
+    );
+  }
+
   if (
-    slug === "sunshine-rpa-commercial-rules-automation" ||
-    slug === "rpa-invoice-control-booking-reconciliation"
+    slug ===
+      "sunshine-rpa-commercial-rules-automation" ||
+    slug ===
+      "rpa-invoice-control-booking-reconciliation"
   ) {
     return "Sole contributor";
   }
+
   if (
-    slug === "vermeg-ai-ready-e-learning-platform" ||
-    slug === "ai-ready-elearning-platform"
+    slug ===
+      "vermeg-ai-ready-e-learning-platform" ||
+    slug ===
+      "ai-ready-elearning-platform"
   ) {
     return "Contributor in a two-person internship prototype";
   }
+
   if (
     sections.some((section) =>
-      /role|scope|contribution/i.test(section.title),
+      /role|scope|contribution/i.test(
+        section.title,
+      ),
     )
   ) {
     return "Described in Role and scope below";
   }
+
   return "Not stated publicly";
 }

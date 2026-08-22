@@ -306,7 +306,7 @@ const ogImageField: CmsField = {
 
 const tagsField: CmsField = {
   key: "tags",
-  label: "Tags",
+  label: "Domain tags",
   kind: "list",
 };
 
@@ -1289,30 +1289,6 @@ export function ProjectWorkspace({
                 </p>
               </div>
 
-              <label className="grid gap-2 text-sm text-gray-300">
-                <span>
-                  Type
-                </span>
-
-                <input
-                  value={
-                    draft.type
-                  }
-                  onChange={(
-                    event,
-                  ) =>
-                    setField(
-                      "type",
-                      event
-                        .target
-                        .value,
-                    )
-                  }
-                  className={
-                    inputClass
-                  }
-                />
-              </label>
 
               <label className="grid gap-2 text-sm text-gray-300">
                 <span>
@@ -1329,31 +1305,6 @@ export function ProjectWorkspace({
                   ) =>
                     setField(
                       "organisation",
-                      event
-                        .target
-                        .value,
-                    )
-                  }
-                  className={
-                    inputClass
-                  }
-                />
-              </label>
-
-              <label className="grid gap-2 text-sm text-gray-300">
-                <span>
-                  Your role
-                </span>
-
-                <input
-                  value={
-                    draft.role
-                  }
-                  onChange={(
-                    event,
-                  ) =>
-                    setField(
-                      "role",
                       event
                         .target
                         .value,
@@ -1458,6 +1409,142 @@ export function ProjectWorkspace({
                   }
                 />
               </label>
+                       </div>
+          </section>
+
+          <section className={cardClass}>
+            <h2 className="text-xl font-semibold text-white">
+              At a glance
+            </h2>
+
+            <p className="mt-2 text-sm leading-6 text-gray-400">
+              Control the recruiter-facing facts shown near the top of the
+              public project page.
+            </p>
+
+            <div className="mt-5 grid gap-5">
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="grid gap-2 text-sm text-gray-300">
+                  <span>
+                    Project type
+                    {draft.status === "published" ? " *" : ""}
+                  </span>
+
+                  <input
+                    value={draft.type}
+                    onChange={(event) =>
+                      setField(
+                        "type",
+                        event.target.value,
+                      )
+                    }
+                    className={inputClass}
+                  />
+
+                  <p className="text-xs leading-5 text-gray-500">
+                    Main project classification displayed publicly.
+                  </p>
+
+                  {draft.status === "published" &&
+                    !recommendationHasType && (
+                      <p className="text-xs leading-5 text-red-200">
+                        Required before this project can be published.
+                      </p>
+                    )}
+                </label>
+
+                <label className="grid gap-2 text-sm text-gray-300">
+                  <span>
+                    Your role
+                  </span>
+
+                  <input
+                    value={draft.role}
+                    onChange={(event) =>
+                      setField(
+                        "role",
+                        event.target.value,
+                      )
+                    }
+                    className={inputClass}
+                  />
+
+                  <p className="text-xs leading-5 text-gray-500">
+                    Displayed as the primary role in the public At a glance
+                    block when provided.
+                  </p>
+                </label>
+              </div>
+
+              <div>
+                <CmsFieldInput
+                  field={tagsField}
+                  value={draft.tags}
+                  request={adminFetch}
+                  onChange={(value) =>
+                    setField(
+                      "tags",
+                      Array.isArray(value)
+                        ? value.map(String)
+                        : [],
+                    )
+                  }
+                />
+
+                {draft.status === "published" &&
+                  !recommendationHasTags && (
+                    <p className="mt-2 text-xs leading-5 text-red-200">
+                      Add at least one domain tag before publishing.
+                    </p>
+                  )}
+              </div>
+
+              <CmsFieldInput
+                field={toolsField}
+                value={draft.tools}
+                request={adminFetch}
+                onChange={(value) =>
+                  setField(
+                    "tools",
+                    Array.isArray(value)
+                      ? value.map(String)
+                      : [],
+                  )
+                }
+              />
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-lg border border-white/10 bg-black/10 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-cyan-200">
+                    Status
+                  </p>
+
+                  <p className="mt-2 text-sm text-gray-200">
+                    {draft.status === "published"
+                      ? "Published case study"
+                      : draft.status}
+                  </p>
+
+                  <p className="mt-2 text-xs leading-5 text-gray-500">
+                    Controlled from the Publishing tab.
+                  </p>
+                </div>
+
+                <div className="rounded-lg border border-white/10 bg-black/10 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-cyan-200">
+                    Evidence
+                  </p>
+
+                  <p className="mt-2 text-sm text-gray-200">
+                    Calculated automatically
+                  </p>
+
+                  <p className="mt-2 text-xs leading-5 text-gray-500">
+                    Based on meaningful published case-study sections and
+                    project media. This value is not manually editable.
+                  </p>
+                </div>
+              </div>
             </div>
           </section>
 
@@ -1515,57 +1602,6 @@ export function ProjectWorkspace({
                 />
               </label>
 
-              <CmsFieldInput
-                field={
-                  tagsField
-                }
-                value={
-                  draft.tags
-                }
-                request={
-                  adminFetch
-                }
-                onChange={(
-                  value,
-                ) =>
-                  setField(
-                    "tags",
-                    Array.isArray(
-                      value,
-                    )
-                      ? value.map(
-                          String,
-                        )
-                      : [],
-                  )
-                }
-              />
-
-              <CmsFieldInput
-                field={
-                  toolsField
-                }
-                value={
-                  draft.tools
-                }
-                request={
-                  adminFetch
-                }
-                onChange={(
-                  value,
-                ) =>
-                  setField(
-                    "tools",
-                    Array.isArray(
-                      value,
-                    )
-                      ? value.map(
-                          String,
-                        )
-                      : [],
-                  )
-                }
-              />
             </div>
           </section>
 

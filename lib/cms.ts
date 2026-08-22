@@ -88,8 +88,8 @@ const publicColumns = {
   about: "id,title,body,highlights,avatar_url,published,updated_at",
   skills:
   "id,name,category,icon_key,icon_color,sort_order,published,updated_at",
-  projects:
-    "id,slug,title,type,summary,description,cover_image_url,placeholder_image_url,card_image_url,tags,tools,github_url,linkedin_url,demo_url,featured,published,status,project_group,home_featured_order,projects_page_order,sort_order,seo_title,seo_description,open_graph_image,created_at,updated_at",
+ projects:
+  "id,slug,title,type,role,summary,description,cover_image_url,placeholder_image_url,card_image_url,tags,tools,github_url,linkedin_url,demo_url,featured,published,status,project_group,home_featured_order,projects_page_order,sort_order,seo_title,seo_description,open_graph_image,created_at,updated_at",
   projectSections:
     "id,project_id,title,body,bullets,sort_order,section_type,layout_variant,is_visible,is_archived,created_at,updated_at",
   projectSectionItems:
@@ -1008,6 +1008,7 @@ const mapProjects = (
       tags: readStringArray(row.tags),
       tools: readStringArray(row.tools),
       type: readText(row.type),
+      role: readText(row.role),
       githubUrl: readText(row.github_url),
       linkedinUrl: readText(row.linkedin_url),
       featured: row.featured === true,
